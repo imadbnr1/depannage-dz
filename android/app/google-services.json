@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "854916203692",
+    "project_id": "depannage-dz-imad-2026",
+    "storage_bucket": "depannage-dz-imad-2026.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:854916203692:android:ee9f7b76494447c15e0b09",
+        "android_client_info": {
+          "package_name": "com.example.depannage_dz_pro_structured"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBaezm6om_hfeXIntbKfFSQiquQv8IklMA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

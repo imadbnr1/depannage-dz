@@ -1,0 +1,4 @@
+enum AppRole {
+  customer,
+  provider,
+}

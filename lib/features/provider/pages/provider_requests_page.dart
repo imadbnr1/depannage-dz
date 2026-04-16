@@ -1,0 +1,738 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+
+import '../../../models/app_request.dart';
+import '../../../models/request_status.dart';
+import '../../../state/app_store.dart';
+import '../../../widgets/app_empty_state.dart';
+import '../../../widgets/info_row.dart';
+import '../../../widgets/panel_card.dart';
+import '../../shared/pages/mission_receipt_page.dart';
+import 'provider_mission_details_page.dart';
+import 'provider_rate_client_page.dart';
+import 'provider_tracking_page.dart';
+
+class ProviderRequestsPage extends StatefulWidget {
+  const ProviderRequestsPage({super.key, required this.store});
+
+  final AppStore store;
+
+  @override
+  State<ProviderRequestsPage> createState() => _ProviderRequestsPageState();
+}
+
+class _ProviderRequestsPageState extends State<ProviderRequestsPage> {
+  @override
+  void initState() {
+    super.initState();
+    widget.store.addListener(_onStoreChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.store.removeListener(_onStoreChanged);
+    super.dispose();
+  }
+
+  void _onStoreChanged() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final store = widget.store;
+    final available = store.providerAvailableRequests;
+    final active = store.providerAssignedRequests;
+    final currentProviderId = store.selectedProvider.id;
+
+    final history = store.requests
+        .where((r) => r.providerUid == currentProviderId)
+        .where((r) =>
+            r.status == RequestStatus.completed ||
+            r.status == RequestStatus.cancelled)
+        .toList();
+
+    return Scaffold(
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            const SizedBox(height: 8),
+            if (available.isEmpty)
+              const SizedBox(
+                height: 220,
+                child: AppEmptyState(
+                  icon: Icons.assignment_outlined,
+                  title: 'Aucune nouvelle mission',
+                  message: 'Les nouvelles demandes proposees apparaitront ici.',
+                ),
+              ),
+            ...available.map(
+              (item) => _IncomingMissionCard(
+                store: store,
+                item: item,
+              ),
+            ),
+            const SizedBox(height: 24),
+            if (active.isEmpty)
+              const SizedBox(
+                height: 200,
+                child: AppEmptyState(
+                  icon: Icons.local_shipping_outlined,
+                  title: 'Aucune mission active',
+                  message: 'Vos missions en cours apparaitront ici.',
+                ),
+              ),
+            ...active.map(
+              (item) => _ProviderActiveCard(
+                store: store,
+                item: item,
+              ),
+            ),
+            const SizedBox(height: 24),
+            if (history.isEmpty)
+              const SizedBox(
+                height: 200,
+                child: AppEmptyState(
+                  icon: Icons.history_outlined,
+                  title: 'Aucun historique',
+                  message: 'Les missions terminees et annulees seront visibles ici.',
+                ),
+              ),
+            ...history.map(
+              (item) => _ProviderHistoryCard(
+                store: store,
+                item: item,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _IncomingMissionCard extends StatefulWidget {
+  const _IncomingMissionCard({
+    required this.store,
+    required this.item,
+  });
+
+  final AppStore store;
+  final AppRequest item;
+
+  @override
+  State<_IncomingMissionCard> createState() => _IncomingMissionCardState();
+}
+
+class _IncomingMissionCardState extends State<_IncomingMissionCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseController;
+  Timer? _countdownTimer;
+  int _secondsLeft = 30;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..repeat(reverse: true);
+
+    _startLocalCountdown();
+  }
+
+  @override
+  void didUpdateWidget(covariant _IncomingMissionCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final oldOffered =
+        oldWidget.store.currentOfferedProviderName(oldWidget.item.id);
+    final newOffered = widget.store.currentOfferedProviderName(widget.item.id);
+
+    if (oldOffered != newOffered) {
+      _startLocalCountdown();
+    }
+  }
+
+  void _startLocalCountdown() {
+    _countdownTimer?.cancel();
+    _secondsLeft = 30;
+
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
+      final stillSearching =
+          widget.store.findRequest(widget.item.id)?.status ==
+              RequestStatus.searching;
+
+      if (!stillSearching) {
+        timer.cancel();
+        return;
+      }
+
+      if (_secondsLeft <= 1) {
+        setState(() => _secondsLeft = 0);
+        timer.cancel();
+      } else {
+        setState(() => _secondsLeft -= 1);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _countdownTimer?.cancel();
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  String _serviceLabel(AppRequest request) {
+    try {
+      final dynamic label = (request.service as dynamic).label;
+      if (label is String && label.trim().isNotEmpty) return label;
+    } catch (_) {}
+
+    final raw = request.service.toString();
+    if (raw.contains('.')) return raw.split('.').last;
+    return raw;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final store = widget.store;
+    final latest = store.findRequest(widget.item.id) ?? widget.item;
+    final offeredProvider = store.currentOfferedProviderName(latest.id);
+
+    return FadeTransition(
+      opacity: _pulseController.drive(Tween(begin: 0.75, end: 1)),
+      child: PanelCard(
+        margin: const EdgeInsets.only(bottom: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const CircleAvatar(
+                  radius: 24,
+                  child: Icon(Icons.person),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        latest.customerName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        latest.customerPhone,
+                        style: const TextStyle(color: Colors.black54),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: const Text(
+                    'Nouveau',
+                    style: TextStyle(
+                      color: Color(0xFFDC2626),
+                      fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (offeredProvider != null)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.route_outlined, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Proposee a: $offeredProvider',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEEF2FF),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        '$_secondsLeft s',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF4338CA),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _MiniBadge(label: _serviceLabel(latest)),
+                _MiniBadge(label: latest.urgency),
+                if (latest.estimatedDistanceKm != null)
+                  _MiniBadge(
+                    label:
+                        '${latest.estimatedDistanceKm!.toStringAsFixed(1)} km',
+                  ),
+                if (latest.estimatedPrice != null)
+                  _MiniBadge(
+                    label: '${latest.estimatedPrice!.toStringAsFixed(0)} DA',
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            InfoRow(
+              title: 'Vehicule',
+              value: '${latest.vehicleType} · ${latest.brandModel}',
+            ),
+            InfoRow(
+              title: 'Position',
+              value: '${latest.pickupLabel}\n${latest.pickupSubtitle}',
+            ),
+            InfoRow(
+              title: 'Repere',
+              value: latest.landmark,
+            ),
+            InfoRow(
+              title: 'Description',
+              value: latest.issueDescription,
+            ),
+            if (latest.destination.isNotEmpty)
+              InfoRow(
+                title: 'Destination',
+                value: latest.destination,
+              ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () async {
+                      await store.acceptRequest(latest.id);
+                      if (!mounted) return;
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => ProviderTrackingPage(
+                            store: store,
+                            requestId: latest.id,
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.check_circle_outline),
+                    label: const Text('Accepter'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      await store.rejectRequestForCurrentProvider(latest.id);
+                    },
+                    icon: const Icon(Icons.close),
+                    label: const Text('Rejeter'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton.icon(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ProviderMissionDetailsPage(
+                        store: store,
+                        requestId: latest.id,
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.visibility_outlined),
+                label: const Text('Voir tous les details'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProviderActiveCard extends StatelessWidget {
+  const _ProviderActiveCard({
+    required this.store,
+    required this.item,
+  });
+
+  final AppStore store;
+  final AppRequest item;
+
+  String _buttonLabel(RequestStatus status) {
+    switch (status) {
+      case RequestStatus.accepted:
+        return 'Demarrer trajet';
+      case RequestStatus.onTheWay:
+        return 'Confirmer arrivee';
+      case RequestStatus.arrived:
+        return 'Commencer service';
+      case RequestStatus.inService:
+        return 'Terminer mission';
+      case RequestStatus.completed:
+        return 'Mission terminee';
+      case RequestStatus.cancelled:
+        return 'Mission annulee';
+      case RequestStatus.searching:
+        return 'En attente';
+    }
+  }
+
+  String _serviceLabel(AppRequest request) {
+    try {
+      final dynamic label = (request.service as dynamic).label;
+      if (label is String && label.trim().isNotEmpty) return label;
+    } catch (_) {}
+
+    final raw = request.service.toString();
+    if (raw.contains('.')) return raw.split('.').last;
+    return raw;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final latest = store.findRequest(item.id) ?? item;
+
+    return PanelCard(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: latest.status.color.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(
+                  Icons.local_shipping_outlined,
+                  color: latest.status.color,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      latest.customerName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      latest.status.label,
+                      style: TextStyle(
+                        color: latest.status.color,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                latest.estimatedPrice != null
+                    ? '${latest.estimatedPrice!.toStringAsFixed(0)} DA'
+                    : '--',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _MiniBadge(label: _serviceLabel(latest)),
+              _MiniBadge(label: latest.urgency),
+              if (latest.estimatedDistanceKm != null)
+                _MiniBadge(
+                  label:
+                      '${latest.estimatedDistanceKm!.toStringAsFixed(1)} km',
+                ),
+              if (latest.estimatedDurationMinutes != null)
+                _MiniBadge(
+                  label: '${latest.estimatedDurationMinutes} min',
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          InfoRow(title: 'Telephone', value: latest.customerPhone),
+          InfoRow(
+            title: 'Vehicule',
+            value: '${latest.vehicleType} · ${latest.brandModel}',
+          ),
+          InfoRow(
+            title: 'Position',
+            value: '${latest.pickupLabel}\n${latest.pickupSubtitle}',
+          ),
+          InfoRow(title: 'Repere', value: latest.landmark),
+          if (latest.destination.isNotEmpty)
+            InfoRow(title: 'Destination', value: latest.destination),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => ProviderTrackingPage(
+                          store: store,
+                          requestId: latest.id,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.map_outlined),
+                  label: const Text('Ouvrir le suivi'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: latest.status == RequestStatus.completed ||
+                          latest.status == RequestStatus.cancelled
+                      ? null
+                      : () async {
+                          await store.advanceMission(latest.id);
+                        },
+                  icon: const Icon(Icons.flag_outlined),
+                  label: Text(_buttonLabel(latest.status)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProviderHistoryCard extends StatelessWidget {
+  const _ProviderHistoryCard({
+    required this.store,
+    required this.item,
+  });
+
+  final AppStore store;
+  final AppRequest item;
+
+  String _serviceLabel(AppRequest request) {
+    try {
+      final dynamic label = (request.service as dynamic).label;
+      if (label is String && label.trim().isNotEmpty) return label;
+    } catch (_) {}
+
+    final raw = request.service.toString();
+    if (raw.contains('.')) return raw.split('.').last;
+    return raw;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final latest = store.findRequest(item.id) ?? item;
+
+    return PanelCard(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            latest.customerName,
+            style: const TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            latest.status.label,
+            style: TextStyle(
+              color: latest.status.color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 10),
+          InfoRow(title: 'Service', value: _serviceLabel(latest)),
+          if (latest.estimatedPrice != null)
+            InfoRow(
+              title: 'Prix estime',
+              value: '${latest.estimatedPrice!.toStringAsFixed(0)} DA',
+            ),
+          if (latest.estimatedDistanceKm != null)
+            InfoRow(
+              title: 'Distance',
+              value: '${latest.estimatedDistanceKm!.toStringAsFixed(1)} km',
+            ),
+          if (latest.destination.isNotEmpty)
+            InfoRow(
+              title: 'Destination',
+              value: latest.destination,
+            ),
+          InfoRow(
+            title: 'Vehicule',
+            value: '${latest.vehicleType} · ${latest.brandModel}',
+          ),
+          if (latest.isProviderRated &&
+              latest.providerRatingForClient != null) ...[
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Votre evaluation du client',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '⭐ ${latest.providerRatingForClient!.toStringAsFixed(1)}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  if ((latest.providerReviewForClient ?? '').isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        latest.providerReviewForClient!,
+                        style: const TextStyle(
+                          color: Colors.black54,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => MissionReceiptPage(
+                          store: store,
+                          requestId: latest.id,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.receipt_long_outlined),
+                  label: const Text('Recu'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: latest.canProviderRate
+                      ? () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => ProviderRateClientPage(
+                                store: store,
+                                requestId: latest.id,
+                              ),
+                            ),
+                          );
+                        }
+                      : null,
+                  icon: const Icon(Icons.star_outline),
+                  label: const Text('Evaluer'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniBadge extends StatelessWidget {
+  const _MiniBadge({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+}

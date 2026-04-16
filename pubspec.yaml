@@ -1,0 +1,56 @@
+name: depannage_dz_pro_structured
+description: Professional structured demo towing app with customer/provider flows and live tracking simulation.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  geolocator: ^13.0.2
+  url_launcher: ^6.3.0
+  http: ^1.2.2
+
+  firebase_core: ^3.13.0
+  firebase_auth: ^5.5.2
+  cloud_firestore: ^5.6.6
+  firebase_storage: ^12.4.5
+  firebase_messaging: ^15.1.6
+
+  flutter_local_notifications: ^17.2.3
+  audioplayers: ^6.1.0
+  vibration: ^2.0.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.3
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/icon/app_icon.png
+    - assets/sounds/alert.mp3
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/icon/app_icon.png
+  min_sdk_android: 21
+  web:
+    generate: true
+    image_path: assets/icon/app_icon.png
+    background_color: "#0F172A"
+    theme_color: "#2563EB"
+  windows:
+    generate: true
+    image_path: assets/icon/app_icon.png
+  macos:
+    generate: true
+    image_path: assets/icon/app_icon.png

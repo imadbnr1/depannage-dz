@@ -1,0 +1,1216 @@
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
+import 'package:latlong2/latlong.dart';
+
+import '../core/services/in_app_notification_service.dart';
+import '../core/services/location_service.dart';
+import '../models/app_request.dart';
+import '../models/app_role.dart';
+import '../models/provider_agent.dart';
+import '../models/request_status.dart';
+import '../models/service_type.dart';
+import '../repositories/request_repository.dart';
+import '../repositories/tracking_repository.dart';
+
+class AppStore extends ChangeNotifier {
+  AppStore({
+    required this.requestRepository,
+    required this.trackingRepository,
+    LocationService? locationService,
+    InAppNotificationService? notificationService,
+    FirebaseFirestore? firestore,
+    FirebaseAuth? auth,
+  })  : locationService = locationService ?? LocationService(),
+        notificationService =
+            notificationService ?? InAppNotificationService(),
+        firestore = firestore ?? FirebaseFirestore.instance,
+        auth = auth ?? FirebaseAuth.instance;
+
+  final RequestRepository requestRepository;
+  final TrackingRepository trackingRepository;
+  final LocationService locationService;
+  final InAppNotificationService notificationService;
+  final FirebaseFirestore firestore;
+  final FirebaseAuth auth;
+
+  AppRole role = AppRole.customer;
+  int customerTab = 0;
+  int providerTab = 0;
+  int unreadNotifications = 0;
+  String? lastCompletedRequestId;
+
+  LatLng? customerCurrentPosition;
+  LatLng? providerCurrentPosition;
+  bool customerLocationLoading = false;
+  bool providerLocationLoading = false;
+  String? customerLocationMessage;
+  String? providerLocationMessage;
+
+  final List<String> notifications = [];
+  final List<String> savedAddresses = [
+    'Maison · Alger Centre',
+    'Travail · Bab Ezzouar',
+  ];
+  final List<String> savedVehicles = [];
+
+  List<ProviderAgent> providers = [];
+  String selectedProviderId = '';
+
+  StreamSubscription<List<AppRequest>>? _requestsSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _providersSub;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _pricingSub;
+  StreamSubscription<User?>? _authSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
+      _adminNotificationsSub;
+
+  List<AppRequest> _requests = [];
+
+  double pricingBasePrice = 1500;
+  double pricingPerKm = 80;
+  double pricingUrgentFee = 500;
+  double pricingCommissionPercent = 10;
+
+  String? currentUserRoleName;
+  final Set<String> _seenAdminNotificationIds = {};
+
+  final Map<String, Timer> _dispatchTimers = {};
+  final Map<String, Timer> _movementTimers = {};
+  final Map<String, Timer> _liveGpsTimers = {};
+
+  void bootstrap() {
+    _requestsSub = requestRepository.watchRequests().listen((items) {
+      _requests = items;
+      notifyListeners();
+    });
+
+    _providersSub = firestore.collection('providers').snapshots().listen((snap) {
+      providers = snap.docs.map((doc) {
+        final map = doc.data();
+
+        LatLng parsePosition() {
+          final raw = map['position'];
+          if (raw is Map<String, dynamic>) {
+            final lat = raw['lat'];
+            final lng = raw['lng'];
+            if (lat is num && lng is num) {
+              return LatLng(lat.toDouble(), lng.toDouble());
+            }
+          }
+          return const LatLng(36.7538, 3.0588);
+        }
+
+        return ProviderAgent(
+          id: (map['uid'] ?? doc.id).toString(),
+          name: (map['fullName'] ?? '').toString(),
+          phone: (map['phone'] ?? '').toString(),
+          position: parsePosition(),
+          isOnline: map['isOnline'] == true,
+          isBusy: map['isBusy'] == true,
+          rating: ((map['rating'] ?? 5.0) as num).toDouble(),
+          ratingCount: ((map['ratingCount'] ?? 0) as num).toInt(),
+          vehicleType: (map['vehicleType'] ?? '').toString(),
+          plate: (map['plate'] ?? '').toString(),
+          missionsCompleted: ((map['missionsCompleted'] ?? 0) as num).toInt(),
+          isVerified: map['isApproved'] == true,
+          avatarText: (map['avatarText'] ?? 'PR').toString(),
+        );
+      }).toList();
+
+      final uid = auth.currentUser?.uid;
+      if (uid != null) {
+        selectedProviderId = uid;
+      } else if (providers.isNotEmpty && selectedProviderId.isEmpty) {
+        selectedProviderId = providers.first.id;
+      }
+
+      final current = selectedProviderOrNull;
+      if (current != null) {
+        providerCurrentPosition = current.position;
+        providerLocationMessage = 'Provider: ${current.name}';
+      }
+
+      notifyListeners();
+    });
+
+    _pricingSub = firestore
+        .collection('app_config')
+        .doc('pricing')
+        .snapshots()
+        .listen((doc) {
+      final data = doc.data();
+      if (data != null) {
+        pricingBasePrice = ((data['basePrice'] ?? 1500) as num).toDouble();
+        pricingPerKm = ((data['pricePerKm'] ?? 80) as num).toDouble();
+        pricingUrgentFee = ((data['urgentFee'] ?? 500) as num).toDouble();
+        pricingCommissionPercent =
+            ((data['commissionPercent'] ?? 10) as num).toDouble();
+        notifyListeners();
+      }
+    });
+
+    _authSub = auth.authStateChanges().listen((user) async {
+      await _adminNotificationsSub?.cancel();
+      currentUserRoleName = null;
+
+      if (user == null) return;
+
+      final userDoc = await firestore.collection('users').doc(user.uid).get();
+      final data = userDoc.data();
+      currentUserRoleName = (data?['role'] ?? 'customer').toString();
+
+      _adminNotificationsSub = firestore
+          .collection('app_notifications')
+          .where('isActive', isEqualTo: true)
+          .snapshots()
+          .listen((snapshot) {
+        for (final doc in snapshot.docs) {
+          if (_seenAdminNotificationIds.contains(doc.id)) continue;
+
+          final map = doc.data();
+          final targetRole = (map['targetRole'] ?? 'all').toString();
+
+          final allowed =
+              targetRole == 'all' || targetRole == currentUserRoleName;
+
+          if (!allowed) continue;
+
+          _seenAdminNotificationIds.add(doc.id);
+
+          final title = (map['title'] ?? 'Notification').toString();
+          final body = (map['body'] ?? '').toString();
+
+          _pushLifecycleNotification(
+            title: title,
+            body: body,
+            type: 'admin_broadcast',
+          );
+        }
+      });
+    });
+  }
+
+  ProviderAgent? get selectedProviderOrNull {
+    if (selectedProviderId.isEmpty) return null;
+    try {
+      return providers.firstWhere((p) => p.id == selectedProviderId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  ProviderAgent get selectedProvider =>
+      selectedProviderOrNull ??
+      const ProviderAgent(
+        id: 'temp',
+        name: 'Provider',
+        phone: '',
+        position: LatLng(36.7538, 3.0588),
+        isOnline: false,
+        isBusy: false,
+        rating: 5.0,
+        ratingCount: 0,
+        vehicleType: '',
+        plate: '',
+        missionsCompleted: 0,
+        isVerified: false,
+        avatarText: 'PR',
+      );
+
+  List<AppRequest> get requests => List.unmodifiable(_requests);
+
+  List<AppRequest> get activeCustomerRequests {
+    final uid = auth.currentUser?.uid;
+    return _requests
+        .where((r) => r.customerUid == uid)
+        .where((r) =>
+            r.status != RequestStatus.completed &&
+            r.status != RequestStatus.cancelled)
+        .toList();
+  }
+
+  List<AppRequest> get historyCustomerRequests {
+    final uid = auth.currentUser?.uid;
+    return _requests
+        .where((r) => r.customerUid == uid)
+        .where((r) =>
+            r.status == RequestStatus.completed ||
+            r.status == RequestStatus.cancelled)
+        .toList();
+  }
+
+  List<AppRequest> get providerAvailableRequests {
+    final providerId = auth.currentUser?.uid;
+    final provider = selectedProviderOrNull;
+
+    if (providerId == null) return const [];
+    if (provider == null) return const [];
+    if (!provider.isOnline) return const [];
+
+    return _requests.where((r) {
+      return r.status == RequestStatus.searching &&
+          r.offeredProviderUid == providerId;
+    }).toList();
+  }
+
+  List<AppRequest> get providerAssignedRequests {
+    final providerId = auth.currentUser?.uid;
+    return _requests.where((r) {
+      final sameProvider = r.providerUid == providerId;
+      return sameProvider &&
+          (r.status == RequestStatus.accepted ||
+              r.status == RequestStatus.onTheWay ||
+              r.status == RequestStatus.arrived ||
+              r.status == RequestStatus.inService);
+    }).toList();
+  }
+
+  AppRequest? findRequest(String id) {
+    try {
+      return _requests.firstWhere((r) => r.id == id);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  ProviderAgent? findProviderById(String id) {
+    try {
+      return providers.firstWhere((p) => p.id == id);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  ProviderAgent? findProviderByName(String? name) {
+    if (name == null) return null;
+    try {
+      return providers.firstWhere((p) => p.name == name);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String? currentOfferedProviderId(String requestId) {
+    return findRequest(requestId)?.offeredProviderUid;
+  }
+
+  String? currentOfferedProviderName(String requestId) {
+    final offeredUid = findRequest(requestId)?.offeredProviderUid;
+    if (offeredUid == null) return null;
+    return findProviderById(offeredUid)?.name;
+  }
+
+  Future<void> updateProviderOnlineStatus(
+    String providerId,
+    bool isOnline,
+  ) async {
+    await firestore.collection('providers').doc(providerId).set({
+      'isOnline': isOnline,
+    }, SetOptions(merge: true));
+
+    if (!isOnline) {
+      final offeredRequests = _requests.where((r) {
+        return r.status == RequestStatus.searching &&
+            r.offeredProviderUid == providerId;
+      }).toList();
+
+      for (final request in offeredRequests) {
+        _dispatchTimers[request.id]?.cancel();
+        _dispatchTimers.remove(request.id);
+
+        final updated = request.copyWith(
+          offeredProviderUid: null,
+        );
+
+        await requestRepository.updateRequest(request.id, updated);
+        await _offerRequestToNextProvider(request.id);
+      }
+    }
+
+    notifyListeners();
+  }
+
+  Future<void> updateProviderBusyStatus(String providerId, bool isBusy) async {
+    await firestore.collection('providers').doc(providerId).set({
+      'isBusy': isBusy,
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> updateProviderPosition(
+    String providerId,
+    LatLng position,
+  ) async {
+    await firestore.collection('providers').doc(providerId).set({
+      'position': {
+        'lat': position.latitude,
+        'lng': position.longitude,
+      },
+    }, SetOptions(merge: true));
+
+    if (selectedProviderId == providerId) {
+      providerCurrentPosition = position;
+      notifyListeners();
+    }
+  }
+
+  Future<void> startLiveTracking(String requestId) async {
+    _liveGpsTimers[requestId]?.cancel();
+
+    _liveGpsTimers[requestId] =
+        Timer.periodic(const Duration(seconds: 3), (timer) async {
+      final request = findRequest(requestId);
+      if (request == null) {
+        timer.cancel();
+        _liveGpsTimers.remove(requestId);
+        return;
+      }
+
+      final stillActive = request.status == RequestStatus.accepted ||
+          request.status == RequestStatus.onTheWay ||
+          request.status == RequestStatus.arrived ||
+          request.status == RequestStatus.inService;
+
+      if (!stillActive) {
+        timer.cancel();
+        _liveGpsTimers.remove(requestId);
+        return;
+      }
+
+      try {
+        final result = await locationService.getCurrentPosition(
+          fallback: providerCurrentPosition ??
+              selectedProviderOrNull?.position ??
+              request.customerPosition,
+          successMessage: 'Position provider active',
+          deniedMessage: 'Permission provider refusee',
+          disabledMessage: 'GPS provider desactive',
+          errorMessage: 'GPS provider indisponible',
+        );
+
+        final newPosition = result.position;
+        providerCurrentPosition = newPosition;
+
+        final providerId = auth.currentUser?.uid;
+        if (providerId != null) {
+          await updateProviderPosition(providerId, newPosition);
+        }
+
+        final latest = findRequest(requestId);
+        if (latest != null) {
+          await requestRepository.updateRequest(
+            requestId,
+            latest.copyWith(providerPosition: newPosition),
+          );
+
+          await trackingRepository.setTracking(
+            TrackingSnapshot(
+              requestId: requestId,
+              customerPosition: latest.customerPosition,
+              providerPosition: newPosition,
+            ),
+          );
+        }
+
+        notifyListeners();
+      } catch (_) {}
+    });
+  }
+
+  void stopLiveTracking(String requestId) {
+    _liveGpsTimers[requestId]?.cancel();
+    _liveGpsTimers.remove(requestId);
+  }
+
+  ProviderAgent? findNearestAvailableProvider(
+    LatLng customerPosition, {
+    String? requestId,
+  }) {
+    final current = requestId == null ? null : findRequest(requestId);
+    final rejected = current?.rejectedProviderUids ?? const <String>[];
+
+    final available = providers.where((p) {
+      return p.isOnline &&
+          !p.isBusy &&
+          p.isVerified &&
+          !rejected.contains(p.id);
+    }).toList();
+
+    if (available.isEmpty) return null;
+
+    const distance = Distance();
+
+    available.sort((a, b) {
+      final da = distance.as(
+        LengthUnit.Kilometer,
+        a.position,
+        customerPosition,
+      );
+      final db = distance.as(
+        LengthUnit.Kilometer,
+        b.position,
+        customerPosition,
+      );
+      return da.compareTo(db);
+    });
+
+    return available.first;
+  }
+
+  TrackingSnapshot? trackingFor(String requestId) {
+    return trackingRepository.currentTracking(requestId);
+  }
+
+  Stream<TrackingSnapshot?> watchTracking(String requestId) {
+    return trackingRepository.watchTracking(requestId);
+  }
+
+  Future<void> requestCustomerLocation() async {
+    customerLocationLoading = true;
+    notifyListeners();
+
+    final result = await locationService.getCurrentPosition(
+      fallback: const LatLng(36.7538, 3.0588),
+      successMessage: 'Position GPS active',
+      deniedMessage: 'Permission de localisation refusee',
+      disabledMessage: 'Service de localisation desactive',
+      errorMessage: 'GPS indisponible, position demo utilisee',
+    );
+
+    customerCurrentPosition = result.position;
+    customerLocationMessage = result.message;
+    customerLocationLoading = false;
+    notifyListeners();
+  }
+
+  Future<void> requestProviderLocation() async {
+    providerLocationLoading = true;
+    notifyListeners();
+
+    final fallback =
+        selectedProviderOrNull?.position ?? const LatLng(36.7538, 3.0588);
+
+    final result = await locationService.getCurrentPosition(
+      fallback: fallback,
+      successMessage: 'Position GPS provider active',
+      deniedMessage: 'Permission provider refusee',
+      disabledMessage: 'Service provider desactive',
+      errorMessage: 'GPS provider indisponible, position demo utilisee',
+    );
+
+    providerCurrentPosition = result.position;
+    providerLocationMessage = result.message;
+    final uid = auth.currentUser?.uid;
+    if (uid != null) {
+      await updateProviderPosition(uid, result.position);
+    }
+    providerLocationLoading = false;
+    notifyListeners();
+  }
+
+  void setRole(AppRole newRole) {
+    role = newRole;
+    notifyListeners();
+  }
+
+  void setCustomerTab(int index) {
+    customerTab = index;
+    notifyListeners();
+  }
+
+  void setProviderTab(int index) {
+    providerTab = index;
+    notifyListeners();
+  }
+
+  void markNotificationsRead() {
+    unreadNotifications = 0;
+    notifyListeners();
+  }
+
+  void _pushLifecycleNotification({
+    required String title,
+    required String body,
+    required String type,
+  }) {
+    notifications.insert(0, '$title - $body');
+    unreadNotifications += 1;
+    notificationService.push(title: title, body: body, type: type);
+    notifyListeners();
+  }
+
+  double estimateDistanceKm({
+    required LatLng from,
+    required LatLng to,
+  }) {
+    final km = const Distance().as(
+      LengthUnit.Kilometer,
+      from,
+      to,
+    );
+    if (!km.isFinite || km.isNaN) return 0;
+    return double.parse(km.toStringAsFixed(1));
+  }
+
+  int estimateDurationMinutes({
+    required double distanceKm,
+    required ServiceType service,
+  }) {
+    final label = service.toString().toLowerCase();
+    double speedKmH;
+
+    if (label.contains('remorquage')) {
+      speedKmH = 28.0;
+    } else if (label.contains('batterie')) {
+      speedKmH = 36.0;
+    } else if (label.contains('pneu')) {
+      speedKmH = 32.0;
+    } else {
+      speedKmH = 30.0;
+    }
+
+    final minutes = ((distanceKm / speedKmH) * 60).round();
+    return minutes.clamp(8, 180);
+  }
+
+  double estimatePrice({
+    required ServiceType service,
+    required double distanceKm,
+    required bool hasDestination,
+    required String urgency,
+  }) {
+    final label = service.toString().toLowerCase();
+
+    double base = pricingBasePrice;
+    double perKm = pricingPerKm;
+
+    if (label.contains('batterie')) {
+      base = pricingBasePrice * 0.65;
+      perKm = pricingPerKm * 0.35;
+    } else if (label.contains('pneu')) {
+      base = pricingBasePrice * 0.75;
+      perKm = pricingPerKm * 0.45;
+    } else if (label.contains('remorquage')) {
+      base = pricingBasePrice;
+      perKm = pricingPerKm;
+    } else {
+      base = pricingBasePrice * 0.85;
+      perKm = pricingPerKm * 0.55;
+    }
+
+    double urgencyFee = 0;
+    final lowerUrgency = urgency.toLowerCase();
+    if (lowerUrgency.contains('urgent')) {
+      urgencyFee = pricingUrgentFee;
+    } else if (lowerUrgency.contains('crit')) {
+      urgencyFee = pricingUrgentFee * 1.8;
+    }
+
+    final tripPart =
+        hasDestination ? distanceKm * perKm : distanceKm * (perKm * 0.4);
+    final total = base + tripPart + urgencyFee;
+    return double.parse(total.toStringAsFixed(0));
+  }
+
+  double estimateCommissionAmount(double requestPrice) {
+    final amount = requestPrice * (pricingCommissionPercent / 100);
+    return double.parse(amount.toStringAsFixed(0));
+  }
+
+  Future<Map<String, dynamic>> _readCurrentUserProfile() async {
+    final uid = auth.currentUser?.uid;
+    if (uid == null) {
+      throw Exception('Utilisateur non connecte.');
+    }
+
+    final doc = await firestore.collection('users').doc(uid).get();
+    final data = doc.data();
+    if (!doc.exists || data == null) {
+      throw Exception('Profil utilisateur introuvable.');
+    }
+
+    return data;
+  }
+
+  Future<void> createRequest({
+    required ServiceType service,
+    required LatLng customerPosition,
+    required String pickupLabel,
+    required String pickupSubtitle,
+    required String vehicleType,
+    required String brandModel,
+    required String payment,
+    required String landmark,
+    required String issueDescription,
+    required String urgency,
+    required String destination,
+    required String photoHint,
+  }) async {
+    final currentUser = auth.currentUser;
+    if (currentUser == null) {
+      throw Exception('Vous devez etre connecte.');
+    }
+
+    final profile = await _readCurrentUserProfile();
+
+    final cleanedDestination = destination.trim();
+    if (cleanedDestination.isEmpty) {
+      throw Exception('La destination est obligatoire.');
+    }
+
+    final destinationPosition = _estimateDestinationPosition(
+      customerPosition: customerPosition,
+      destinationText: cleanedDestination,
+    );
+
+    final distanceKm = estimateDistanceKm(
+      from: customerPosition,
+      to: destinationPosition,
+    );
+
+    final durationMinutes = estimateDurationMinutes(
+      distanceKm: distanceKm,
+      service: service,
+    );
+
+    final estimatedPrice = estimatePrice(
+      service: service,
+      distanceKm: distanceKm,
+      hasDestination: cleanedDestination.isNotEmpty,
+      urgency: urgency,
+    );
+
+    final request = AppRequest(
+      id: 'req_${DateTime.now().millisecondsSinceEpoch}',
+      createdAt: DateTime.now(),
+      customerUid: currentUser.uid,
+      service: service,
+      customerName: (profile['fullName'] ?? '').toString(),
+      customerPhone: (profile['phone'] ?? '').toString(),
+      pickupLabel: pickupLabel,
+      pickupSubtitle: pickupSubtitle,
+      customerPosition: customerPosition,
+      vehicleType: vehicleType,
+      brandModel: brandModel,
+      payment: payment,
+      landmark: landmark,
+      issueDescription: issueDescription,
+      urgency: urgency,
+      destination: cleanedDestination,
+      photoHint: photoHint,
+      status: RequestStatus.searching,
+      offeredProviderUid: null,
+      rejectedProviderUids: const [],
+      estimatedDistanceKm: distanceKm,
+      estimatedDurationMinutes: durationMinutes,
+      estimatedPrice: estimatedPrice,
+    );
+
+    await requestRepository.addRequest(request);
+
+    customerTab = 1;
+    _pushLifecycleNotification(
+      title: 'Demande envoyee',
+      body: 'Recherche du provider le plus proche',
+      type: 'request_created',
+    );
+
+    await _offerRequestToNextProvider(request.id);
+    notifyListeners();
+  }
+
+  LatLng _estimateDestinationPosition({
+    required LatLng customerPosition,
+    required String destinationText,
+  }) {
+    if (destinationText.isEmpty) {
+      return LatLng(
+        customerPosition.latitude + 0.012,
+        customerPosition.longitude + 0.012,
+      );
+    }
+
+    final hash = destinationText.codeUnits.fold<int>(0, (a, b) => a + b);
+    final latOffset = ((hash % 12) + 6) / 1000;
+    final lngOffset = (((hash ~/ 7) % 12) + 6) / 1000;
+
+    return LatLng(
+      customerPosition.latitude + latOffset,
+      customerPosition.longitude + lngOffset,
+    );
+  }
+
+  Future<void> _offerRequestToNextProvider(String requestId) async {
+    final current = findRequest(requestId);
+    if (current == null || current.status != RequestStatus.searching) return;
+
+    _dispatchTimers[requestId]?.cancel();
+
+    final nextProvider = findNearestAvailableProvider(
+      current.customerPosition,
+      requestId: requestId,
+    );
+
+    if (nextProvider == null) {
+      final updated = current.copyWith(
+        offeredProviderUid: null,
+      );
+
+      await requestRepository.updateRequest(requestId, updated);
+
+      _pushLifecycleNotification(
+        title: 'Aucun provider',
+        body: 'Aucun provider disponible pour cette demande',
+        type: 'no_provider',
+      );
+      notifyListeners();
+      return;
+    }
+
+    if (!nextProvider.isOnline || nextProvider.isBusy || !nextProvider.isVerified) {
+      final updated = current.copyWith(
+        offeredProviderUid: null,
+      );
+      await requestRepository.updateRequest(requestId, updated);
+      notifyListeners();
+      return;
+    }
+
+    final updated = current.copyWith(
+      offeredProviderUid: nextProvider.id,
+    );
+
+    await requestRepository.updateRequest(requestId, updated);
+
+    _pushLifecycleNotification(
+      title: 'Mission envoyee',
+      body: 'Demande proposee a ${nextProvider.name}',
+      type: 'offered_provider',
+    );
+    notifyListeners();
+
+    _dispatchTimers[requestId] = Timer(const Duration(seconds: 30), () async {
+      final latest = findRequest(requestId);
+      if (latest == null || latest.status != RequestStatus.searching) return;
+      if (latest.offeredProviderUid != nextProvider.id) return;
+
+      final providerNow = findProviderById(nextProvider.id);
+      if (providerNow == null || !providerNow.isOnline || providerNow.isBusy) {
+        await _rejectRequestForProvider(
+          requestId,
+          nextProvider.id,
+          fromTimeout: true,
+        );
+        return;
+      }
+
+      await _rejectRequestForProvider(
+        requestId,
+        nextProvider.id,
+        fromTimeout: true,
+      );
+    });
+  }
+
+  Future<void> acceptRequest(String requestId) async {
+    final current = findRequest(requestId);
+    if (current == null) return;
+
+    final providerId = auth.currentUser?.uid;
+    if (providerId == null) return;
+
+    final offeredId = current.offeredProviderUid;
+    if (offeredId != null && offeredId != providerId) {
+      _pushLifecycleNotification(
+        title: 'Mission indisponible',
+        body: 'Cette mission est proposee a un autre provider',
+        type: 'wrong_provider',
+      );
+      notifyListeners();
+      return;
+    }
+
+    final provider = findProviderById(providerId);
+    if (provider == null) return;
+
+    _dispatchTimers[requestId]?.cancel();
+    _dispatchTimers.remove(requestId);
+
+    final providerStart = provider.position;
+
+    final updated = current.copyWith(
+      status: RequestStatus.accepted,
+      providerUid: provider.id,
+      providerName: provider.name,
+      providerPhone: provider.phone,
+      providerVehicle: provider.vehicleType,
+      providerPlate: provider.plate,
+      providerPosition: providerStart,
+      offeredProviderUid: null,
+    );
+
+    await requestRepository.updateRequest(requestId, updated);
+    await updateProviderBusyStatus(provider.id, true);
+
+    await trackingRepository.setTracking(
+      TrackingSnapshot(
+        requestId: requestId,
+        customerPosition: current.customerPosition,
+        providerPosition: providerStart,
+      ),
+    );
+
+    providerTab = 1;
+    _pushLifecycleNotification(
+      title: 'Mission acceptee',
+      body: '${provider.name} a accepte la mission',
+      type: 'accepted',
+    );
+
+    _startMovement(requestId);
+    await startLiveTracking(requestId);
+    notifyListeners();
+  }
+
+  Future<void> rejectRequestForCurrentProvider(String requestId) async {
+    final current = findRequest(requestId);
+    if (current == null) return;
+
+    final providerId = auth.currentUser?.uid;
+    if (providerId == null) return;
+
+    final offeredId = current.offeredProviderUid;
+    if (offeredId != null && offeredId != providerId) {
+      _pushLifecycleNotification(
+        title: 'Mission indisponible',
+        body: 'Cette mission est proposee a un autre provider',
+        type: 'wrong_provider',
+      );
+      notifyListeners();
+      return;
+    }
+
+    await _rejectRequestForProvider(requestId, providerId);
+  }
+
+  Future<void> _rejectRequestForProvider(
+    String requestId,
+    String providerId, {
+    bool fromTimeout = false,
+  }) async {
+    final current = findRequest(requestId);
+    if (current == null) return;
+
+    final provider = findProviderById(providerId);
+    if (provider == null) return;
+
+    final rejected = [...current.rejectedProviderUids];
+    if (!rejected.contains(provider.id)) {
+      rejected.add(provider.id);
+    }
+
+    await updateProviderBusyStatus(provider.id, false);
+
+    _movementTimers[requestId]?.cancel();
+    _movementTimers.remove(requestId);
+
+    _dispatchTimers[requestId]?.cancel();
+    _dispatchTimers.remove(requestId);
+
+    stopLiveTracking(requestId);
+
+    await trackingRepository.clearTracking(requestId);
+
+    final reset = current.copyWith(
+      status: RequestStatus.searching,
+      providerUid: null,
+      providerName: null,
+      providerPhone: null,
+      providerVehicle: null,
+      providerPlate: null,
+      providerPosition: null,
+      offeredProviderUid: null,
+      rejectedProviderUids: rejected,
+    );
+
+    await requestRepository.updateRequest(requestId, reset);
+
+    _pushLifecycleNotification(
+      title: fromTimeout ? 'Temps expire' : 'Mission rejetee',
+      body: fromTimeout
+          ? '${provider.name} n a pas repondu. Passage au suivant.'
+          : '${provider.name} a rejete la mission.',
+      type: fromTimeout ? 'timeout' : 'rejected',
+    );
+
+    await _offerRequestToNextProvider(requestId);
+    notifyListeners();
+  }
+
+  void _startMovement(String requestId) {
+    _movementTimers[requestId]?.cancel();
+
+    if (_liveGpsTimers.containsKey(requestId)) {
+      return;
+    }
+
+    _movementTimers[requestId] =
+        Timer.periodic(const Duration(seconds: 3), (timer) async {
+      final current = findRequest(requestId);
+      final tracking = trackingRepository.currentTracking(requestId);
+      if (current == null || tracking == null) {
+        timer.cancel();
+        return;
+      }
+
+      var nextStatus = current.status;
+      if (current.status == RequestStatus.accepted) {
+        nextStatus = RequestStatus.onTheWay;
+      }
+
+      final customer = current.customerPosition;
+      final provider = tracking.providerPosition ?? current.customerPosition;
+
+      final next = LatLng(
+        provider.latitude + (customer.latitude - provider.latitude) * 0.22,
+        provider.longitude + (customer.longitude - provider.longitude) * 0.22,
+      );
+
+      final close = (next.latitude - customer.latitude).abs() < 0.0007 &&
+          (next.longitude - customer.longitude).abs() < 0.0007;
+
+      if (close) {
+        final arrivedRequest = current.copyWith(
+          status: RequestStatus.arrived,
+          providerPosition: customer,
+        );
+        await requestRepository.updateRequest(requestId, arrivedRequest);
+        await trackingRepository.setTracking(
+          tracking.copyWith(providerPosition: customer),
+        );
+        _pushLifecycleNotification(
+          title: 'Provider arrive',
+          body: '${current.providerName ?? 'Le provider'} est arrive',
+          type: 'arrived',
+        );
+        timer.cancel();
+        _movementTimers.remove(requestId);
+      } else {
+        final moved = current.copyWith(
+          status: nextStatus,
+          providerPosition: next,
+        );
+        await requestRepository.updateRequest(requestId, moved);
+        await trackingRepository.setTracking(
+          tracking.copyWith(providerPosition: next),
+        );
+      }
+      notifyListeners();
+    });
+  }
+
+  Future<void> advanceMission(String requestId) async {
+    final current = findRequest(requestId);
+    if (current == null) return;
+
+    switch (current.status) {
+      case RequestStatus.accepted:
+        await requestRepository.updateRequest(
+          requestId,
+          current.copyWith(status: RequestStatus.onTheWay),
+        );
+        _pushLifecycleNotification(
+          title: 'Mission en route',
+          body: '${current.providerName ?? 'Le provider'} est en route',
+          type: 'on_the_way',
+        );
+        break;
+      case RequestStatus.onTheWay:
+        _movementTimers[requestId]?.cancel();
+        _movementTimers.remove(requestId);
+        await requestRepository.updateRequest(
+          requestId,
+          current.copyWith(
+            status: RequestStatus.arrived,
+            providerPosition: current.customerPosition,
+          ),
+        );
+        final tracking = trackingRepository.currentTracking(requestId);
+        if (tracking != null) {
+          await trackingRepository.setTracking(
+            tracking.copyWith(providerPosition: current.customerPosition),
+          );
+        }
+        _pushLifecycleNotification(
+          title: 'Provider arrive',
+          body: '${current.providerName ?? 'Le provider'} est arrive',
+          type: 'arrived',
+        );
+        break;
+      case RequestStatus.arrived:
+        await requestRepository.updateRequest(
+          requestId,
+          current.copyWith(status: RequestStatus.inService),
+        );
+        _pushLifecycleNotification(
+          title: 'Service commence',
+          body: 'Votre depannage est en cours',
+          type: 'in_service',
+        );
+        break;
+      case RequestStatus.inService:
+        await requestRepository.updateRequest(
+          requestId,
+          current.copyWith(
+            status: RequestStatus.completed,
+            completedAt: DateTime.now(),
+          ),
+        );
+
+        lastCompletedRequestId = requestId;
+
+        final provider = findProviderById(current.providerUid ?? '');
+        if (provider != null) {
+          await updateProviderBusyStatus(provider.id, false);
+          await firestore.collection('providers').doc(provider.id).set({
+            'missionsCompleted': provider.missionsCompleted + 1,
+          }, SetOptions(merge: true));
+        }
+
+        _dispatchTimers[requestId]?.cancel();
+        _dispatchTimers.remove(requestId);
+
+        stopLiveTracking(requestId);
+
+        await trackingRepository.clearTracking(requestId);
+        _pushLifecycleNotification(
+          title: 'Mission terminee',
+          body: 'Votre mission a ete completee avec succes',
+          type: 'completed',
+        );
+        break;
+      default:
+        break;
+    }
+    notifyListeners();
+  }
+
+  Future<void> cancelRequest(String requestId) async {
+    final current = findRequest(requestId);
+    if (current == null) return;
+
+    _movementTimers[requestId]?.cancel();
+    _movementTimers.remove(requestId);
+
+    _dispatchTimers[requestId]?.cancel();
+    _dispatchTimers.remove(requestId);
+
+    stopLiveTracking(requestId);
+
+    await requestRepository.updateRequest(
+      requestId,
+      current.copyWith(
+        status: RequestStatus.cancelled,
+        offeredProviderUid: null,
+      ),
+    );
+
+    await trackingRepository.clearTracking(requestId);
+
+    final provider = findProviderById(current.providerUid ?? '');
+    if (provider != null) {
+      await updateProviderBusyStatus(provider.id, false);
+    }
+
+    _pushLifecycleNotification(
+      title: 'Mission annulee',
+      body: 'La mission a ete annulee',
+      type: 'cancelled',
+    );
+    notifyListeners();
+  }
+
+  Future<void> submitClientRating({
+    required String requestId,
+    required double rating,
+    required String review,
+  }) async {
+    final current = findRequest(requestId);
+    if (current == null) return;
+
+    await requestRepository.updateRequest(
+      requestId,
+      current.copyWith(
+        clientRatingForProvider: rating,
+        clientReviewForProvider: review.trim().isEmpty ? null : review.trim(),
+        isClientRated: true,
+      ),
+    );
+
+    final provider = findProviderById(current.providerUid ?? '');
+    if (provider != null) {
+      final newCount = provider.ratingCount + 1;
+      final newRating =
+          ((provider.rating * provider.ratingCount) + rating) / newCount;
+
+      await firestore.collection('providers').doc(provider.id).set({
+        'rating': double.parse(newRating.toStringAsFixed(1)),
+        'ratingCount': newCount,
+      }, SetOptions(merge: true));
+    }
+
+    _pushLifecycleNotification(
+      title: 'Evaluation envoyee',
+      body: 'Merci pour votre avis sur le provider',
+      type: 'client_rating',
+    );
+    notifyListeners();
+  }
+
+  Future<void> submitProviderRating({
+    required String requestId,
+    required double rating,
+    required String review,
+  }) async {
+    final current = findRequest(requestId);
+    if (current == null) return;
+
+    await requestRepository.updateRequest(
+      requestId,
+      current.copyWith(
+        providerRatingForClient: rating,
+        providerReviewForClient: review.trim().isEmpty ? null : review.trim(),
+        isProviderRated: true,
+      ),
+    );
+
+    _pushLifecycleNotification(
+      title: 'Evaluation client envoyee',
+      body: 'Le provider a note le client',
+      type: 'provider_rating',
+    );
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _requestsSub?.cancel();
+    _providersSub?.cancel();
+    _pricingSub?.cancel();
+    _authSub?.cancel();
+    _adminNotificationsSub?.cancel();
+
+    for (final timer in _movementTimers.values) {
+      timer.cancel();
+    }
+    for (final timer in _dispatchTimers.values) {
+      timer.cancel();
+    }
+    for (final timer in _liveGpsTimers.values) {
+      timer.cancel();
+    }
+
+    super.dispose();
+  }
+}
