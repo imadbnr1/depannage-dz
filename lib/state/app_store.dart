@@ -472,7 +472,7 @@ class AppStore extends ChangeNotifier {
         try {
           final latest = findRequest(requestId);
           if (latest == null) {
-            await stopLiveTracking(requestId);
+            stopLiveTracking(requestId);
             return;
           }
 
@@ -482,7 +482,7 @@ class AppStore extends ChangeNotifier {
               latest.status == RequestStatus.inService;
 
           if (!stillActiveNow) {
-            await stopLiveTracking(requestId);
+            stopLiveTracking(requestId);
             return;
           }
 
@@ -1021,7 +1021,7 @@ class AppStore extends ChangeNotifier {
     _dispatchTimers[requestId]?.cancel();
     _dispatchTimers.remove(requestId);
 
-    await stopLiveTracking(requestId);
+    stopLiveTracking(requestId);
     await trackingRepository.clearTracking(requestId);
 
     final rejectedOk = await requestRepository.rejectOfferedRequest(
@@ -1108,7 +1108,7 @@ class AppStore extends ChangeNotifier {
     _dispatchTimers[requestId]?.cancel();
     _dispatchTimers.remove(requestId);
 
-    await stopLiveTracking(requestId);
+    stopLiveTracking(requestId);
 
     await requestRepository.updateRequest(
       requestId,
