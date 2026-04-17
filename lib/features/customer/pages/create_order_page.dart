@@ -64,33 +64,16 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
     return Icons.build_circle_outlined;
   }
 
-  LatLng _fallbackDestinationFromText(String text) {
-    if (text.trim().isEmpty) {
-      return LatLng(
-        _customerPosition.latitude + 0.012,
-        _customerPosition.longitude + 0.012,
-      );
-    }
-
-    final hash = text.trim().codeUnits.fold<int>(0, (a, b) => a + b);
-    final latOffset = ((hash % 12) + 6) / 1000;
-    final lngOffset = (((hash ~/ 7) % 12) + 6) / 1000;
-
-    return LatLng(
-      _customerPosition.latitude + latOffset,
-      _customerPosition.longitude + lngOffset,
-    );
-  }
 
   double get _estimatedDistanceKm {
-    final target = _selectedDestinationPoint ??
-        _fallbackDestinationFromText(_destinationController.text);
+  final target = _selectedDestinationPoint;
+  if (target == null) return 0;
 
-    return widget.store.estimateDistanceKm(
-      from: _customerPosition,
-      to: target,
-    );
-  }
+  return widget.store.estimateDistanceKm(
+    from: _customerPosition,
+    to: target,
+  );
+}
 
   int get _estimatedEtaMinutes {
     return widget.store.estimateDurationMinutes(
@@ -142,9 +125,15 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
     setState(() => _isSubmitting = true);
 
     try {
-      final destinationPosition =
-    _selectedDestinationPoint ??
-    _fallbackDestinationFromText(_destinationController.text);
+      final destinationPosition = _selectedDestinationPoint;
+if (destinationPosition == null) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('Choisissez une destination valide.'),
+    ),
+  );
+  return;
+}
 
 await widget.store.createRequest(
   service: widget.service,
