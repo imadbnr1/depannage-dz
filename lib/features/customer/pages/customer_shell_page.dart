@@ -6,6 +6,7 @@ import '../../../state/app_store.dart';
 import '../../../widgets/live_alert_overlay.dart';
 import '../../shared/pages/chat_page.dart';
 import '../../shared/pages/notifications_page.dart';
+import 'customer_history_page.dart';
 import 'customer_home_page.dart';
 import 'customer_profile_page.dart';
 import 'customer_rate_provider_page.dart';
@@ -148,7 +149,7 @@ class _CustomerShellPageState extends State<CustomerShellPage> {
             ),
           );
         } else {
-          widget.store.setCustomerTab(1);
+          widget.store.setCustomerTab(4);
         }
       },
       secondaryLabel: 'Fermer',
@@ -204,7 +205,7 @@ class _CustomerShellPageState extends State<CustomerShellPage> {
       case 'arrived':
         return 'Ouvrir tracking';
       case 'completed':
-        return 'Voir demande';
+        return 'Voir historique';
       default:
         return 'Voir';
     }
@@ -266,13 +267,15 @@ class _CustomerShellPageState extends State<CustomerShellPage> {
       CustomerRequestsPage(store: widget.store),
       const CustomerProfilePage(),
       const CustomerSupportPage(),
+      CustomerHistoryPage(store: widget.store),
     ];
 
-    const titles = [
+    final titles = const [
       'Accueil',
       'Demandes',
       'Profil',
       'Support',
+      'Historique',
     ];
 
     return Scaffold(
@@ -325,6 +328,11 @@ class _CustomerShellPageState extends State<CustomerShellPage> {
             icon: Icon(Icons.support_agent_outlined),
             selectedIcon: Icon(Icons.support_agent),
             label: 'Support',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.history_outlined),
+            selectedIcon: Icon(Icons.history),
+            label: 'Historique',
           ),
         ],
       ),

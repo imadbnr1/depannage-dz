@@ -11,7 +11,10 @@ import '../../../widgets/map_pin.dart';
 import '../../../widgets/panel_card.dart';
 
 class ProviderDashboardPage extends StatefulWidget {
-  const ProviderDashboardPage({super.key, required this.store});
+  const ProviderDashboardPage({
+    super.key,
+    required this.store,
+  });
 
   final AppStore store;
 
@@ -47,15 +50,12 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
     } catch (_) {}
 
     final raw = service.toString();
-    if (raw.contains('.')) {
-      return raw.split('.').last;
-    }
+    if (raw.contains('.')) return raw.split('.').last;
     return raw;
   }
 
   Future<void> _detectAndCenterProvider() async {
     await widget.store.requestProviderLocation();
-
     final provider = widget.store.selectedProviderOrNull;
     final position = widget.store.providerCurrentPosition ??
         provider?.position ??
@@ -84,8 +84,8 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
     final availableCount = store.providerAvailableRequests.length;
     final activeCount = store.providerAssignedRequests.length;
     final completedCount = provider.missionsCompleted;
-
     final providerId = provider.id;
+
     final todayCompleted = store.requests.where((r) {
       if (r.providerUid != providerId) return false;
       if (r.status != RequestStatus.completed) return false;
@@ -97,12 +97,10 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
       0,
       (sum, item) => sum + (item.estimatedPrice ?? 0),
     );
-
     final todayCommission = todayCompleted.fold<double>(
       0,
       (sum, item) => sum + store.estimateCommissionAmount(item.estimatedPrice ?? 0),
     );
-
     final todayNet = todayRevenue - todayCommission;
 
     final nearestRequest = store.providerAvailableRequests.isNotEmpty
@@ -111,8 +109,7 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
 
     final mapCenter = nearestRequest != null
         ? LatLng(
-            (providerPosition.latitude +
-                    nearestRequest.customerPosition.latitude) /
+            (providerPosition.latitude + nearestRequest.customerPosition.latitude) /
                 2,
             (providerPosition.longitude +
                     nearestRequest.customerPosition.longitude) /
@@ -136,97 +133,226 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            _IdentityHeader(
-              provider: provider,
-              locationMessage: store.providerLocationLoading
-                  ? 'Localisation provider en cours...'
-                  : (store.providerLocationMessage ??
-                      'Position provider inconnue'),
-              onToggleOnline: (value) async {
-                await store.updateProviderOnlineStatus(provider.id, value);
-              },
-              onOpenProfile: () {
-                store.setProviderTab(3);
-              },
-            ),
-            const SizedBox(height: 10),
-
-            PanelCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Gains du jour',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 18,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _MoneyBox(
-                          title: 'Brut',
-                          value: '${todayRevenue.toStringAsFixed(0)} DA',
-                          subtitle: '${todayCompleted.length} mission(s)',
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _MoneyBox(
-                          title: 'Commission',
-                          value: '${todayCommission.toStringAsFixed(0)} DA',
-                          subtitle:
-                              '${store.pricingCommissionPercent.toStringAsFixed(0)} % plateforme',
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _MoneyBox(
-                          title: 'Net',
-                          value: '${todayNet.toStringAsFixed(0)} DA',
-                          subtitle: 'Profit journalier',
-                        ),
-                      ),
-                    ],
+            Container(
+              height: 320,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(28),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x14000000),
+                    blurRadius: 18,
+                    offset: Offset(0, 8),
                   ),
                 ],
               ),
-            ),
-
-            const SizedBox(height: 10),
-
-            PanelCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.map_outlined),
-                      const SizedBox(width: 8),
-                      const Expanded(
-                        child: Text(
-                          'Carte live provider',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w900,
-                            fontSize: 17,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(28),
+                child: Stack(
+                  children: [
+                    FlutterMap(
+                      mapController: _mapController,
+                      options: MapOptions(
+                        initialCenter: mapCenter,
+                        initialZoom: 13,
+                        onMapReady: () {
+                          _mapReady = true;
+                          try {
+                            _mapController.move(providerPosition, 15);
+                          } catch (_) {}
+                        },
+                      ),
+                      children: [
+                        TileLayer(
+                          urlTemplate:
+                              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                          userAgentPackageName: 'dz.depannage.provider',
+                        ),
+                        MarkerLayer(
+                          markers: [
+                            Marker(
+                              point: providerPosition,
+                              width: 76,
+                              height: 76,
+                              child: const MapPin(
+                                label: 'Provider',
+                                icon: Icons.local_shipping,
+                                color: Colors.blue,
+                              ),
+                            ),
+                            if (nearestRequest != null)
+                              Marker(
+                                point: nearestRequest.customerPosition,
+                                width: 74,
+                                height: 74,
+                                child: const MapPin(
+                                  label: 'Client',
+                                  icon: Icons.place,
+                                  color: Colors.red,
+                                ),
+                              ),
+                          ],
+                        ),
+                        if (nearestRequest != null)
+                          PolylineLayer(
+                            polylines: [
+                              Polyline(
+                                points: [
+                                  providerPosition,
+                                  nearestRequest.customerPosition,
+                                ],
+                                strokeWidth: 4,
+                                color: Colors.green,
+                              ),
+                            ],
                           ),
+                      ],
+                    ),
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.black.withOpacity(0.26),
+                            Colors.transparent,
+                            Colors.black.withOpacity(0.10),
+                          ],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
                         ),
                       ),
-                      Material(
+                    ),
+                    Positioned(
+                      top: 14,
+                      left: 14,
+                      right: 14,
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.95),
+                          borderRadius: BorderRadius.circular(22),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x12000000),
+                              blurRadius: 12,
+                              offset: Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 22,
+                                  backgroundColor: provider.isOnline
+                                      ? const Color(0xFF16A34A)
+                                      : const Color(0xFF94A3B8),
+                                  child: Text(
+                                    provider.avatarText,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              provider.name,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w900,
+                                                fontSize: 16,
+                                              ),
+                                            ),
+                                          ),
+                                          if (provider.isVerified)
+                                            const Icon(
+                                              Icons.verified,
+                                              color: Color(0xFF2563EB),
+                                              size: 18,
+                                            ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        store.providerLocationLoading
+                                            ? 'Localisation provider en cours...'
+                                            : (store.providerLocationMessage ??
+                                                'Position provider inconnue'),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: Colors.black54,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Switch(
+                                  value: provider.isOnline,
+                                  onChanged: (value) async {
+                                    await store.updateProviderOnlineStatus(
+                                      provider.id,
+                                      value,
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _HeroMetricBox(
+                                    title: 'Jour',
+                                    value: '${todayNet.toStringAsFixed(0)} DA',
+                                    subtitle: 'Net',
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: _HeroMetricBox(
+                                    title: 'Disponibles',
+                                    value: '$availableCount',
+                                    subtitle: 'Demandes',
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: _HeroMetricBox(
+                                    title: 'Actives',
+                                    value: '$activeCount',
+                                    subtitle: 'Missions',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      right: 14,
+                      bottom: 14,
+                      child: Material(
                         color: Colors.white,
                         shape: const CircleBorder(),
-                        elevation: 2,
+                        elevation: 3,
                         child: InkWell(
                           onTap: _detectAndCenterProvider,
                           customBorder: const CircleBorder(),
                           child: SizedBox(
-                            width: 42,
-                            height: 42,
+                            width: 48,
+                            height: 48,
                             child: store.providerLocationLoading
                                 ? const Padding(
-                                    padding: EdgeInsets.all(12),
+                                    padding: EdgeInsets.all(13),
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
                                     ),
@@ -235,75 +361,17 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
                           ),
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    height: 230,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(18),
-                      child: FlutterMap(
-                        mapController: _mapController,
-                        options: MapOptions(
-                          initialCenter: mapCenter,
-                          initialZoom: 13,
-                          onMapReady: () {
-                            _mapReady = true;
-                            try {
-                              _mapController.move(providerPosition, 15);
-                            } catch (_) {}
-                          },
-                        ),
-                        children: [
-                          TileLayer(
-                            urlTemplate:
-                                'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                            userAgentPackageName: 'dz.depannage.provider',
-                          ),
-                          MarkerLayer(
-                            markers: [
-                              Marker(
-                                point: providerPosition,
-                                width: 74,
-                                height: 74,
-                                child: const MapPin(
-                                  label: 'Provider',
-                                  icon: Icons.local_shipping,
-                                  color: Colors.blue,
-                                ),
-                              ),
-                              if (nearestRequest != null)
-                                Marker(
-                                  point: nearestRequest.customerPosition,
-                                  width: 70,
-                                  height: 70,
-                                  child: const MapPin(
-                                    label: 'Client',
-                                    icon: Icons.place,
-                                    color: Colors.red,
-                                  ),
-                                ),
-                            ],
-                          ),
-                          if (nearestRequest != null)
-                            PolylineLayer(
-                              polylines: [
-                                Polyline(
-                                  points: [
-                                    providerPosition,
-                                    nearestRequest.customerPosition,
-                                  ],
-                                  strokeWidth: 4,
-                                  color: Colors.green,
-                                ),
-                              ],
-                            ),
-                        ],
-                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  if (nearestRequest != null) ...[
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            if (nearestRequest != null)
+              PanelCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
                       nearestRequest.customerName,
                       style: const TextStyle(
@@ -333,8 +401,7 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
                           ),
                         if (nearestRequest.estimatedDurationMinutes != null)
                           _MiniBadge(
-                            label:
-                                'ETA ${nearestRequest.estimatedDurationMinutes} min',
+                            label: 'ETA ${nearestRequest.estimatedDurationMinutes} min',
                           ),
                         if (nearestRequest.estimatedPrice != null)
                           _MiniBadge(
@@ -343,14 +410,16 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
                           ),
                       ],
                     ),
-                  ] else
-                    const Text(
-                      'Aucune mission disponible pour ce provider',
-                      style: TextStyle(color: Colors.black54),
-                    ),
-                ],
+                  ],
+                ),
+              )
+            else
+              const PanelCard(
+                child: Text(
+                  'Aucune mission disponible pour ce provider',
+                  style: TextStyle(color: Colors.black54),
+                ),
               ),
-            ),
             const SizedBox(height: 10),
             GridView.count(
               crossAxisCount: 2,
@@ -361,22 +430,23 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
               childAspectRatio: 1.45,
               children: [
                 _StatCard(
-                  title: 'Disponibles',
-                  value: '$availableCount',
-                  icon: Icons.notifications_active_outlined,
-                  subtitle: 'Demandes visibles',
+                  title: 'Revenue brut',
+                  value: '${todayRevenue.toStringAsFixed(0)} DA',
+                  icon: Icons.payments_outlined,
+                  subtitle: '${todayCompleted.length} mission(s)',
                 ),
                 _StatCard(
-                  title: 'En cours',
-                  value: '$activeCount',
-                  icon: Icons.local_shipping_outlined,
-                  subtitle: 'Missions actives',
+                  title: 'Commission',
+                  value: '${todayCommission.toStringAsFixed(0)} DA',
+                  icon: Icons.account_balance_wallet_outlined,
+                  subtitle:
+                      '${store.pricingCommissionPercent.toStringAsFixed(0)} % plateforme',
                 ),
                 _StatCard(
                   title: 'Missions',
                   value: '$completedCount',
                   icon: Icons.check_circle_outline,
-                  subtitle: 'Historique complet',
+                  subtitle: 'Historique total',
                 ),
                 _StatCard(
                   title: 'Note',
@@ -393,122 +463,49 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
   }
 }
 
-class _IdentityHeader extends StatelessWidget {
-  const _IdentityHeader({
-    required this.provider,
-    required this.locationMessage,
-    required this.onToggleOnline,
-    required this.onOpenProfile,
+class _HeroMetricBox extends StatelessWidget {
+  const _HeroMetricBox({
+    required this.title,
+    required this.value,
+    required this.subtitle,
   });
 
-  final ProviderAgent provider;
-  final String locationMessage;
-  final ValueChanged<bool> onToggleOnline;
-  final VoidCallback onOpenProfile;
+  final String title;
+  final String value;
+  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 350),
-      padding: const EdgeInsets.all(14),
+    return Container(
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: provider.isOnline
-            ? const Color(0xFFECFDF5)
-            : const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: provider.isOnline
-              ? const Color(0xFF86EFAC)
-              : const Color(0xFFE2E8F0),
-        ),
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: provider.isOnline
-                    ? const Color(0xFF16A34A)
-                    : const Color(0xFF94A3B8),
-                child: Text(
-                  provider.avatarText,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            provider.name,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w900,
-                              fontSize: 17,
-                            ),
-                          ),
-                        ),
-                        if (provider.isVerified)
-                          const Icon(
-                            Icons.verified,
-                            color: Color(0xFF2563EB),
-                            size: 18,
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      locationMessage,
-                      style: const TextStyle(
-                        color: Colors.black54,
-                        fontSize: 12,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: [
-                        _MiniBadge(
-                          label: provider.vehicleType.isEmpty
-                              ? 'Vehicule non renseigne'
-                              : provider.vehicleType,
-                        ),
-                        _MiniBadge(
-                          label: provider.plate.isEmpty
-                              ? 'Plaque manquante'
-                              : provider.plate,
-                        ),
-                        _MiniBadge(
-                          label: provider.isOnline ? 'En ligne' : 'Hors ligne',
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Switch(
-                value: provider.isOnline,
-                onChanged: onToggleOnline,
-              ),
-            ],
+          Text(
+            title,
+            style: const TextStyle(
+              color: Colors.black54,
+              fontSize: 11,
+            ),
           ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: onOpenProfile,
-              icon: const Icon(Icons.person_outline),
-              label: const Text('Mon profil'),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            subtitle,
+            style: const TextStyle(
+              color: Colors.black45,
+              fontSize: 10,
             ),
           ),
         ],
@@ -593,58 +590,6 @@ class _MiniBadge extends StatelessWidget {
       child: Text(
         label,
         style: const TextStyle(fontWeight: FontWeight.w700),
-      ),
-    );
-  }
-}
-
-class _MoneyBox extends StatelessWidget {
-  const _MoneyBox({
-    required this.title,
-    required this.value,
-    required this.subtitle,
-  });
-
-  final String title;
-  final String value;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.black54,
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontWeight: FontWeight.w900,
-              fontSize: 15,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.black54,
-              fontSize: 11,
-            ),
-          ),
-        ],
       ),
     );
   }

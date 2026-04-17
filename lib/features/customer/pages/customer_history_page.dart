@@ -4,10 +4,9 @@ import '../../../state/app_store.dart';
 import '../../../widgets/app_empty_state.dart';
 import '../../../widgets/info_row.dart';
 import '../../../widgets/panel_card.dart';
-import 'customer_tracking_page.dart';
 
-class CustomerRequestsPage extends StatefulWidget {
-  const CustomerRequestsPage({
+class CustomerHistoryPage extends StatefulWidget {
+  const CustomerHistoryPage({
     super.key,
     required this.store,
   });
@@ -15,10 +14,10 @@ class CustomerRequestsPage extends StatefulWidget {
   final AppStore store;
 
   @override
-  State<CustomerRequestsPage> createState() => _CustomerRequestsPageState();
+  State<CustomerHistoryPage> createState() => _CustomerHistoryPageState();
 }
 
-class _CustomerRequestsPageState extends State<CustomerRequestsPage> {
+class _CustomerHistoryPageState extends State<CustomerHistoryPage> {
   @override
   void initState() {
     super.initState();
@@ -38,25 +37,25 @@ class _CustomerRequestsPageState extends State<CustomerRequestsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final requests = widget.store.activeCustomerRequests;
+    final history = widget.store.historyCustomerRequests;
 
     return Scaffold(
       body: SafeArea(
-        child: requests.isEmpty
+        child: history.isEmpty
             ? const Padding(
                 padding: EdgeInsets.all(16),
                 child: AppEmptyState(
-                  icon: Icons.receipt_long_outlined,
-                  title: 'Aucune demande active',
+                  icon: Icons.history_outlined,
+                  title: 'Aucun historique',
                   message:
-                      'Vos demandes en cours apparaitront ici. Les demandes terminees sont dans Historique.',
+                      'Vos demandes terminees ou annulees apparaitront ici.',
                 ),
               )
             : ListView.builder(
                 padding: const EdgeInsets.all(16),
-                itemCount: requests.length,
+                itemCount: history.length,
                 itemBuilder: (context, index) {
-                  final request = requests[index];
+                  final request = history[index];
 
                   return PanelCard(
                     margin: const EdgeInsets.only(bottom: 12),
@@ -72,7 +71,7 @@ class _CustomerRequestsPageState extends State<CustomerRequestsPage> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          request.customerName,
+                          request.service.toString().split('.').last,
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w900,
@@ -80,15 +79,11 @@ class _CustomerRequestsPageState extends State<CustomerRequestsPage> {
                         ),
                         const SizedBox(height: 8),
                         InfoRow(
-                          title: 'Service',
-                          value: request.service.toString().split('.').last,
-                        ),
-                        InfoRow(
                           title: 'Vehicule',
                           value: '${request.vehicleType} · ${request.brandModel}',
                         ),
                         InfoRow(
-                          title: 'Position',
+                          title: 'Depart',
                           value: request.pickupLabel,
                         ),
                         if (request.destination.isNotEmpty)
@@ -96,46 +91,17 @@ class _CustomerRequestsPageState extends State<CustomerRequestsPage> {
                             title: 'Destination',
                             value: request.destination,
                           ),
-                        InfoRow(
-                          title: 'Repere',
-                          value: request.landmark,
-                        ),
                         if (request.providerName != null)
                           InfoRow(
                             title: 'Provider',
                             value: request.providerName!,
                           ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => CustomerTrackingPage(
-                                        store: widget.store,
-                                        requestId: request.id,
-                                      ),
-                                    ),
-                                  );
-                                },
-                                icon: const Icon(Icons.map_outlined),
-                                label: const Text('Tracking'),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: FilledButton.icon(
-                                onPressed: () async {
-                                  await widget.store.cancelRequest(request.id);
-                                },
-                                icon: const Icon(Icons.close),
-                                label: const Text('Annuler'),
-                              ),
-                            ),
-                          ],
-                        ),
+                        if (request.estimatedPrice != null)
+                          InfoRow(
+                            title: 'Prix',
+                            value:
+                                '${request.estimatedPrice!.toStringAsFixed(0)} DA',
+                          ),
                       ],
                     ),
                   );
