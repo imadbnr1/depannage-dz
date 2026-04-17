@@ -25,9 +25,6 @@ class ProviderHistoryPage extends StatelessWidget {
         .toList();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Historique provider'),
-      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),

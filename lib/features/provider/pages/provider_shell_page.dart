@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:depannage_dz_pro_structured/models/request_status.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/services/alert_service.dart';
@@ -215,19 +214,24 @@ class _ProviderShellPageState extends State<ProviderShellPage> {
       const ProviderSupportPage(),
     ];
 
-    const titles = [
-      'Dashboard',
-      'Missions',
-      'Historique',
-      'Profil',
-      'Support',
-    ];
-
     return Scaffold(
-      appBar: AppBar(
-        title: Text(titles[_index]),
-        actions: [
-          IconButton(
+  body: Stack(
+    children: [
+      // MAIN CONTENT
+      IndexedStack(
+        index: _index,
+        children: pages,
+      ),
+
+      // 🔔 FLOATING NOTIFICATION BUTTON
+      Positioned(
+        top: MediaQuery.of(context).padding.top + 10,
+        right: 16,
+        child: Material(
+          color: Colors.white.withOpacity(0.9),
+          borderRadius: BorderRadius.circular(14),
+          elevation: 4,
+          child: IconButton(
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
@@ -241,47 +245,46 @@ class _ProviderShellPageState extends State<ProviderShellPage> {
               child: const Icon(Icons.notifications_none),
             ),
           ),
-        ],
+        ),
       ),
-      body: IndexedStack(
-        index: _index,
-        children: pages,
+    ],
+  ),
+
+  bottomNavigationBar: NavigationBar(
+    selectedIndex: _index,
+    onDestinationSelected: (value) {
+      setState(() => _index = value);
+      widget.store.setProviderTab(value);
+    },
+    destinations: const [
+      NavigationDestination(
+        icon: Icon(Icons.dashboard_outlined),
+        selectedIcon: Icon(Icons.dashboard),
+        label: 'Accueil',
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (value) {
-          setState(() => _index = value);
-          widget.store.setProviderTab(value);
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: 'Dashboard',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.assignment_outlined),
-            selectedIcon: Icon(Icons.assignment),
-            label: 'Missions',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.history_outlined),
-            selectedIcon: Icon(Icons.history),
-            label: 'Historique',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profil',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.support_agent_outlined),
-            selectedIcon: Icon(Icons.support_agent),
-            label: 'Support',
-          ),
-        ],
+      NavigationDestination(
+        icon: Icon(Icons.assignment_outlined),
+        selectedIcon: Icon(Icons.assignment),
+        label: 'Missions',
       ),
-    );
+      NavigationDestination(
+        icon: Icon(Icons.history_outlined),
+        selectedIcon: Icon(Icons.history),
+        label: 'Historique',
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.person_outline),
+        selectedIcon: Icon(Icons.person),
+        label: 'Profil',
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.support_agent_outlined),
+        selectedIcon: Icon(Icons.support_agent),
+        label: 'Support',
+      ),
+    ],
+  ),
+);
   }
 }
 
@@ -320,7 +323,7 @@ class _MissionOfferDialogState extends State<_MissionOfferDialog> {
       final providerId = widget.store.selectedProvider.id;
 
       if (latest == null ||
-          latest.status != RequestStatus.searching ||
+          latest.status.name != 'searching' ||
           latest.offeredProviderUid != providerId) {
         timer.cancel();
         if (mounted && Navigator.of(context).canPop()) {
@@ -395,9 +398,9 @@ class _MissionOfferDialogState extends State<_MissionOfferDialog> {
         titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
         contentPadding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
         actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        title: const Row(
+        title: Row(
           children: [
-            CircleAvatar(
+            const CircleAvatar(
               radius: 22,
               backgroundColor: Color(0xFFEFF6FF),
               child: Icon(
@@ -405,8 +408,8 @@ class _MissionOfferDialogState extends State<_MissionOfferDialog> {
                 color: Color(0xFF2563EB),
               ),
             ),
-            SizedBox(width: 12),
-            Expanded(
+            const SizedBox(width: 12),
+            const Expanded(
               child: Text(
                 'Nouvelle mission',
                 style: TextStyle(
@@ -449,27 +452,15 @@ class _MissionOfferDialogState extends State<_MissionOfferDialog> {
               ),
             ),
             const SizedBox(height: 8),
-            _InfoLine(
-              label: 'Telephone',
-              value: request.customerPhone,
-            ),
+            _InfoLine(label: 'Telephone', value: request.customerPhone),
             _InfoLine(
               label: 'Vehicule',
               value: '${request.vehicleType} · ${request.brandModel}',
             ),
-            _InfoLine(
-              label: 'Lieu',
-              value: request.pickupLabel,
-            ),
-            _InfoLine(
-              label: 'Repere',
-              value: request.landmark,
-            ),
+            _InfoLine(label: 'Lieu', value: request.pickupLabel),
+            _InfoLine(label: 'Repere', value: request.landmark),
             if (request.destination.isNotEmpty)
-              _InfoLine(
-                label: 'Destination',
-                value: request.destination,
-              ),
+              _InfoLine(label: 'Destination', value: request.destination),
             if (request.estimatedPrice != null)
               _InfoLine(
                 label: 'Prix estime',

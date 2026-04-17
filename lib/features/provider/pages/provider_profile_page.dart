@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import '../../../core/services/auth_service.dart';
 
 class ProviderProfilePage extends StatefulWidget {
   const ProviderProfilePage({super.key});
@@ -147,17 +146,6 @@ class _ProviderProfilePageState extends State<ProviderProfilePage> {
     final avatar = _avatarText(fullName);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profil provider'),
-        actions: [
-          IconButton(
-            onPressed: () async {
-              await AuthService().signOut();
-            },
-            icon: const Icon(Icons.logout),
-          ),
-        ],
-      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),

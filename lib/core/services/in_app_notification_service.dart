@@ -14,32 +14,20 @@ class InAppNotificationItem {
   final DateTime createdAt;
 }
 
-class InAppNotificationService extends ChangeNotifier {
-  final List<InAppNotificationItem> _items = [];
+class InAppNotificationService {
+  static final ValueNotifier<InAppNotificationItem?> notifier =
+      ValueNotifier<InAppNotificationItem?>(null);
 
-  List<InAppNotificationItem> get items => List.unmodifiable(_items);
-
-  void push({
+  Future<void> push({
     required String title,
     required String body,
     required String type,
-  }) {
-    _items.insert(
-      0,
-      InAppNotificationItem(
-        title: title,
-        body: body,
-        type: type,
-        createdAt: DateTime.now(),
-      ),
+  }) async {
+    notifier.value = InAppNotificationItem(
+      title: title,
+      body: body,
+      type: type,
+      createdAt: DateTime.now(),
     );
-    notifyListeners();
   }
-
-  void clear() {
-    _items.clear();
-    notifyListeners();
-  }
-
-  InAppNotificationItem? get latest => _items.isEmpty ? null : _items.first;
 }

@@ -15,6 +15,7 @@ import '../models/request_status.dart';
 import '../models/service_type.dart';
 import '../repositories/request_repository.dart';
 import '../repositories/tracking_repository.dart';
+import '../core/services/in_app_notification_service.dart';
 
 class AppStore extends ChangeNotifier {
   AppStore({
@@ -911,10 +912,10 @@ Future<void> _maybeAutoAdvanceTracking(String requestId) async {
     }
 
     _pushLifecycleNotification(
-      title: 'Mission envoyee',
-      body: 'Demande proposee a ${nextProvider.name}',
-      type: 'offered_provider',
-    );
+     title: 'Mission envoyee',
+     body: 'Une nouvelle proposition de mission a ete envoyee.',
+     type: 'offered_provider',
+     );
     notifyListeners();
 
     _dispatchTimers[requestId] = Timer(const Duration(seconds: 30), () async {
@@ -923,7 +924,7 @@ Future<void> _maybeAutoAdvanceTracking(String requestId) async {
       if (latest.offeredProviderUid != nextProvider!.id) return;
      
      _arrivalHitCounts.remove(requestId);
-     
+
       await _rejectRequestForProvider(
         requestId,
         nextProvider.id,
@@ -1050,12 +1051,12 @@ Future<void> _maybeAutoAdvanceTracking(String requestId) async {
     }
 
     _pushLifecycleNotification(
-      title: fromTimeout ? 'Temps expire' : 'Mission rejetee',
-      body: fromTimeout
-          ? '${provider.name} n a pas repondu. Passage au suivant.'
-          : '${provider.name} a rejete la mission.',
-      type: fromTimeout ? 'timeout' : 'rejected',
-    );
+  title: fromTimeout ? 'Temps expire' : 'Mission retiree',
+  body: fromTimeout
+      ? 'Le delai a expire. Nouvelle attribution en cours.'
+      : 'La mission a ete retiree de votre liste.',
+  type: fromTimeout ? 'timeout' : 'rejected',
+);
 
     await _offerRequestToNextProvider(requestId);
     notifyListeners();

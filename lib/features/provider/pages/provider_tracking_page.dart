@@ -284,9 +284,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Tracking mission'),
-      ),
+      
       body: Column(
         children: [
           Expanded(

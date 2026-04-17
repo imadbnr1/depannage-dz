@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-import '../../../core/services/auth_service.dart';
-import '../../../models/provider_agent.dart';
 import '../../../models/request_status.dart';
 import '../../../models/service_type.dart';
 import '../../../state/app_store.dart';
@@ -118,17 +116,6 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
         : providerPosition;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Provider Dashboard'),
-        actions: [
-          IconButton(
-            onPressed: () async {
-              await AuthService().signOut();
-            },
-            icon: const Icon(Icons.logout),
-          ),
-        ],
-      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
