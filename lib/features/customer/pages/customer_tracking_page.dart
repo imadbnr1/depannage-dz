@@ -1,12 +1,12 @@
-import 'package:depannage_dz_pro_structured/models/request_status.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../shared/pages/chat_page.dart';
 
+import '../../../models/request_status.dart';
 import '../../../state/app_store.dart';
 import '../../../widgets/map_pin.dart';
+import '../../shared/pages/chat_page.dart';
 import 'customer_rate_provider_page.dart';
 
 class CustomerTrackingPage extends StatefulWidget {
@@ -25,6 +25,7 @@ class CustomerTrackingPage extends StatefulWidget {
 
 class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
   final MapController _mapController = MapController();
+
   bool _mapReady = false;
   String? _handledRatingRequestId;
 
@@ -56,6 +57,7 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) => CustomerRateProviderPage(
@@ -71,6 +73,7 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
   Future<void> _callPhone(String phone) async {
     final cleaned = phone.trim();
     if (cleaned.isEmpty) return;
+
     final uri = Uri.parse('tel:$cleaned');
     await launchUrl(uri);
   }
@@ -82,17 +85,39 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
+  Color _statusColor(RequestStatus status) {
+    switch (status) {
+      case RequestStatus.accepted:
+        return Colors.blue;
+      case RequestStatus.onTheWay:
+        return Colors.orange;
+      case RequestStatus.arrived:
+        return Colors.deepOrange;
+      case RequestStatus.inService:
+        return Colors.purple;
+      case RequestStatus.completed:
+        return Colors.green;
+      case RequestStatus.cancelled:
+        return Colors.red;
+      case RequestStatus.searching:
+        return Colors.grey;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final request = widget.store.findRequest(widget.requestId);
 
     if (request == null) {
       return const Scaffold(
-        body: Center(child: Text('Demande introuvable')),
+        body: Center(
+          child: Text('Demande introuvable'),
+        ),
       );
     }
 
-    final providerPosition = request.providerPosition;
+    final providerPosition =
+        request.providerPosition ?? widget.store.providerCurrentPosition;
     final customerPosition = request.customerPosition;
 
     final center = providerPosition == null
@@ -130,8 +155,7 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
                 ),
                 children: [
                   TileLayer(
-                    urlTemplate:
-                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                     userAgentPackageName: 'dz.depannage.customer',
                   ),
                   PolylineLayer(
@@ -176,7 +200,9 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
               decoration: const BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black12,
@@ -199,7 +225,7 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
                   Text(
                     request.status.label,
                     style: TextStyle(
-                      color: request.status.color,
+                      color: _statusColor(request.status),
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -217,43 +243,43 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
                   ],
                   const SizedBox(height: 14),
                   Row(
-  children: [
-    Expanded(
-      child: _ActionSquareButton(
-        icon: Icons.call_outlined,
-        label: 'Appeler',
-        onTap: () => _callPhone(request.providerPhone ?? ''),
-      ),
-    ),
-    const SizedBox(width: 10),
-    Expanded(
-      child: _ActionSquareButton(
-        icon: Icons.chat_bubble_outline,
-        label: 'Chat',
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => ChatPage(
-                requestId: request.id,
-                title: 'Chat provider',
-              ),
-            ),
-          );
-        },
-      ),
-    ),
-    const SizedBox(width: 10),
-    Expanded(
-      child: _ActionSquareButton(
-        icon: Icons.map_outlined,
-        label: 'Maps',
-        onTap: () => _openInGoogleMaps(
-          providerPosition ?? customerPosition,
-        ),
-      ),
-    ),
-  ],
-),
+                    children: [
+                      Expanded(
+                        child: _ActionSquareButton(
+                          icon: Icons.call_outlined,
+                          label: 'Appeler',
+                          onTap: () => _callPhone(request.providerPhone ?? ''),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _ActionSquareButton(
+                          icon: Icons.chat_bubble_outline,
+                          label: 'Chat',
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => ChatPage(
+                                  requestId: request.id,
+                                  title: 'Chat provider',
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _ActionSquareButton(
+                          icon: Icons.map_outlined,
+                          label: 'Maps',
+                          onTap: () => _openInGoogleMaps(
+                            providerPosition ?? customerPosition,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),

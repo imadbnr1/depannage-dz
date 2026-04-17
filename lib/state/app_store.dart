@@ -739,7 +739,6 @@ class AppStore extends ChangeNotifier {
     required String destination,
     required LatLng destinationPosition,
     required String photoHint,
-    required LatLng destinationPosition,
   }) async {
     final currentUser = auth.currentUser;
     if (currentUser == null) {
@@ -753,10 +752,6 @@ class AppStore extends ChangeNotifier {
       throw Exception('La destination est obligatoire.');
     }
 
-    final destinationPosition = _estimateDestinationPosition(
-      customerPosition: customerPosition,
-      destinationText: cleanedDestination,
-    );
 
     final distanceKm = estimateDistanceKm(
       from: customerPosition,
@@ -813,28 +808,7 @@ class AppStore extends ChangeNotifier {
     await _offerRequestToNextProvider(request.id);
     notifyListeners();
   }
-
-  LatLng _estimateDestinationPosition({
-    required LatLng customerPosition,
-    required String destinationText,
-  }) {
-    if (destinationText.isEmpty) {
-      return LatLng(
-        customerPosition.latitude + 0.012,
-        customerPosition.longitude + 0.012,
-      );
-    }
-
-    final hash = destinationText.codeUnits.fold<int>(0, (a, b) => a + b);
-    final latOffset = ((hash % 12) + 6) / 1000;
-    final lngOffset = (((hash ~/ 7) % 12) + 6) / 1000;
-
-    return LatLng(
-      customerPosition.latitude + latOffset,
-      customerPosition.longitude + lngOffset,
-    );
-  }
-
+  
   Future<void> _offerRequestToNextProvider(String requestId) async {
     final current = findRequest(requestId);
     if (current == null || current.status != RequestStatus.searching) return;

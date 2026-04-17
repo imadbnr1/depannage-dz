@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -26,6 +28,7 @@ class _PickDestinationPageState extends State<PickDestinationPage> {
   late final TextEditingController _controller;
   final _searchService = PlaceSearchService();
 
+  Timer? _debounce;
   bool _loading = false;
   List<PlaceSearchResult> _results = [];
 
@@ -33,50 +36,69 @@ class _PickDestinationPageState extends State<PickDestinationPage> {
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.initialText ?? '');
+
+    if (_controller.text.trim().isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _onSearchChanged(_controller.text);
+      });
+    }
   }
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _controller.dispose();
     super.dispose();
   }
 
-  Future<void> _search() async {
-    final query = _controller.text.trim();
-    if (query.isEmpty) return;
+  void _onSearchChanged(String query) {
+    _debounce?.cancel();
 
-    setState(() {
-      _loading = true;
-      _results = [];
-    });
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _results = [];
+          _loading = false;
+        });
+      }
+      return;
+    }
 
-    try {
-      final items = await _searchService.searchPlaces(query);
+    _debounce = Timer(const Duration(milliseconds: 400), () async {
       if (!mounted) return;
 
       setState(() {
-        _results = items;
+        _loading = true;
       });
 
-      if (items.isEmpty) {
+      try {
+        final items = await _searchService.searchPlaces(trimmed);
+
+        if (!mounted) return;
+        setState(() {
+          _results = items;
+        });
+      } catch (e) {
+        if (!mounted) return;
+
+        setState(() {
+          _results = [];
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Aucun resultat trouve. Essayez un autre texte.'),
+          SnackBar(
+            content: Text(
+              e.toString().replaceFirst('Exception: ', ''),
+            ),
           ),
         );
+      } finally {
+        if (mounted) {
+          setState(() => _loading = false);
+        }
       }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString().replaceFirst('Exception: ', '')),
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
-    }
+    });
   }
 
   Future<void> _openMap() async {
@@ -125,23 +147,20 @@ class _PickDestinationPageState extends State<PickDestinationPage> {
             TextField(
               controller: _controller,
               textInputAction: TextInputAction.search,
-              onSubmitted: (_) => _search(),
+              onChanged: _onSearchChanged,
               decoration: InputDecoration(
                 hintText: 'Rechercher une vraie destination',
                 prefixIcon: const Icon(Icons.search),
-                suffixIcon: IconButton(
-                  onPressed: _loading ? null : _search,
-                  icon: _loading
-                      ? const Padding(
-                          padding: EdgeInsets.all(12),
-                          child: SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        )
-                      : const Icon(Icons.arrow_forward),
-                ),
+                suffixIcon: _loading
+                    ? const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : null,
                 filled: true,
                 fillColor: const Color(0xFFF8FAFC),
                 border: OutlineInputBorder(
@@ -173,7 +192,11 @@ class _PickDestinationPageState extends State<PickDestinationPage> {
                 (item) => Card(
                   child: ListTile(
                     leading: const Icon(Icons.place_outlined),
-                    title: Text(item.displayName),
+                    title: Text(
+                      item.displayName,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     subtitle: Text(
                       'Lat ${item.position.latitude.toStringAsFixed(5)} • Lng ${item.position.longitude.toStringAsFixed(5)}',
                     ),
@@ -198,7 +221,7 @@ class _PickDestinationPageState extends State<PickDestinationPage> {
                   title: Text(item),
                   onTap: () {
                     _controller.text = item;
-                    _search();
+                    _onSearchChanged(item);
                   },
                 ),
               ),
