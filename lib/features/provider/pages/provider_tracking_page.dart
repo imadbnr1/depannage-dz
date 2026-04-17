@@ -25,6 +25,7 @@ class ProviderTrackingPage extends StatefulWidget {
 
 class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
   final MapController _mapController = MapController();
+
   bool _mapReady = false;
   String? _handledRatingRequestId;
 
@@ -32,6 +33,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
   void initState() {
     super.initState();
     widget.store.addListener(_onStoreChanged);
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await widget.store.startLiveTracking(widget.requestId);
     });
@@ -39,6 +41,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
 
   @override
   void dispose() {
+    widget.store.stopLiveTracking(widget.requestId);
     widget.store.removeListener(_onStoreChanged);
     super.dispose();
   }
@@ -59,6 +62,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) => ProviderRateClientPage(
@@ -74,6 +78,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
   Future<void> _callPhone(String phone) async {
     final cleaned = phone.trim();
     if (cleaned.isEmpty) return;
+
     final uri = Uri.parse('tel:$cleaned');
     await launchUrl(uri);
   }
@@ -136,7 +141,9 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
 
     if (request == null) {
       return const Scaffold(
-        body: Center(child: Text('Mission introuvable')),
+        body: Center(
+          child: Text('Mission introuvable'),
+        ),
       );
     }
 
@@ -179,8 +186,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
                 ),
                 children: [
                   TileLayer(
-                    urlTemplate:
-                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                     userAgentPackageName: 'dz.depannage.provider',
                   ),
                   PolylineLayer(
@@ -225,7 +231,9 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
               decoration: const BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black12,
