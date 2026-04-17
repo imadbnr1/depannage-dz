@@ -281,7 +281,7 @@ class _AdminOverviewPage extends StatelessWidget {
                             label: 'Validation providers',
                             value: '$pendingProviders en attente',
                           ),
-                          _QuickInfoRow(
+                          const _QuickInfoRow(
                             label: 'Suivi support',
                             value: 'Gerable depuis l onglet Support',
                           ),

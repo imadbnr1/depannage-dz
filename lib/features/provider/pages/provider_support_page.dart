@@ -63,23 +63,23 @@ class ProviderSupportPage extends StatelessWidget {
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(color: const Color(0xFFE5E7EB)),
                 ),
-                child: Column(
+                child: const Column(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.support_agent,
                       size: 56,
                       color: Color(0xFF059669),
                     ),
-                    const SizedBox(height: 12),
-                    const Text(
+                    SizedBox(height: 12),
+                    Text(
                       'Support provider',
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    const Text(
+                    SizedBox(height: 8),
+                    Text(
                       'Contactez l administration en cas de besoin.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.black54),

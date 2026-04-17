@@ -1,0 +1,66 @@
+STEP 2 - app_store.dart changes for real dispatch
+
+1) In _offerRequestToNextProvider(String requestId)
+   Replace the manual copyWith/updateRequest block with:
+
+      final offered = await requestRepository.offerRequestToProvider(
+        requestId: requestId,
+        providerUid: nextProvider.id,
+      );
+
+      if (!offered) {
+        await _offerRequestToNextProvider(requestId);
+        return;
+      }
+
+   Keep the notification push after that.
+
+2) In acceptRequest(String requestId)
+   Replace the manual updateRequest(current.copyWith(...)) block with:
+
+      final accepted = await requestRepository.acceptOfferedRequest(
+        requestId: requestId,
+        providerUid: provider.id,
+        providerName: provider.name,
+        providerPhone: provider.phone,
+        providerVehicle: provider.vehicleType,
+        providerPlate: provider.plate,
+        providerPosition: providerStart,
+      );
+
+      if (!accepted) {
+        _pushLifecycleNotification(
+          title: 'Mission indisponible',
+          body: 'Cette mission a deja ete prise ou n est plus disponible',
+          type: 'request_locked',
+        );
+        notifyListeners();
+        return;
+      }
+
+3) In _rejectRequestForProvider(...)
+   Replace the manual reset current.copyWith(...)/updateRequest(...) block with:
+
+      final rejectedOk = await requestRepository.rejectOfferedRequest(
+        requestId: requestId,
+        providerUid: provider.id,
+      );
+
+      if (!rejectedOk) {
+        notifyListeners();
+        return;
+      }
+
+   Keep the rest: busy false, clear tracking, notification, offer next.
+
+4) In updateProviderOnlineStatus(...)
+   When a provider goes offline and has an offered request, use:
+
+      await requestRepository.rejectOfferedRequest(
+        requestId: request.id,
+        providerUid: providerId,
+      );
+
+   instead of manual updateRequest(reset).
+
+5) Do NOT reintroduce _startMovement(...). Real provider position now comes only from GPS/startLiveTracking().

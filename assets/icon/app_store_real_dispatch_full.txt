@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../core/services/in_app_notification_service.dart';
@@ -52,8 +51,8 @@ class AppStore extends ChangeNotifier {
 
   final List<String> notifications = [];
   final List<String> savedAddresses = [
-    'Maison · Park a forage , Batna',
-    'Travail · Bouzouran , Batna',
+    'Maison · Alger Centre',
+    'Travail · Bab Ezzouar',
   ];
   final List<String> savedVehicles = [];
 
@@ -78,7 +77,7 @@ class AppStore extends ChangeNotifier {
   final Set<String> _seenAdminNotificationIds = {};
 
   final Map<String, Timer> _dispatchTimers = {};
-  final Map<String, StreamSubscription<Position>> _liveTrackingSubs = {};
+  final Map<String, Timer> _liveGpsTimers = {};
 
   void bootstrap() {
     _requestsSub = requestRepository.watchRequests().listen((items) {
@@ -171,7 +170,6 @@ class AppStore extends ChangeNotifier {
 
           final map = doc.data();
           final targetRole = (map['targetRole'] ?? 'all').toString();
-
           final allowed =
               targetRole == 'all' || targetRole == currentUserRoleName;
 
@@ -203,11 +201,11 @@ class AppStore extends ChangeNotifier {
 
   ProviderAgent get selectedProvider =>
       selectedProviderOrNull ??
-      const ProviderAgent(
+      ProviderAgent(
         id: 'temp',
         name: 'Provider',
         phone: '',
-        position: LatLng(36.7538, 3.0588),
+        position: const LatLng(36.7538, 3.0588),
         isOnline: false,
         isBusy: false,
         rating: 5.0,
@@ -302,39 +300,6 @@ class AppStore extends ChangeNotifier {
     return findProviderById(offeredUid)?.name;
   }
 
-  List<ProviderAgent> eligibleProvidersSortedByDistance(
-    LatLng customerPosition, {
-    String? requestId,
-  }) {
-    final current = requestId == null ? null : findRequest(requestId);
-    final rejected = current?.rejectedProviderUids ?? const <String>[];
-
-    final eligible = providers.where((p) {
-      return p.isOnline &&
-          !p.isBusy &&
-          p.isVerified &&
-          !rejected.contains(p.id);
-    }).toList();
-
-    const distance = Distance();
-
-    eligible.sort((a, b) {
-      final da = distance.as(
-        LengthUnit.Kilometer,
-        customerPosition,
-        a.position,
-      );
-      final db = distance.as(
-        LengthUnit.Kilometer,
-        customerPosition,
-        b.position,
-      );
-      return da.compareTo(db);
-    });
-
-    return eligible;
-  }
-
   Future<void> updateProviderOnlineStatus(
     String providerId,
     bool isOnline,
@@ -357,6 +322,7 @@ class AppStore extends ChangeNotifier {
           requestId: request.id,
           providerUid: providerId,
         );
+
         await _offerRequestToNextProvider(request.id);
       }
     }
@@ -387,167 +353,117 @@ class AppStore extends ChangeNotifier {
     }
   }
 
-  Future<void> startLiveTracking(String requestId) async {
-    final request = findRequest(requestId);
-    if (request == null) return;
-
-    final stillActive = request.status == RequestStatus.accepted ||
-        request.status == RequestStatus.onTheWay ||
-        request.status == RequestStatus.arrived ||
-        request.status == RequestStatus.inService;
-
-    if (!stillActive) return;
-
-    if (_liveTrackingSubs.containsKey(requestId)) {
-      return;
-    }
-
-    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      debugPrint('Location services are disabled');
-      return;
-    }
-
-    var permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
-
-    if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) {
-      debugPrint('Location permission not granted');
-      return;
-    }
-
-    const locationSettings = LocationSettings(
-      accuracy: LocationAccuracy.high,
-      distanceFilter: 10,
-    );
-
-    final sub = Geolocator.getPositionStream(
-      locationSettings: locationSettings,
-    ).listen(
-      (Position position) async {
-        try {
-          final latest = findRequest(requestId);
-          if (latest == null) {
-            await stopLiveTracking(requestId);
-            return;
-          }
-
-          final stillActiveNow = latest.status == RequestStatus.accepted ||
-              latest.status == RequestStatus.onTheWay ||
-              latest.status == RequestStatus.arrived ||
-              latest.status == RequestStatus.inService;
-
-          if (!stillActiveNow) {
-            await stopLiveTracking(requestId);
-            return;
-          }
-
-          final providerLatLng = LatLng(position.latitude, position.longitude);
-
-          final nextStatus = latest.status == RequestStatus.accepted
-              ? RequestStatus.onTheWay
-              : latest.status;
-
-          final updatedRequest = latest.copyWith(
-            status: nextStatus,
-            providerPosition: providerLatLng,
-          );
-
-          await requestRepository.updateRequest(requestId, updatedRequest);
-
-          await trackingRepository.setTracking(
-            TrackingSnapshot(
-              requestId: requestId,
-              customerPosition: updatedRequest.customerPosition,
-              providerPosition: providerLatLng,
-            ),
-          );
-
-          if ((updatedRequest.providerUid ?? '').isNotEmpty) {
-            await updateProviderPosition(
-              updatedRequest.providerUid!,
-              providerLatLng,
-            );
-          }
-
-          final distanceMeters = Geolocator.distanceBetween(
-            providerLatLng.latitude,
-            providerLatLng.longitude,
-            updatedRequest.customerPosition.latitude,
-            updatedRequest.customerPosition.longitude,
-          );
-
-          if (distanceMeters <= 50 &&
-              updatedRequest.status == RequestStatus.onTheWay) {
-            final arrivedRequest = updatedRequest.copyWith(
-              status: RequestStatus.arrived,
-            );
-
-            await requestRepository.updateRequest(requestId, arrivedRequest);
-
-            await trackingRepository.setTracking(
-              TrackingSnapshot(
-                requestId: requestId,
-                customerPosition: arrivedRequest.customerPosition,
-                providerPosition: providerLatLng,
-              ),
-            );
-          }
-
-          notifyListeners();
-        } catch (e) {
-          debugPrint('Live tracking error for $requestId: $e');
-        }
-      },
-      onError: (error) {
-        debugPrint('Position stream error for $requestId: $error');
-      },
-    );
-
-    _liveTrackingSubs[requestId] = sub;
-  }
-
-  Future<void> stopLiveTracking(String requestId) async {
-    await _liveTrackingSubs[requestId]?.cancel();
-    _liveTrackingSubs.remove(requestId);
-  }
-
-  ProviderAgent? findNearestAvailableProvider(
+  List<ProviderAgent> eligibleProvidersSortedByDistance(
     LatLng customerPosition, {
     String? requestId,
   }) {
     final current = requestId == null ? null : findRequest(requestId);
     final rejected = current?.rejectedProviderUids ?? const <String>[];
 
-    final available = providers.where((p) {
+    final eligible = providers.where((p) {
       return p.isOnline &&
           !p.isBusy &&
           p.isVerified &&
           !rejected.contains(p.id);
     }).toList();
 
-    if (available.isEmpty) return null;
+    final distance = const Distance();
 
-    const distance = Distance();
-
-    available.sort((a, b) {
+    eligible.sort((a, b) {
       final da = distance.as(
         LengthUnit.Kilometer,
-        a.position,
         customerPosition,
+        a.position,
       );
       final db = distance.as(
         LengthUnit.Kilometer,
-        b.position,
         customerPosition,
+        b.position,
       );
       return da.compareTo(db);
     });
 
-    return available.first;
+    return eligible;
+  }
+
+  Future<void> startLiveTracking(String requestId) async {
+    _liveGpsTimers[requestId]?.cancel();
+
+    _liveGpsTimers[requestId] =
+        Timer.periodic(const Duration(seconds: 3), (timer) async {
+      final request = findRequest(requestId);
+      if (request == null) {
+        timer.cancel();
+        _liveGpsTimers.remove(requestId);
+        return;
+      }
+
+      final stillActive = request.status == RequestStatus.accepted ||
+          request.status == RequestStatus.onTheWay ||
+          request.status == RequestStatus.arrived ||
+          request.status == RequestStatus.inService;
+
+      if (!stillActive) {
+        timer.cancel();
+        _liveGpsTimers.remove(requestId);
+        return;
+      }
+
+      try {
+        final result = await locationService.getCurrentPosition(
+          fallback: providerCurrentPosition ??
+              selectedProviderOrNull?.position ??
+              request.customerPosition,
+          successMessage: 'Position provider active',
+          deniedMessage: 'Permission provider refusee',
+          disabledMessage: 'GPS provider desactive',
+          errorMessage: 'GPS provider indisponible',
+        );
+
+        final newPosition = result.position;
+        providerCurrentPosition = newPosition;
+
+        final providerId = auth.currentUser?.uid;
+        if (providerId != null) {
+          await updateProviderPosition(providerId, newPosition);
+        }
+
+        final latest = findRequest(requestId);
+        if (latest != null) {
+          await requestRepository.updateRequest(
+            requestId,
+            latest.copyWith(providerPosition: newPosition),
+          );
+
+          await trackingRepository.setTracking(
+            TrackingSnapshot(
+              requestId: requestId,
+              customerPosition: latest.customerPosition,
+              providerPosition: newPosition,
+            ),
+          );
+        }
+
+        notifyListeners();
+      } catch (_) {}
+    });
+  }
+
+  void stopLiveTracking(String requestId) {
+    _liveGpsTimers[requestId]?.cancel();
+    _liveGpsTimers.remove(requestId);
+  }
+
+  ProviderAgent? findNearestAvailableProvider(
+    LatLng customerPosition, {
+    String? requestId,
+  }) {
+    final sorted = eligibleProvidersSortedByDistance(
+      customerPosition,
+      requestId: requestId,
+    );
+    if (sorted.isEmpty) return null;
+    return sorted.first;
   }
 
   TrackingSnapshot? trackingFor(String requestId) {
@@ -838,17 +754,18 @@ class AppStore extends ChangeNotifier {
     if (current == null || current.status != RequestStatus.searching) return;
 
     _dispatchTimers[requestId]?.cancel();
-    _dispatchTimers.remove(requestId);
 
-    final candidates = eligibleProvidersSortedByDistance(
+    final nextProvider = findNearestAvailableProvider(
       current.customerPosition,
       requestId: requestId,
     );
 
-    if (candidates.isEmpty) {
+    if (nextProvider == null) {
       await requestRepository.updateRequest(
         requestId,
-        current.copyWith(offeredProviderUid: null),
+        current.copyWith(
+          offeredProviderUid: null,
+        ),
       );
 
       _pushLifecycleNotification(
@@ -860,21 +777,24 @@ class AppStore extends ChangeNotifier {
       return;
     }
 
-    ProviderAgent? nextProvider;
-    for (final candidate in candidates) {
-      final offered = await requestRepository.offerRequestToProvider(
-        requestId: requestId,
-        providerUid: candidate.id,
+    if (!nextProvider.isOnline || nextProvider.isBusy || !nextProvider.isVerified) {
+      await requestRepository.updateRequest(
+        requestId,
+        current.copyWith(
+          offeredProviderUid: null,
+        ),
       );
-
-      if (offered) {
-        nextProvider = candidate;
-        break;
-      }
+      notifyListeners();
+      return;
     }
 
-    if (nextProvider == null) {
-      Future.microtask(() => _offerRequestToNextProvider(requestId));
+    final offered = await requestRepository.offerRequestToProvider(
+      requestId: requestId,
+      providerUid: nextProvider.id,
+    );
+
+    if (!offered) {
+      await _offerRequestToNextProvider(requestId);
       return;
     }
 
@@ -888,7 +808,17 @@ class AppStore extends ChangeNotifier {
     _dispatchTimers[requestId] = Timer(const Duration(seconds: 30), () async {
       final latest = findRequest(requestId);
       if (latest == null || latest.status != RequestStatus.searching) return;
-      if (latest.offeredProviderUid != nextProvider!.id) return;
+      if (latest.offeredProviderUid != nextProvider.id) return;
+
+      final providerNow = findProviderById(nextProvider.id);
+      if (providerNow == null || !providerNow.isOnline || providerNow.isBusy) {
+        await _rejectRequestForProvider(
+          requestId,
+          nextProvider.id,
+          fromTimeout: true,
+        );
+        return;
+      }
 
       await _rejectRequestForProvider(
         requestId,
@@ -1002,7 +932,8 @@ class AppStore extends ChangeNotifier {
     _dispatchTimers[requestId]?.cancel();
     _dispatchTimers.remove(requestId);
 
-    await stopLiveTracking(requestId);
+    stopLiveTracking(requestId);
+
     await trackingRepository.clearTracking(requestId);
 
     final rejectedOk = await requestRepository.rejectOfferedRequest(
@@ -1089,9 +1020,9 @@ class AppStore extends ChangeNotifier {
         _dispatchTimers[requestId]?.cancel();
         _dispatchTimers.remove(requestId);
 
-        await stopLiveTracking(requestId);
-        await trackingRepository.clearTracking(requestId);
+        stopLiveTracking(requestId);
 
+        await trackingRepository.clearTracking(requestId);
         _pushLifecycleNotification(
           title: 'Mission terminee',
           body: 'Votre mission a ete completee avec succes',
@@ -1111,7 +1042,7 @@ class AppStore extends ChangeNotifier {
     _dispatchTimers[requestId]?.cancel();
     _dispatchTimers.remove(requestId);
 
-    await stopLiveTracking(requestId);
+    stopLiveTracking(requestId);
 
     await requestRepository.updateRequest(
       requestId,
@@ -1209,12 +1140,9 @@ class AppStore extends ChangeNotifier {
     for (final timer in _dispatchTimers.values) {
       timer.cancel();
     }
-    _dispatchTimers.clear();
-
-    for (final sub in _liveTrackingSubs.values) {
-      sub.cancel();
+    for (final timer in _liveGpsTimers.values) {
+      timer.cancel();
     }
-    _liveTrackingSubs.clear();
 
     super.dispose();
   }

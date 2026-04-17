@@ -268,7 +268,7 @@ class _CustomerShellPageState extends State<CustomerShellPage> {
       const CustomerSupportPage(),
     ];
 
-    final titles = const [
+    const titles = [
       'Accueil',
       'Demandes',
       'Profil',

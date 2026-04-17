@@ -1,0 +1,45 @@
+// ADD THIS METHOD INSIDE AppStore CLASS
+
+List<ProviderAgent> eligibleProvidersSortedByDistance(
+  LatLng customerPosition, {
+  String? requestId,
+}) {
+  final current = requestId == null ? null : findRequest(requestId);
+  final rejected = current?.rejectedProviderUids ?? const <String>[];
+
+  final eligible = providers.where((p) {
+    return p.isOnline &&
+        !p.isBusy &&
+        p.isVerified &&
+        !rejected.contains(p.id);
+  }).toList();
+
+  final distance = const Distance();
+
+  eligible.sort((a, b) {
+    final da = distance.as(
+      LengthUnit.Kilometer,
+      customerPosition,
+      a.position,
+    );
+    final db = distance.as(
+      LengthUnit.Kilometer,
+      customerPosition,
+      b.position,
+    );
+    return da.compareTo(db);
+  });
+
+  return eligible;
+}
+
+// ALSO UPDATE CALL TO:
+
+// BEFORE:
+// eligibleProvidersSortedByDistance(customerPosition)
+
+// AFTER:
+eligibleProvidersSortedByDistance(
+  customerPosition,
+  requestId: requestId,
+);

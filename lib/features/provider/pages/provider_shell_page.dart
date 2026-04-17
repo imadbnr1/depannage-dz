@@ -211,11 +211,11 @@ class _ProviderShellPageState extends State<ProviderShellPage> {
       ProviderDashboardPage(store: widget.store),
       ProviderRequestsPage(store: widget.store),
       ProviderHistoryPage(store: widget.store),
-      ProviderProfilePage(),
+      const ProviderProfilePage(),
       const ProviderSupportPage(),
     ];
 
-    final titles = const [
+    const titles = [
       'Dashboard',
       'Missions',
       'Historique',
@@ -395,9 +395,9 @@ class _MissionOfferDialogState extends State<_MissionOfferDialog> {
         titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
         contentPadding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
         actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        title: Row(
+        title: const Row(
           children: [
-            const CircleAvatar(
+            CircleAvatar(
               radius: 22,
               backgroundColor: Color(0xFFEFF6FF),
               child: Icon(
@@ -405,8 +405,8 @@ class _MissionOfferDialogState extends State<_MissionOfferDialog> {
                 color: Color(0xFF2563EB),
               ),
             ),
-            const SizedBox(width: 12),
-            const Expanded(
+            SizedBox(width: 12),
+            Expanded(
               child: Text(
                 'Nouvelle mission',
                 style: TextStyle(

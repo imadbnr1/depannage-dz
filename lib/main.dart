@@ -6,7 +6,6 @@ import 'features/auth/pages/auth_gate.dart';
 import 'features/shared/pages/onboarding_page.dart';
 import 'features/shared/pages/splash_page.dart';
 import 'firebase_options.dart';
-import 'package:flutter/foundation.dart';
 import 'repositories/firestore_request_repository.dart';
 import 'repositories/firestore_tracking_repository.dart';
 import 'state/app_store.dart';
