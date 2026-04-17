@@ -737,7 +737,9 @@ class AppStore extends ChangeNotifier {
     required String issueDescription,
     required String urgency,
     required String destination,
+    required LatLng destinationPosition,
     required String photoHint,
+    required LatLng destinationPosition,
   }) async {
     final currentUser = auth.currentUser;
     if (currentUser == null) {

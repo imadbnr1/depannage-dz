@@ -142,20 +142,25 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
     setState(() => _isSubmitting = true);
 
     try {
-      await widget.store.createRequest(
-        service: widget.service,
-        customerPosition: _customerPosition,
-        pickupLabel: _pickupLabelController.text.trim(),
-        pickupSubtitle: 'Position client',
-        vehicleType: _vehicleTypeController.text.trim(),
-        brandModel: _brandModelController.text.trim(),
-        payment: _payment,
-        landmark: _landmarkController.text.trim(),
-        issueDescription: _issueDescriptionController.text.trim(),
-        urgency: _urgency,
-        destination: _destinationController.text.trim(),
-        photoHint: '',
-      );
+      final destinationPosition =
+    _selectedDestinationPoint ??
+    _fallbackDestinationFromText(_destinationController.text);
+
+await widget.store.createRequest(
+  service: widget.service,
+  customerPosition: _customerPosition,
+  pickupLabel: _pickupLabelController.text.trim(),
+  pickupSubtitle: 'Position client',
+  vehicleType: _vehicleTypeController.text.trim(),
+  brandModel: _brandModelController.text.trim(),
+  payment: _payment,
+  landmark: _landmarkController.text.trim(),
+  issueDescription: _issueDescriptionController.text.trim(),
+  urgency: _urgency,
+  destination: _destinationController.text.trim(),
+  destinationPosition: destinationPosition, // ✅ NEW
+  photoHint: '',
+);
 
       final latest =
           widget.store.requests.isNotEmpty ? widget.store.requests.first : null;

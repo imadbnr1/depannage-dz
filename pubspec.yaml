@@ -8,7 +8,8 @@ environment:
 
 dependencies:
   flutter:
-    sdk: flutter
+    sdk: flutter  
+  http: ^1.2.0
 
   flutter_map: ^7.0.2
   latlong2: ^0.9.1
