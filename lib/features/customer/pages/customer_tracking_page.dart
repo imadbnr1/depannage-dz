@@ -1,13 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/services/routing_service.dart';
 import '../../../models/request_status.dart';
 import '../../../state/app_store.dart';
-import '../../../widgets/map_pin.dart';
-import '../../shared/pages/chat_page.dart';
-import 'customer_rate_provider_page.dart';
 
 class CustomerTrackingPage extends StatefulWidget {
   const CustomerTrackingPage({
@@ -25,257 +25,298 @@ class CustomerTrackingPage extends StatefulWidget {
 
 class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
   final MapController _mapController = MapController();
+  final RoutingService _routingService = RoutingService();
 
-  bool _mapReady = false;
-  String? _handledRatingRequestId;
+  StreamSubscription? _trackingSub;
+  Timer? _routeTimer;
+
+  List<LatLng> _routePoints = [];
+  bool _loadingRoute = false;
 
   @override
   void initState() {
     super.initState();
-    widget.store.addListener(_onStoreChanged);
+
+    _trackingSub = widget.store.watchTracking(widget.requestId).listen((_) {
+      if (!mounted) return;
+      _scheduleRouteUpdate();
+      setState(() {});
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scheduleRouteUpdate();
+    });
   }
 
   @override
   void dispose() {
-    widget.store.removeListener(_onStoreChanged);
+    _trackingSub?.cancel();
+    _routeTimer?.cancel();
     super.dispose();
   }
 
-  void _onStoreChanged() {
-    if (!mounted) return;
-    _checkForcedRating();
-    setState(() {});
+  void _scheduleRouteUpdate() {
+    _routeTimer?.cancel();
+    _routeTimer = Timer(const Duration(seconds: 2), _loadRoute);
   }
 
-  void _checkForcedRating() {
+  Future<void> _loadRoute() async {
     final request = widget.store.findRequest(widget.requestId);
     if (request == null) return;
-    if (!request.canClientRate) return;
-    if (_handledRatingRequestId == request.id) return;
 
-    _handledRatingRequestId = request.id;
+    final tracking = widget.store.trackingFor(widget.requestId);
+    final providerPosition = tracking?.providerPosition ?? request.providerPosition;
+    final customerPosition = tracking?.customerPosition ?? request.customerPosition;
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (providerPosition == null) return;
+
+    setState(() => _loadingRoute = true);
+
+    try {
+      final route = await _routingService.getRoute(
+        providerPosition,
+        customerPosition,
+      );
+
       if (!mounted) return;
 
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => CustomerRateProviderPage(
-            store: widget.store,
-            requestId: request.id,
-            forceMode: true,
-          ),
-        ),
-      );
-    });
+      setState(() {
+        _routePoints = route.isEmpty
+            ? [providerPosition, customerPosition]
+            : route;
+      });
+
+      _fitRoute(providerPosition, customerPosition);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _routePoints = [providerPosition, customerPosition];
+      });
+      _fitRoute(providerPosition, customerPosition);
+    } finally {
+      if (mounted) {
+        setState(() => _loadingRoute = false);
+      }
+    }
   }
 
-  Future<void> _callPhone(String phone) async {
-    final cleaned = phone.trim();
-    if (cleaned.isEmpty) return;
+  void _fitRoute(LatLng a, LatLng b) {
+    final bounds = LatLngBounds.fromPoints([a, b]);
+    _mapController.fitCamera(
+      CameraFit.bounds(
+        bounds: bounds,
+        padding: const EdgeInsets.all(48),
+      ),
+    );
+  }
 
-    final uri = Uri.parse('tel:$cleaned');
+  String _statusLabel(RequestStatus status) {
+    switch (status) {
+      case RequestStatus.searching:
+        return 'Recherche provider';
+      case RequestStatus.accepted:
+        return 'Mission acceptee';
+      case RequestStatus.onTheWay:
+        return 'En route';
+      case RequestStatus.arrived:
+        return 'Provider arrive';
+      case RequestStatus.inService:
+        return 'Service en cours';
+      case RequestStatus.completed:
+        return 'Mission terminee';
+      case RequestStatus.cancelled:
+        return 'Mission annulee';
+    }
+  }
+
+  Color _statusColor(RequestStatus status) {
+    switch (status) {
+      case RequestStatus.searching:
+        return Colors.orange;
+      case RequestStatus.accepted:
+        return Colors.blue;
+      case RequestStatus.onTheWay:
+        return Colors.orange;
+      case RequestStatus.arrived:
+        return Colors.green;
+      case RequestStatus.inService:
+        return Colors.teal;
+      case RequestStatus.completed:
+        return Colors.green;
+      case RequestStatus.cancelled:
+        return Colors.red;
+    }
+  }
+
+  Future<void> _callProvider(String phone) async {
+    final uri = Uri.parse('tel:$phone');
     await launchUrl(uri);
   }
 
-  Future<void> _openInGoogleMaps(LatLng point) async {
+  Future<void> _openMaps(LatLng point) async {
     final uri = Uri.parse(
       'https://www.google.com/maps/search/?api=1&query=${point.latitude},${point.longitude}',
     );
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
-  Color _statusColor(RequestStatus status) {
-    switch (status) {
-      case RequestStatus.accepted:
-        return Colors.blue;
-      case RequestStatus.onTheWay:
-        return Colors.orange;
-      case RequestStatus.arrived:
-        return Colors.deepOrange;
-      case RequestStatus.inService:
-        return Colors.purple;
-      case RequestStatus.completed:
-        return Colors.green;
-      case RequestStatus.cancelled:
-        return Colors.red;
-      case RequestStatus.searching:
-        return Colors.grey;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final request = widget.store.findRequest(widget.requestId);
-
     if (request == null) {
       return const Scaffold(
-        body: Center(
-          child: Text('Demande introuvable'),
+        body: Center(child: Text('Mission introuvable')),
+      );
+    }
+
+    final tracking = widget.store.trackingFor(widget.requestId);
+    final customerPosition = tracking?.customerPosition ?? request.customerPosition;
+    final providerPosition = tracking?.providerPosition ?? request.providerPosition;
+
+    final markers = <Marker>[
+      Marker(
+        point: customerPosition,
+        width: 110,
+        height: 80,
+        child: const _PinnedMarker(
+          label: 'Client',
+          icon: Icons.place,
+          color: Colors.red,
+        ),
+      ),
+    ];
+
+    if (providerPosition != null) {
+      markers.add(
+        Marker(
+          point: providerPosition,
+          width: 120,
+          height: 80,
+          child: const _PinnedMarker(
+            label: 'Provider',
+            icon: Icons.local_shipping,
+            color: Colors.blue,
+          ),
         ),
       );
     }
 
-    final providerPosition =
-        request.providerPosition ?? widget.store.providerCurrentPosition;
-    final customerPosition = request.customerPosition;
-
-    final center = providerPosition == null
-        ? customerPosition
-        : LatLng(
-            (providerPosition.latitude + customerPosition.latitude) / 2,
-            (providerPosition.longitude + customerPosition.longitude) / 2,
-          );
-
-    if (_mapReady) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        try {
-          _mapController.move(center, 13.5);
-        } catch (_) {}
-      });
-    }
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Suivi mission'),
+        title: const Text('Tracking mission'),
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: FlutterMap(
-                mapController: _mapController,
-                options: MapOptions(
-                  initialCenter: center,
-                  initialZoom: 13.5,
-                  onMapReady: () {
-                    _mapReady = true;
-                  },
+      body: Column(
+        children: [
+          Expanded(
+            flex: 5,
+            child: FlutterMap(
+              mapController: _mapController,
+              options: MapOptions(
+                initialCenter: customerPosition,
+                initialZoom: 13,
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'dz.depannage.customer',
                 ),
-                children: [
-                  TileLayer(
-                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    userAgentPackageName: 'dz.depannage.customer',
-                  ),
+                if (_routePoints.isNotEmpty)
                   PolylineLayer(
                     polylines: [
-                      if (providerPosition != null)
-                        Polyline(
-                          points: [providerPosition, customerPosition],
-                          strokeWidth: 4,
-                          color: Colors.green,
-                        ),
-                    ],
-                  ),
-                  MarkerLayer(
-                    markers: [
-                      Marker(
-                        point: customerPosition,
-                        width: 74,
-                        height: 74,
-                        child: const MapPin(
-                          label: 'Vous',
-                          icon: Icons.place,
-                          color: Colors.red,
-                        ),
+                      Polyline(
+                        points: _routePoints,
+                        strokeWidth: 5,
+                        color: Colors.green,
                       ),
-                      if (providerPosition != null)
-                        Marker(
-                          point: providerPosition,
-                          width: 74,
-                          height: 74,
-                          child: const MapPin(
-                            label: 'Provider',
-                            icon: Icons.local_shipping,
-                            color: Colors.blue,
-                          ),
-                        ),
                     ],
                   ),
-                ],
-              ),
+                MarkerLayer(markers: markers),
+              ],
             ),
-            Container(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
+          ),
+          Expanded(
+            flex: 4,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
               decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(
-                  top: Radius.circular(24),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 12,
-                    offset: Offset(0, -4),
-                  ),
-                ],
+                color: Color(0xFFF3F4F6),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    request.providerName ?? 'Provider',
+                    request.providerName ?? request.customerName,
                     style: const TextStyle(
+                      fontSize: 18,
                       fontWeight: FontWeight.w900,
-                      fontSize: 20,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   Text(
-                    request.status.label,
+                    _statusLabel(request.status),
                     style: TextStyle(
                       color: _statusColor(request.status),
                       fontWeight: FontWeight.w800,
+                      fontSize: 15,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   Text(
                     request.landmark,
-                    style: const TextStyle(color: Colors.black54),
+                    style: const TextStyle(
+                      color: Colors.black54,
+                      fontSize: 14,
+                    ),
                   ),
-                  if (request.destination.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      'Destination: ${request.destination}',
-                      style: const TextStyle(color: Colors.black54),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Destination: ${request.destination}',
+                    style: const TextStyle(
+                      color: Colors.black54,
+                      fontSize: 14,
+                    ),
+                  ),
+                  if (_loadingRoute) ...[
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Calcul de l itineraire...',
+                      style: TextStyle(fontSize: 12, color: Colors.black45),
                     ),
                   ],
-                  const SizedBox(height: 14),
+                  const Spacer(),
                   Row(
                     children: [
                       Expanded(
-                        child: _ActionSquareButton(
-                          icon: Icons.call_outlined,
-                          label: 'Appeler',
-                          onTap: () => _callPhone(request.providerPhone ?? ''),
+                        child: OutlinedButton.icon(
+                          onPressed: (request.providerPhone ?? '').trim().isEmpty
+                              ? null
+                              : () => _callProvider(request.providerPhone!),
+                          icon: const Icon(Icons.phone_outlined),
+                          label: const Text('Appeler'),
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 12),
                       Expanded(
-                        child: _ActionSquareButton(
-                          icon: Icons.chat_bubble_outline,
-                          label: 'Chat',
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => ChatPage(
-                                  requestId: request.id,
-                                  title: 'Chat provider',
-                                ),
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Le chat est gere dans la page chat.'),
                               ),
                             );
                           },
+                          icon: const Icon(Icons.chat_bubble_outline),
+                          label: const Text('Chat'),
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 12),
                       Expanded(
-                        child: _ActionSquareButton(
-                          icon: Icons.map_outlined,
-                          label: 'Maps',
-                          onTap: () => _openInGoogleMaps(
-                            providerPosition ?? customerPosition,
-                          ),
+                        child: OutlinedButton.icon(
+                          onPressed: () => _openMaps(customerPosition),
+                          icon: const Icon(Icons.map_outlined),
+                          label: const Text('Maps'),
                         ),
                       ),
                     ],
@@ -283,45 +324,54 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _ActionSquareButton extends StatelessWidget {
-  const _ActionSquareButton({
-    required this.icon,
+class _PinnedMarker extends StatelessWidget {
+  const _PinnedMarker({
     required this.label,
-    required this.onTap,
+    required this.icon,
+    required this.color,
   });
 
-  final IconData icon;
   final String label;
-  final VoidCallback onTap;
+  final IconData icon;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return OutlinedButton(
-      onPressed: onTap,
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 12),
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(999),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black12,
+                blurRadius: 8,
+              ),
+            ],
           ),
-        ],
-      ),
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Icon(
+          icon,
+          color: color,
+          size: 34,
+        ),
+      ],
     );
   }
 }
