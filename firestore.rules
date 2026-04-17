@@ -6,27 +6,28 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function currentUserDoc() {
+    function userDoc() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
     function isAdmin() {
-      return isSignedIn() &&
-        currentUserDoc().data.role == 'admin';
+      return isSignedIn() && userDoc().data.role == 'admin';
     }
 
     function isCustomer() {
-      return isSignedIn() &&
-        currentUserDoc().data.role == 'customer';
+      return isSignedIn() && userDoc().data.role == 'customer';
     }
 
     function isProvider() {
-      return isSignedIn() &&
-        currentUserDoc().data.role == 'provider';
+      return isSignedIn() && userDoc().data.role == 'provider';
     }
 
-    function requestDoc(requestId) {
-      return get(/databases/$(database)/documents/requests/$(requestId));
+    function isOwner(uid) {
+      return request.auth.uid == uid;
+    }
+
+    function requestDoc(id) {
+      return get(/databases/$(database)/documents/requests/$(id));
     }
 
     function canReadRequest(data) {
@@ -38,47 +39,62 @@ service cloud.firestore {
         ));
     }
 
+    // USERS
     match /users/{userId} {
-      allow read: if isSignedIn() && (
-        request.auth.uid == userId || isAdmin()
-      );
-      allow create: if isSignedIn() && request.auth.uid == userId;
-      allow update: if isSignedIn() && (
-        request.auth.uid == userId || isAdmin()
-      );
+      allow read: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && (isOwner(userId) || isAdmin());
       allow delete: if isAdmin();
     }
 
+    // PROVIDERS
     match /providers/{providerId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && (
-        request.auth.uid == providerId || isAdmin()
-      );
-      allow update: if isSignedIn() && (
-        request.auth.uid == providerId || isAdmin()
-      );
+      allow create: if isSignedIn() && (isOwner(providerId) || isAdmin());
+      allow update: if isSignedIn() && (isOwner(providerId) || isAdmin());
       allow delete: if isAdmin();
     }
 
+    // REQUESTS (CRITICAL)
     match /requests/{requestId} {
+
       allow read: if isSignedIn() && canReadRequest(resource.data);
 
+      // only customer creates request
       allow create: if isCustomer() &&
         request.resource.data.customerUid == request.auth.uid;
 
+      // UPDATE RULES
       allow update: if isSignedIn() && (
-        isAdmin() ||
-        (isCustomer() &&
-          resource.data.customerUid == request.auth.uid) ||
-        (isProvider() && (
-          resource.data.providerUid == request.auth.uid ||
+        isAdmin()
+
+        // customer can cancel own request
+        || (isCustomer() &&
+            resource.data.customerUid == request.auth.uid)
+
+        // provider logic
+        || (isProvider() && (
+          // accept only if offered
           resource.data.offeredProviderUid == request.auth.uid
+
+          // OR already assigned provider
+          || resource.data.providerUid == request.auth.uid
         ))
       );
 
       allow delete: if isAdmin();
     }
 
+    // TRACKING (STRICT)
+    match /tracking/{requestId} {
+      allow read: if isSignedIn() &&
+        canReadRequest(requestDoc(requestId).data);
+
+      allow write: if isProvider() &&
+        requestDoc(requestId).data.providerUid == request.auth.uid;
+    }
+
+    // ADMIN CONFIG
     match /app_config/{docId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
@@ -89,13 +105,9 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // CHAT (basic for now)
     match /chats/{chatId} {
       allow read, write: if isSignedIn();
-    }
-
-    match /tracking/{trackingId} {
-      allow read: if isSignedIn() && canReadRequest(requestDoc(trackingId).data);
-      allow write: if isAdmin() || isProvider();
     }
   }
 }

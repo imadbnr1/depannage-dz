@@ -174,14 +174,6 @@ class _AdminOverviewPage extends StatelessWidget {
                 return ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
-                    const Text(
-                      'Vue globale',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 20,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
                     GridView.count(
                       crossAxisCount: 2,
                       shrinkWrap: true,
@@ -191,27 +183,27 @@ class _AdminOverviewPage extends StatelessWidget {
                       childAspectRatio: 1.35,
                       children: [
                         _StatCard(
-                          title: 'Demandes recherche',
+                          title: 'Recherche',
                           value: '$searching',
                           icon: Icons.search,
                         ),
                         _StatCard(
-                          title: 'Demandes actives',
+                          title: 'Actives',
                           value: '$active',
                           icon: Icons.local_shipping_outlined,
                         ),
                         _StatCard(
-                          title: 'Demandes terminees',
+                          title: 'Terminees',
                           value: '$completed',
                           icon: Icons.check_circle_outline,
                         ),
                         _StatCard(
-                          title: 'Demandes annulees',
+                          title: 'Annulees',
                           value: '$cancelled',
                           icon: Icons.cancel_outlined,
                         ),
                         _StatCard(
-                          title: 'Providers en ligne',
+                          title: 'Providers ON',
                           value: '$onlineProviders',
                           icon: Icons.wifi_tethering,
                         ),
@@ -221,12 +213,12 @@ class _AdminOverviewPage extends StatelessWidget {
                           icon: Icons.engineering_outlined,
                         ),
                         _StatCard(
-                          title: 'Providers approuves',
+                          title: 'Approuves',
                           value: '$approvedProviders',
                           icon: Icons.verified_outlined,
                         ),
                         _StatCard(
-                          title: 'Providers en attente',
+                          title: 'En attente',
                           value: '$pendingProviders',
                           icon: Icons.hourglass_top_outlined,
                         ),
@@ -272,18 +264,17 @@ class _AdminOverviewPage extends StatelessWidget {
                                         : 'Tres elevee',
                           ),
                           _QuickInfoRow(
-                            label: 'Disponibilite providers',
-                            value: onlineProviders == 0
-                                ? 'Aucun provider en ligne'
-                                : '${onlineProviders - busyProviders < 0 ? 0 : onlineProviders - busyProviders} libres',
+                            label: 'Providers libres',
+                            value:
+                                '${onlineProviders - busyProviders < 0 ? 0 : onlineProviders - busyProviders}',
                           ),
                           _QuickInfoRow(
                             label: 'Validation providers',
                             value: '$pendingProviders en attente',
                           ),
                           const _QuickInfoRow(
-                            label: 'Suivi support',
-                            value: 'Gerable depuis l onglet Support',
+                            label: 'Support',
+                            value: 'Gere depuis l onglet Support',
                           ),
                         ],
                       ),
@@ -310,6 +301,12 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
   final TextEditingController _searchController = TextEditingController();
   String _filter = 'all';
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   Future<void> _setApproval(String uid, bool value) async {
     final firestore = FirebaseFirestore.instance;
 
@@ -322,10 +319,24 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
     }, SetOptions(merge: true));
   }
 
+  Future<void> _setBlocked(String uid, bool value) async {
+    final firestore = FirebaseFirestore.instance;
+
+    await firestore.collection('providers').doc(uid).set({
+      'isBlocked': value,
+      if (value) 'isOnline': false,
+    }, SetOptions(merge: true));
+
+    await firestore.collection('users').doc(uid).set({
+      'isBlocked': value,
+    }, SetOptions(merge: true));
+  }
+
   bool _matchesFilter(Map<String, dynamic> data) {
     final approved = data['isApproved'] == true;
     final online = data['isOnline'] == true;
     final busy = data['isBusy'] == true;
+    final blocked = data['isBlocked'] == true;
 
     switch (_filter) {
       case 'approved':
@@ -336,6 +347,8 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
         return online;
       case 'busy':
         return busy;
+      case 'blocked':
+        return blocked;
       default:
         return true;
     }
@@ -356,17 +369,10 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
         plate.contains(q);
   }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
   Widget _filterChip(String value, String label) {
-    final selected = _filter == value;
     return ChoiceChip(
       label: Text(label),
-      selected: selected,
+      selected: _filter == value,
       onSelected: (_) {
         setState(() => _filter = value);
       },
@@ -421,6 +427,7 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
                 _filterChip('pending', 'En attente'),
                 _filterChip('online', 'En ligne'),
                 _filterChip('busy', 'Occupes'),
+                _filterChip('blocked', 'Bloques'),
               ],
             ),
             const SizedBox(height: 14),
@@ -445,6 +452,7 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
               final approved = data['isApproved'] == true;
               final online = data['isOnline'] == true;
               final busy = data['isBusy'] == true;
+              final blocked = data['isBlocked'] == true;
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 12),
@@ -470,7 +478,9 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
                         ),
                         Switch(
                           value: approved,
-                          onChanged: (value) => _setApproval(uid, value),
+                          onChanged: blocked
+                              ? null
+                              : (value) => _setApproval(uid, value),
                         ),
                       ],
                     ),
@@ -497,6 +507,11 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
                               ? const Color(0xFFFEE2E2)
                               : const Color(0xFFECFDF5),
                         ),
+                        if (blocked)
+                          const _StatusChip(
+                            label: 'Bloque',
+                            color: Color(0xFFFECACA),
+                          ),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -518,6 +533,42 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
                     Text(
                       'Missions: ${(data['missionsCompleted'] ?? 0)} · Rating: ${(data['rating'] ?? 5.0)}',
                       style: const TextStyle(color: Colors.black54),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => _setApproval(uid, !approved),
+                            icon: Icon(
+                              approved
+                                  ? Icons.remove_circle_outline
+                                  : Icons.verified_outlined,
+                            ),
+                            label: Text(
+                              approved ? 'Retirer approval' : 'Approuver',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: FilledButton.icon(
+                            style: FilledButton.styleFrom(
+                              backgroundColor:
+                                  blocked ? Colors.green : Colors.red,
+                            ),
+                            onPressed: () => _setBlocked(uid, !blocked),
+                            icon: Icon(
+                              blocked
+                                  ? Icons.lock_open_outlined
+                                  : Icons.block_outlined,
+                            ),
+                            label: Text(
+                              blocked ? 'Debloquer' : 'Bloquer',
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

@@ -32,6 +32,9 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
 
   List<LatLng> _routePoints = [];
   bool _loadingRoute = false;
+  double? _routeDistanceMeters;
+  double? _routeDurationSeconds;
+  LatLng? _lastRouteStart;
 
   @override
   void initState() {
@@ -57,7 +60,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
 
   void _scheduleRouteUpdate() {
     _routeTimer?.cancel();
-    _routeTimer = Timer(const Duration(seconds: 2), _loadRoute);
+    _routeTimer = Timer(const Duration(seconds: 4), _loadRoute);
   }
 
   Future<void> _loadRoute() async {
@@ -73,6 +76,21 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
 
     if (providerPosition == null) return;
 
+    if (_lastRouteStart != null) {
+      final movedMeters = const Distance().as(
+        LengthUnit.Meter,
+        _lastRouteStart!,
+        providerPosition,
+      );
+
+      if (movedMeters < 20) {
+        return;
+      }
+    }
+
+    _lastRouteStart = providerPosition;
+
+    if (!mounted) return;
     setState(() => _loadingRoute = true);
 
     try {
@@ -83,11 +101,19 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
 
       if (!mounted) return;
 
-      setState(() {
-        _routePoints = route.isEmpty
-            ? [providerPosition, customerPosition]
-            : route;
-      });
+      if (route == null || route.points.isEmpty) {
+        setState(() {
+          _routePoints = [providerPosition, customerPosition];
+          _routeDistanceMeters = null;
+          _routeDurationSeconds = null;
+        });
+      } else {
+        setState(() {
+          _routePoints = route.points;
+          _routeDistanceMeters = route.distanceMeters;
+          _routeDurationSeconds = route.durationSeconds;
+        });
+      }
 
       _fitRoute(providerPosition, customerPosition);
     } catch (_) {
@@ -95,6 +121,8 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
 
       setState(() {
         _routePoints = [providerPosition, customerPosition];
+        _routeDistanceMeters = null;
+        _routeDurationSeconds = null;
       });
 
       _fitRoute(providerPosition, customerPosition);
@@ -153,6 +181,23 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
     }
   }
 
+  String _formatDistance() {
+    final meters = _routeDistanceMeters;
+    if (meters == null) return '--';
+    if (meters < 1000) return '${meters.toStringAsFixed(0)} m';
+    return '${(meters / 1000).toStringAsFixed(1)} km';
+  }
+
+  String _formatEta() {
+    final seconds = _routeDurationSeconds;
+    if (seconds == null) return '--';
+    final minutes = (seconds / 60).round();
+    if (minutes < 60) return '$minutes min';
+    final hours = minutes ~/ 60;
+    final mins = minutes % 60;
+    return '${hours}h ${mins}min';
+  }
+
   String _actionLabel(RequestStatus status) {
     switch (status) {
       case RequestStatus.arrived:
@@ -174,11 +219,22 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
     await launchUrl(uri);
   }
 
-  Future<void> _openMaps(LatLng point) async {
-    final uri = Uri.parse(
-      'https://www.google.com/maps/search/?api=1&query=${point.latitude},${point.longitude}',
+  Future<void> _startNavigation(LatLng destination) async {
+    final googleUri = Uri.parse(
+      'https://www.google.com/maps/dir/?api=1'
+      '&destination=${destination.latitude},${destination.longitude}'
+      '&travelmode=driving&dir_action=navigate',
     );
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+
+    final wazeUri = Uri.parse(
+      'https://waze.com/ul?ll=${destination.latitude},${destination.longitude}&navigate=yes',
+    );
+
+    if (await canLaunchUrl(wazeUri)) {
+      await launchUrl(wazeUri, mode: LaunchMode.externalApplication);
+    } else {
+      await launchUrl(googleUri, mode: LaunchMode.externalApplication);
+    }
   }
 
   @override
@@ -290,7 +346,25 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
                       fontSize: 15,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _InfoBox(
+                          title: 'Distance',
+                          value: _formatDistance(),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _InfoBox(
+                          title: 'ETA',
+                          value: _formatEta(),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
                   Text(
                     request.landmark,
                     style: const TextStyle(
@@ -347,7 +421,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: () => _openMaps(customerPosition),
+                          onPressed: () => _startNavigation(customerPosition),
                           icon: const Icon(Icons.map_outlined),
                           label: const Text('Maps'),
                         ),
@@ -419,6 +493,47 @@ class _PinnedMarker extends StatelessWidget {
           size: 34,
         ),
       ],
+    );
+  }
+}
+
+class _InfoBox extends StatelessWidget {
+  const _InfoBox({
+    required this.title,
+    required this.value,
+  });
+
+  final String title;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: Colors.black54,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 15,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

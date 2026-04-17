@@ -335,7 +335,9 @@ class AppStore extends ChangeNotifier {
     return eligible;
   }
 
-  Future<void> _maybeAutoAdvanceTracking(String requestId) async {
+final Map<String, int> _arrivalHitCounts = {};
+
+Future<void> _maybeAutoAdvanceTracking(String requestId) async {
   final request = findRequest(requestId);
   if (request == null) return;
 
@@ -362,17 +364,28 @@ class AppStore extends ChangeNotifier {
     return;
   }
 
-  if (request.status == RequestStatus.onTheWay && distanceMeters <= 60) {
-    await requestRepository.updateRequest(
-      requestId,
-      request.copyWith(status: RequestStatus.arrived),
-    );
+  if (request.status == RequestStatus.onTheWay) {
+    if (distanceMeters <= 45) {
+      final hits = (_arrivalHitCounts[requestId] ?? 0) + 1;
+      _arrivalHitCounts[requestId] = hits;
 
-    _pushLifecycleNotification(
-      title: 'Provider arrive',
-      body: '${request.providerName ?? 'Le provider'} est arrive',
-      type: 'arrived',
-    );
+      if (hits >= 2) {
+        _arrivalHitCounts.remove(requestId);
+
+        await requestRepository.updateRequest(
+          requestId,
+          request.copyWith(status: RequestStatus.arrived),
+        );
+
+        _pushLifecycleNotification(
+          title: 'Provider arrive',
+          body: '${request.providerName ?? 'Le provider'} est arrive',
+          type: 'arrived',
+        );
+      }
+    } else {
+      _arrivalHitCounts.remove(requestId);
+    }
   }
 }
 
@@ -908,7 +921,9 @@ class AppStore extends ChangeNotifier {
       final latest = findRequest(requestId);
       if (latest == null || latest.status != RequestStatus.searching) return;
       if (latest.offeredProviderUid != nextProvider!.id) return;
-
+     
+     _arrivalHitCounts.remove(requestId);
+     
       await _rejectRequestForProvider(
         requestId,
         nextProvider.id,
@@ -1064,6 +1079,7 @@ class AppStore extends ChangeNotifier {
     break;
 
   case RequestStatus.inService:
+     _arrivalHitCounts.remove(requestId);
     await requestRepository.updateRequest(
       requestId,
       current.copyWith(
@@ -1101,37 +1117,39 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> cancelRequest(String requestId) async {
-    final current = findRequest(requestId);
-    if (current == null) return;
+ Future<void> cancelRequest(String requestId) async {
+  final current = findRequest(requestId);
+  if (current == null) return;
 
-    _dispatchTimers[requestId]?.cancel();
-    _dispatchTimers.remove(requestId);
+  _arrivalHitCounts.remove(requestId);
 
-    stopLiveTracking(requestId);
+  _dispatchTimers[requestId]?.cancel();
+  _dispatchTimers.remove(requestId);
 
-    await requestRepository.updateRequest(
-      requestId,
-      current.copyWith(
-        status: RequestStatus.cancelled,
-        offeredProviderUid: null,
-      ),
-    );
+  stopLiveTracking(requestId);
 
-    await trackingRepository.clearTracking(requestId);
+  await requestRepository.updateRequest(
+    requestId,
+    current.copyWith(
+      status: RequestStatus.cancelled,
+      offeredProviderUid: null,
+    ),
+  );
 
-    final provider = findProviderById(current.providerUid ?? '');
-    if (provider != null) {
-      await updateProviderBusyStatus(provider.id, false);
-    }
+  await trackingRepository.clearTracking(requestId);
 
-    _pushLifecycleNotification(
-      title: 'Mission annulee',
-      body: 'La mission a ete annulee',
-      type: 'cancelled',
-    );
-    notifyListeners();
+  final provider = findProviderById(current.providerUid ?? '');
+  if (provider != null) {
+    await updateProviderBusyStatus(provider.id, false);
   }
+
+  _pushLifecycleNotification(
+    title: 'Mission annulee',
+    body: 'La mission a ete annulee',
+    type: 'cancelled',
+  );
+  notifyListeners();
+}
 
   Future<void> submitClientRating({
     required String requestId,
