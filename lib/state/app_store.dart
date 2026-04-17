@@ -335,6 +335,47 @@ class AppStore extends ChangeNotifier {
     return eligible;
   }
 
+  Future<void> _maybeAutoAdvanceTracking(String requestId) async {
+  final request = findRequest(requestId);
+  if (request == null) return;
+
+  final providerPos = providerCurrentPosition ?? request.providerPosition;
+  if (providerPos == null) return;
+
+  final distanceMeters = const Distance().as(
+    LengthUnit.Meter,
+    providerPos,
+    request.customerPosition,
+  );
+
+  if (request.status == RequestStatus.accepted && distanceMeters > 120) {
+    await requestRepository.updateRequest(
+      requestId,
+      request.copyWith(status: RequestStatus.onTheWay),
+    );
+
+    _pushLifecycleNotification(
+      title: 'Mission en route',
+      body: '${request.providerName ?? 'Le provider'} est en route',
+      type: 'on_the_way',
+    );
+    return;
+  }
+
+  if (request.status == RequestStatus.onTheWay && distanceMeters <= 60) {
+    await requestRepository.updateRequest(
+      requestId,
+      request.copyWith(status: RequestStatus.arrived),
+    );
+
+    _pushLifecycleNotification(
+      title: 'Provider arrive',
+      body: '${request.providerName ?? 'Le provider'} est arrive',
+      type: 'arrived',
+    );
+  }
+}
+
   Future<void> updateProviderOnlineStatus(
     String providerId,
     bool isOnline,
@@ -465,6 +506,8 @@ class AppStore extends ChangeNotifier {
               providerPosition: providerLatLng,
             ),
           );
+
+          await _maybeAutoAdvanceTracking(requestId);
 
           if ((updatedRequest.providerUid ?? '').isNotEmpty) {
             await updateProviderPosition(
@@ -808,7 +851,7 @@ class AppStore extends ChangeNotifier {
     await _offerRequestToNextProvider(request.id);
     notifyListeners();
   }
-  
+
   Future<void> _offerRequestToNextProvider(String requestId) async {
     final current = findRequest(requestId);
     if (current == null || current.status != RequestStatus.searching) return;
@@ -1008,75 +1051,53 @@ class AppStore extends ChangeNotifier {
     if (current == null) return;
 
     switch (current.status) {
-      case RequestStatus.accepted:
-        await requestRepository.updateRequest(
-          requestId,
-          current.copyWith(status: RequestStatus.onTheWay),
-        );
-        _pushLifecycleNotification(
-          title: 'Mission en route',
-          body: '${current.providerName ?? 'Le provider'} est en route',
-          type: 'on_the_way',
-        );
-        break;
-      case RequestStatus.onTheWay:
-        await requestRepository.updateRequest(
-          requestId,
-          current.copyWith(
-            status: RequestStatus.arrived,
-          ),
-        );
-        _pushLifecycleNotification(
-          title: 'Provider arrive',
-          body: '${current.providerName ?? 'Le provider'} est arrive',
-          type: 'arrived',
-        );
-        break;
-      case RequestStatus.arrived:
-        await requestRepository.updateRequest(
-          requestId,
-          current.copyWith(status: RequestStatus.inService),
-        );
-        _pushLifecycleNotification(
-          title: 'Service commence',
-          body: 'Votre depannage est en cours',
-          type: 'in_service',
-        );
-        break;
-      case RequestStatus.inService:
-        await requestRepository.updateRequest(
-          requestId,
-          current.copyWith(
-            status: RequestStatus.completed,
-            completedAt: DateTime.now(),
-          ),
-        );
+  case RequestStatus.arrived:
+    await requestRepository.updateRequest(
+      requestId,
+      current.copyWith(status: RequestStatus.inService),
+    );
+    _pushLifecycleNotification(
+      title: 'Service commence',
+      body: 'Votre depannage est en cours',
+      type: 'in_service',
+    );
+    break;
 
-        lastCompletedRequestId = requestId;
+  case RequestStatus.inService:
+    await requestRepository.updateRequest(
+      requestId,
+      current.copyWith(
+        status: RequestStatus.completed,
+        completedAt: DateTime.now(),
+      ),
+    );
 
-        final provider = findProviderById(current.providerUid ?? '');
-        if (provider != null) {
-          await updateProviderBusyStatus(provider.id, false);
-          await firestore.collection('providers').doc(provider.id).set({
-            'missionsCompleted': provider.missionsCompleted + 1,
-          }, SetOptions(merge: true));
-        }
+    lastCompletedRequestId = requestId;
 
-        _dispatchTimers[requestId]?.cancel();
-        _dispatchTimers.remove(requestId);
-
-        await stopLiveTracking(requestId);
-        await trackingRepository.clearTracking(requestId);
-
-        _pushLifecycleNotification(
-          title: 'Mission terminee',
-          body: 'Votre mission a ete completee avec succes',
-          type: 'completed',
-        );
-        break;
-      default:
-        break;
+    final provider = findProviderById(current.providerUid ?? '');
+    if (provider != null) {
+      await updateProviderBusyStatus(provider.id, false);
+      await firestore.collection('providers').doc(provider.id).set({
+        'missionsCompleted': provider.missionsCompleted + 1,
+      }, SetOptions(merge: true));
     }
+
+    _dispatchTimers[requestId]?.cancel();
+    _dispatchTimers.remove(requestId);
+
+    stopLiveTracking(requestId);
+    await trackingRepository.clearTracking(requestId);
+
+    _pushLifecycleNotification(
+      title: 'Mission terminee',
+      body: 'Votre mission a ete completee avec succes',
+      type: 'completed',
+    );
+    break;
+
+  default:
+    break;
+}
     notifyListeners();
   }
 
