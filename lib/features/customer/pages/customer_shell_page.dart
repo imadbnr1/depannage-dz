@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../core/services/fcm_service.dart';
 import '../../../state/app_store.dart';
 import '../../shared/pages/chat_page.dart';
-import '../../shared/pages/notifications_page.dart';
 import 'customer_history_page.dart';
 import 'customer_home_page.dart';
 import 'customer_profile_page.dart';
@@ -91,75 +90,44 @@ class _CustomerShellPageState extends State<CustomerShellPage> {
     ];
 
     return Scaffold(
-  body: Stack(
-    children: [
-      // MAIN CONTENT
-      IndexedStack(
+      body: IndexedStack(
         index: _index,
         children: pages,
       ),
-
-      // 🔔 FLOATING NOTIFICATION BUTTON
-      Positioned(
-        top: 40,
-        right: 16,
-        child: Material(
-          color: Colors.white.withOpacity(0.9),
-          borderRadius: BorderRadius.circular(14),
-          elevation: 4,
-          child: IconButton(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => NotificationsPage(store: widget.store),
-                ),
-              );
-            },
-            icon: Badge.count(
-              count: widget.store.unreadNotifications,
-              isLabelVisible: widget.store.unreadNotifications > 0,
-              child: const Icon(Icons.notifications_none),
-            ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _index,
+        onDestinationSelected: (value) {
+          setState(() => _index = value);
+          widget.store.setCustomerTab(value);
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.map_outlined),
+            selectedIcon: Icon(Icons.map),
+            label: 'Accueil',
           ),
-        ),
+          NavigationDestination(
+            icon: Icon(Icons.receipt_long_outlined),
+            selectedIcon: Icon(Icons.receipt_long),
+            label: 'Demandes',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.history_outlined),
+            selectedIcon: Icon(Icons.history),
+            label: 'Historique',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: 'Profil',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.support_agent_outlined),
+            selectedIcon: Icon(Icons.support_agent),
+            label: 'Support',
+          ),
+        ],
       ),
-    ],
-  ),
-
-  bottomNavigationBar: NavigationBar(
-    selectedIndex: _index,
-    onDestinationSelected: (value) {
-      setState(() => _index = value);
-      widget.store.setCustomerTab(value);
-    },
-    destinations: const [
-      NavigationDestination(
-        icon: Icon(Icons.home_outlined),
-        selectedIcon: Icon(Icons.home),
-        label: 'Accueil',
-      ),
-      NavigationDestination(
-        icon: Icon(Icons.receipt_long_outlined),
-        selectedIcon: Icon(Icons.receipt_long),
-        label: 'Demandes',
-      ),
-      NavigationDestination(
-        icon: Icon(Icons.history_outlined),
-        selectedIcon: Icon(Icons.history),
-        label: 'Historique',
-      ),
-      NavigationDestination(
-        icon: Icon(Icons.person_outline),
-        selectedIcon: Icon(Icons.person),
-        label: 'Profil',
-      ),
-      NavigationDestination(
-        icon: Icon(Icons.support_agent_outlined),
-        selectedIcon: Icon(Icons.support_agent),
-        label: 'Support',
-      ),
-    ],
-  ),
-);
+    );
   }
 }

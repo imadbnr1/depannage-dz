@@ -324,6 +324,7 @@ class _IncomingMissionCardState extends State<_IncomingMissionCard>
                     onPressed: () async {
                       await store.acceptRequest(latest.id);
                       if (!mounted) return;
+                      if (!context.mounted) return;
                       Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => ProviderTrackingPage(

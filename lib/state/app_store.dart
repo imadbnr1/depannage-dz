@@ -15,7 +15,6 @@ import '../models/request_status.dart';
 import '../models/service_type.dart';
 import '../repositories/request_repository.dart';
 import '../repositories/tracking_repository.dart';
-import '../core/services/in_app_notification_service.dart';
 
 class AppStore extends ChangeNotifier {
   AppStore({

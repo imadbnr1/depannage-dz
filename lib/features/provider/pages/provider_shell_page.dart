@@ -6,7 +6,6 @@ import '../../../core/services/alert_service.dart';
 import '../../../core/services/fcm_service.dart';
 import '../../../state/app_store.dart';
 import '../../shared/pages/chat_page.dart';
-import '../../shared/pages/notifications_page.dart';
 import 'provider_dashboard_page.dart';
 import 'provider_history_page.dart';
 import 'provider_profile_page.dart';
@@ -215,76 +214,45 @@ class _ProviderShellPageState extends State<ProviderShellPage> {
     ];
 
     return Scaffold(
-  body: Stack(
-    children: [
-      // MAIN CONTENT
-      IndexedStack(
+      body: IndexedStack(
         index: _index,
         children: pages,
       ),
-
-      // 🔔 FLOATING NOTIFICATION BUTTON
-      Positioned(
-        top: MediaQuery.of(context).padding.top + 10,
-        right: 16,
-        child: Material(
-          color: Colors.white.withOpacity(0.9),
-          borderRadius: BorderRadius.circular(14),
-          elevation: 4,
-          child: IconButton(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => NotificationsPage(store: widget.store),
-                ),
-              );
-            },
-            icon: Badge.count(
-              count: widget.store.unreadNotifications,
-              isLabelVisible: widget.store.unreadNotifications > 0,
-              child: const Icon(Icons.notifications_none),
-            ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _index,
+        onDestinationSelected: (value) {
+          setState(() => _index = value);
+          widget.store.setProviderTab(value);
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.map_outlined),
+            selectedIcon: Icon(Icons.map),
+            label: 'Accueil',
           ),
-        ),
+          NavigationDestination(
+            icon: Icon(Icons.assignment_outlined),
+            selectedIcon: Icon(Icons.assignment),
+            label: 'Missions',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.history_outlined),
+            selectedIcon: Icon(Icons.history),
+            label: 'Historique',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: 'Profil',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.support_agent_outlined),
+            selectedIcon: Icon(Icons.support_agent),
+            label: 'Support',
+          ),
+        ],
       ),
-    ],
-  ),
-
-  bottomNavigationBar: NavigationBar(
-    selectedIndex: _index,
-    onDestinationSelected: (value) {
-      setState(() => _index = value);
-      widget.store.setProviderTab(value);
-    },
-    destinations: const [
-      NavigationDestination(
-        icon: Icon(Icons.dashboard_outlined),
-        selectedIcon: Icon(Icons.dashboard),
-        label: 'Accueil',
-      ),
-      NavigationDestination(
-        icon: Icon(Icons.assignment_outlined),
-        selectedIcon: Icon(Icons.assignment),
-        label: 'Missions',
-      ),
-      NavigationDestination(
-        icon: Icon(Icons.history_outlined),
-        selectedIcon: Icon(Icons.history),
-        label: 'Historique',
-      ),
-      NavigationDestination(
-        icon: Icon(Icons.person_outline),
-        selectedIcon: Icon(Icons.person),
-        label: 'Profil',
-      ),
-      NavigationDestination(
-        icon: Icon(Icons.support_agent_outlined),
-        selectedIcon: Icon(Icons.support_agent),
-        label: 'Support',
-      ),
-    ],
-  ),
-);
+    );
   }
 }
 
@@ -395,30 +363,11 @@ class _MissionOfferDialogState extends State<_MissionOfferDialog> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
         ),
-        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-        contentPadding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
-        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        title: Row(
-          children: [
-            const CircleAvatar(
-              radius: 22,
-              backgroundColor: Color(0xFFEFF6FF),
-              child: Icon(
-                Icons.notifications_active_outlined,
-                color: Color(0xFF2563EB),
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Text(
-                'Nouvelle mission',
-                style: TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 20,
-                ),
-              ),
-            ),
-          ],
+        title: const Text(
+          'Nouvelle mission',
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+          ),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -453,12 +402,7 @@ class _MissionOfferDialogState extends State<_MissionOfferDialog> {
             ),
             const SizedBox(height: 8),
             _InfoLine(label: 'Telephone', value: request.customerPhone),
-            _InfoLine(
-              label: 'Vehicule',
-              value: '${request.vehicleType} · ${request.brandModel}',
-            ),
-            _InfoLine(label: 'Lieu', value: request.pickupLabel),
-            _InfoLine(label: 'Repere', value: request.landmark),
+            _InfoLine(label: 'Depart', value: request.pickupLabel),
             if (request.destination.isNotEmpty)
               _InfoLine(label: 'Destination', value: request.destination),
             if (request.estimatedPrice != null)
@@ -466,11 +410,6 @@ class _MissionOfferDialogState extends State<_MissionOfferDialog> {
                 label: 'Prix estime',
                 value: '${request.estimatedPrice!.toStringAsFixed(0)} DA',
               ),
-            const SizedBox(height: 8),
-            Text(
-              request.issueDescription,
-              style: const TextStyle(color: Colors.black54),
-            ),
           ],
         ),
         actions: [
@@ -483,7 +422,7 @@ class _MissionOfferDialogState extends State<_MissionOfferDialog> {
                   child: FilledButton.icon(
                     onPressed: _accept,
                     icon: const Icon(Icons.check_circle_outline),
-                    label: const Text('Accepter maintenant'),
+                    label: const Text('Accepter'),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -498,7 +437,7 @@ class _MissionOfferDialogState extends State<_MissionOfferDialog> {
                 const SizedBox(height: 6),
                 TextButton(
                   onPressed: _later,
-                  child: const Text('Voir plus tard dans Missions'),
+                  child: const Text('Voir plus tard'),
                 ),
               ],
             ),
