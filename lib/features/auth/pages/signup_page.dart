@@ -17,7 +17,6 @@ class SignupPage extends StatefulWidget {
 
 class _SignupPageState extends State<SignupPage> {
   final _formKey = GlobalKey<FormState>();
-
   final _fullNameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
@@ -37,7 +36,8 @@ class _SignupPageState extends State<SignupPage> {
   }
 
   Future<void> _signup() async {
-    if (!_formKey.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
+    if (!(_formKey.currentState?.validate() ?? false)) return;
 
     setState(() => _loading = true);
 
@@ -52,14 +52,14 @@ class _SignupPageState extends State<SignupPage> {
 
       if (!mounted) return;
 
-      AppFeedback.showSuccess(
-        context,
-        _role == 'provider'
-            ? 'Compte provider cree. Validation admin requise.'
-            : 'Compte cree avec succes.',
-      );
-
-      Navigator.of(context).pop();
+      if (_role == 'provider') {
+        AppFeedback.showSuccess(
+          context,
+          'Compte provider cree. Validation admin en attente.',
+        );
+      } else {
+        AppFeedback.showSuccess(context, 'Compte cree avec succes.');
+      }
     } catch (e) {
       if (!mounted) return;
       AppFeedback.showError(
@@ -67,63 +67,40 @@ class _SignupPageState extends State<SignupPage> {
         e.toString().replaceFirst('Exception: ', ''),
       );
     } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
+      if (mounted) setState(() => _loading = false);
     }
   }
 
-  Widget _roleCard({
+  Widget _roleTile({
     required String value,
     required String title,
     required String subtitle,
     required IconData icon,
-    required List<Color> colors,
   }) {
     final selected = _role == value;
-
     return InkWell(
-      borderRadius: BorderRadius.circular(22),
-      onTap: () {
-        setState(() => _role = value);
-      },
+      borderRadius: BorderRadius.circular(20),
+      onTap: () => setState(() => _role = value),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
+        duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          gradient: selected
-              ? LinearGradient(
-                  colors: colors,
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                )
-              : null,
-          color: selected ? null : const Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.circular(22),
+          color: selected ? const Color(0xFFFFF5DB) : const Color(0xFFF8F5EF),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: selected ? Colors.transparent : const Color(0xFFE5E7EB),
-            width: 1.2,
+            color: selected ? const Color(0xFFF59E0B) : const Color(0xFFE7DFD1),
           ),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    // ignore: deprecated_member_use
-                    color: colors.first.withOpacity(0.22),
-                    blurRadius: 14,
-                    offset: const Offset(0, 8),
-                  ),
-                ]
-              : null,
         ),
         child: Row(
           children: [
             CircleAvatar(
-              radius: 22,
               backgroundColor:
-                  selected ? Colors.white24 : const Color(0xFFEFF6FF),
+                  selected ? const Color(0xFFF59E0B) : const Color(0xFFEDE4D3),
               child: Icon(
                 icon,
-                color: selected ? Colors.white : const Color(0xFF2563EB),
+                color: selected
+                    ? const Color(0xFF1F2937)
+                    : const Color(0xFF6B7280),
               ),
             ),
             const SizedBox(width: 12),
@@ -133,18 +110,16 @@ class _SignupPageState extends State<SignupPage> {
                 children: [
                   Text(
                     title,
-                    style: TextStyle(
-                      color: selected ? Colors.white : const Color(0xFF0F172A),
-                      fontWeight: FontWeight.w900,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
                       fontSize: 16,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: TextStyle(
-                      color: selected ? Colors.white70 : Colors.black54,
-                      fontSize: 12,
+                    style: const TextStyle(
+                      color: Colors.black54,
                       height: 1.25,
                     ),
                   ),
@@ -152,10 +127,8 @@ class _SignupPageState extends State<SignupPage> {
               ),
             ),
             Icon(
-              selected
-                  ? Icons.check_circle
-                  : Icons.radio_button_unchecked,
-              color: selected ? Colors.white : Colors.black38,
+              selected ? Icons.check_circle : Icons.radio_button_unchecked,
+              color: selected ? const Color(0xFFF59E0B) : Colors.black38,
             ),
           ],
         ),
@@ -165,19 +138,15 @@ class _SignupPageState extends State<SignupPage> {
 
   @override
   Widget build(BuildContext context) {
-    final roleTitle = _role == 'provider'
-        ? 'Creer un compte provider'
-        : 'Creer un compte customer';
-
     return Scaffold(
       body: Container(
         width: double.infinity,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              Color(0xFF0F172A),
-              Color(0xFF1E3A8A),
-              Color(0xFF2563EB),
+              Color(0xFF171717),
+              Color(0xFF2B2114),
+              Color(0xFFF59E0B),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -197,123 +166,107 @@ class _SignupPageState extends State<SignupPage> {
                           onPressed: _loading
                               ? null
                               : () => Navigator.of(context).pop(),
-                          icon: const Icon(
-                            Icons.arrow_back,
-                            color: Colors.white,
-                          ),
+                          icon:
+                              const Icon(Icons.arrow_back, color: Colors.white),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
                     Container(
-                      width: 94,
-                      height: 94,
+                      width: 96,
+                      height: 96,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.14),
+                        color: Colors.white.withValues(alpha: 0.12),
                         shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.white24,
-                          width: 1.5,
-                        ),
+                        border: Border.all(color: Colors.white24),
                       ),
                       child: const Icon(
-                        Icons.person_add_alt_1_outlined,
+                        Icons.car_repair_rounded,
                         color: Colors.white,
                         size: 42,
                       ),
                     ),
                     const SizedBox(height: 18),
                     const Text(
-                      'Depannage DZ',
+                      'Depaniny',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 30,
+                        fontSize: 32,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      roleTitle,
-                      style: const TextStyle(
+                    const Text(
+                      'Inscription rapide pour commencer sans friction',
+                      style: TextStyle(
                         color: Colors.white70,
                         fontSize: 14,
                       ),
                     ),
                     const SizedBox(height: 24),
                     Container(
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.all(22),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(28),
                         boxShadow: const [
                           BoxShadow(
                             color: Colors.black12,
-                            blurRadius: 18,
-                            offset: Offset(0, 10),
+                            blurRadius: 24,
+                            offset: Offset(0, 12),
                           ),
                         ],
                       ),
                       child: Form(
                         key: _formKey,
                         child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                'Choisissez votre role',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 22,
-                                ),
+                            const Text(
+                              'Creer un compte',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 24,
                               ),
                             ),
-                            const SizedBox(height: 14),
-                            _roleCard(
+                            const SizedBox(height: 6),
+                            const Text(
+                              'Choisissez votre profil puis remplissez le strict minimum',
+                              style: TextStyle(color: Colors.black54),
+                            ),
+                            const SizedBox(height: 16),
+                            _roleTile(
                               value: 'customer',
-                              title: 'Customer',
+                              title: 'Client',
                               subtitle:
-                                  'Commander une assistance et suivre la mission.',
+                                  'Commander un depannage et suivre la mission.',
                               icon: Icons.person_outline,
-                              colors: const [
-                                Color(0xFF2563EB),
-                                Color(0xFF38BDF8),
-                              ],
                             ),
                             const SizedBox(height: 10),
-                            _roleCard(
+                            _roleTile(
                               value: 'provider',
                               title: 'Provider',
                               subtitle:
-                                  'Recevoir des missions et intervenir sur le terrain.',
-                              icon: Icons.local_shipping_outlined,
-                              colors: const [
-                                Color(0xFF059669),
-                                Color(0xFF34D399),
-                              ],
+                                  'Recevoir les missions et intervenir sur le terrain.',
+                              icon: Icons.car_repair_outlined,
                             ),
-                            const SizedBox(height: 18),
+                            const SizedBox(height: 16),
                             TextFormField(
                               controller: _fullNameController,
                               validator: (value) {
                                 final text = (value ?? '').trim();
                                 if (text.isEmpty) {
-                                  return 'Entrez votre nom complet';
+                                  return 'Entrez votre nom';
                                 }
                                 if (text.length < 3) {
                                   return 'Nom trop court';
                                 }
                                 return null;
                               },
-                              decoration: InputDecoration(
+                              decoration: const InputDecoration(
                                 labelText: 'Nom complet',
-                                prefixIcon:
-                                    const Icon(Icons.badge_outlined),
-                                filled: true,
-                                fillColor: const Color(0xFFF8FAFC),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(18),
-                                  borderSide: BorderSide.none,
-                                ),
+                                prefixIcon: Icon(Icons.badge_outlined),
+                                fillColor: Color(0xFFF8F5EF),
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -330,16 +283,10 @@ class _SignupPageState extends State<SignupPage> {
                                 }
                                 return null;
                               },
-                              decoration: InputDecoration(
-                                labelText: 'Telephone',
-                                prefixIcon:
-                                    const Icon(Icons.phone_outlined),
-                                filled: true,
-                                fillColor: const Color(0xFFF8FAFC),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(18),
-                                  borderSide: BorderSide.none,
-                                ),
+                              decoration: const InputDecoration(
+                                labelText: 'Numero de telephone',
+                                prefixIcon: Icon(Icons.phone_outlined),
+                                fillColor: Color(0xFFF8F5EF),
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -356,16 +303,10 @@ class _SignupPageState extends State<SignupPage> {
                                 }
                                 return null;
                               },
-                              decoration: InputDecoration(
+                              decoration: const InputDecoration(
                                 labelText: 'Email',
-                                prefixIcon:
-                                    const Icon(Icons.email_outlined),
-                                filled: true,
-                                fillColor: const Color(0xFFF8FAFC),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(18),
-                                  borderSide: BorderSide.none,
-                                ),
+                                prefixIcon: Icon(Icons.email_outlined),
+                                fillColor: Color(0xFFF8F5EF),
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -384,8 +325,7 @@ class _SignupPageState extends State<SignupPage> {
                               },
                               decoration: InputDecoration(
                                 labelText: 'Mot de passe',
-                                prefixIcon:
-                                    const Icon(Icons.lock_outline),
+                                prefixIcon: const Icon(Icons.lock_outline),
                                 suffixIcon: IconButton(
                                   onPressed: () {
                                     setState(() => _obscure = !_obscure);
@@ -396,11 +336,24 @@ class _SignupPageState extends State<SignupPage> {
                                         : Icons.visibility_outlined,
                                   ),
                                 ),
-                                filled: true,
-                                fillColor: const Color(0xFFF8FAFC),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(18),
-                                  borderSide: BorderSide.none,
+                                fillColor: const Color(0xFFF8F5EF),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8F5EF),
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                              child: Text(
+                                _role == 'provider'
+                                    ? 'Les comptes provider restent soumis a la validation admin avant de recevoir des missions.'
+                                    : 'Inscription directe: vous pourrez commander votre premiere mission juste apres.',
+                                style: const TextStyle(
+                                  color: Colors.black54,
+                                  height: 1.35,
                                 ),
                               ),
                             ),
@@ -419,9 +372,7 @@ class _SignupPageState extends State<SignupPage> {
                                       )
                                     : const Icon(Icons.check_circle_outline),
                                 label: Text(
-                                  _loading
-                                      ? 'Creation...'
-                                      : 'Creer le compte',
+                                  _loading ? 'Creation...' : 'Creer le compte',
                                 ),
                               ),
                             ),
@@ -433,23 +384,11 @@ class _SignupPageState extends State<SignupPage> {
                                     ? null
                                     : () => Navigator.of(context).pop(),
                                 icon: const Icon(Icons.login),
-                                label: const Text('Retour connexion'),
+                                label: const Text('J ai deja un compte'),
                               ),
                             ),
                           ],
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      _role == 'provider'
-                          ? 'Les comptes provider doivent etre approuves par l administration.'
-                          : 'Creer votre compte pour commencer a utiliser la plateforme.',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                        height: 1.35,
                       ),
                     ),
                   ],

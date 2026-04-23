@@ -21,10 +21,12 @@ dependencies:
   cloud_firestore: ^5.6.6
   firebase_storage: ^12.4.5
   firebase_messaging: ^15.1.6
+  file_picker: ^8.1.7
 
   flutter_local_notifications: ^17.2.3
   audioplayers: ^6.1.0
   vibration: ^2.0.1
+  shared_preferences: ^2.5.3
 
 dev_dependencies:
   flutter_test:
@@ -37,10 +39,10 @@ flutter:
   assets:
     - assets/icon/app_icon.png
     - assets/sounds/alert.mp3
+    - assets/sounds/admin_popup.ogg
 
 flutter_launcher_icons:
   android: true
-  ios: true
   image_path: assets/icon/app_icon.png
   min_sdk_android: 21
   web:
@@ -48,9 +50,3 @@ flutter_launcher_icons:
     image_path: assets/icon/app_icon.png
     background_color: "#0F172A"
     theme_color: "#2563EB"
-  windows:
-    generate: true
-    image_path: assets/icon/app_icon.png
-  macos:
-    generate: true
-    image_path: assets/icon/app_icon.png

@@ -40,13 +40,13 @@ class _DepannageAppState extends State<DepannageApp> {
       builder: (_, __) {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
-          title: 'Depannage DZ',
+          title: 'Depaniny',
           theme: ThemeData(
             useMaterial3: true,
             colorScheme: ColorScheme.fromSeed(
-              seedColor: const Color(0xFF16A34A),
+              seedColor: const Color(0xFFF59E0B),
             ),
-            scaffoldBackgroundColor: const Color(0xFFF4F7FB),
+            scaffoldBackgroundColor: const Color(0xFFF6F1E7),
             snackBarTheme: SnackBarThemeData(
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(

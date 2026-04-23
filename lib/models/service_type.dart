@@ -37,7 +37,7 @@ extension ServiceTypeX on ServiceType {
   IconData get icon {
     switch (this) {
       case ServiceType.towing:
-        return Icons.local_shipping_outlined;
+        return Icons.car_repair_outlined;
       case ServiceType.battery:
         return Icons.battery_charging_full_outlined;
       case ServiceType.tire:

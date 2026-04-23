@@ -27,9 +27,27 @@ class ProviderMissionDetailsPage extends StatefulWidget {
       _ProviderMissionDetailsPageState();
 }
 
-class _ProviderMissionDetailsPageState extends State<ProviderMissionDetailsPage> {
+class _ProviderMissionDetailsPageState
+    extends State<ProviderMissionDetailsPage> {
   final MapController _mapController = MapController();
   bool _mapReady = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.store.addListener(_handleStoreChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.store.removeListener(_handleStoreChanged);
+    super.dispose();
+  }
+
+  void _handleStoreChanged() {
+    if (!mounted) return;
+    setState(() {});
+  }
 
   bool _isValidPoint(LatLng p) {
     return p.latitude.isFinite &&
@@ -77,8 +95,8 @@ class _ProviderMissionDetailsPageState extends State<ProviderMissionDetailsPage>
 
     final first = points.first;
     final last = points.last;
-    final samePoint = first.latitude == last.latitude &&
-        first.longitude == last.longitude;
+    final samePoint =
+        first.latitude == last.latitude && first.longitude == last.longitude;
 
     try {
       if (samePoint) {
@@ -102,8 +120,8 @@ class _ProviderMissionDetailsPageState extends State<ProviderMissionDetailsPage>
 
     final first = points.first;
     final last = points.last;
-    final samePoint = first.latitude == last.latitude &&
-        first.longitude == last.longitude;
+    final samePoint =
+        first.latitude == last.latitude && first.longitude == last.longitude;
 
     try {
       if (samePoint) {
@@ -158,7 +176,7 @@ class _ProviderMissionDetailsPageState extends State<ProviderMissionDetailsPage>
   @override
   Widget build(BuildContext context) {
     final request = widget.store.findRequest(widget.requestId);
-    final provider = widget.store.selectedProvider;
+    final provider = widget.store.selectedProviderOrNull;
 
     if (request == null) {
       return const Scaffold(
@@ -166,8 +184,10 @@ class _ProviderMissionDetailsPageState extends State<ProviderMissionDetailsPage>
       );
     }
 
-    final providerPosition =
-        request.providerPosition ?? widget.store.providerCurrentPosition ?? provider.position;
+    final providerPosition = request.providerPosition ??
+        widget.store.providerCurrentPosition ??
+        provider?.position ??
+        const LatLng(36.7538, 3.0588);
     final customerPosition = request.customerPosition;
 
     return FutureBuilder<RouteSnapshot>(
@@ -197,8 +217,9 @@ class _ProviderMissionDetailsPageState extends State<ProviderMissionDetailsPage>
           routePoints: route.points,
         );
 
-        final initialCenter =
-            _isValidPoint(providerPosition) ? providerPosition : customerPosition;
+        final initialCenter = _isValidPoint(providerPosition)
+            ? providerPosition
+            : customerPosition;
 
         final canAct = request.status != RequestStatus.completed &&
             request.status != RequestStatus.cancelled;
@@ -218,7 +239,8 @@ class _ProviderMissionDetailsPageState extends State<ProviderMissionDetailsPage>
                 ),
                 children: [
                   TileLayer(
-                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    urlTemplate:
+                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                     userAgentPackageName: 'dz.depannage.provider',
                   ),
                   PolylineLayer(
@@ -256,7 +278,6 @@ class _ProviderMissionDetailsPageState extends State<ProviderMissionDetailsPage>
                   ),
                 ],
               ),
-
               SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -276,7 +297,6 @@ class _ProviderMissionDetailsPageState extends State<ProviderMissionDetailsPage>
                   ),
                 ),
               ),
-
               Positioned(
                 right: 16,
                 top: 92,
@@ -285,7 +305,6 @@ class _ProviderMissionDetailsPageState extends State<ProviderMissionDetailsPage>
                   onTap: () => _recenterRoute(safeRoutePoints),
                 ),
               ),
-
               DraggableScrollableSheet(
                 initialChildSize: 0.30,
                 minChildSize: 0.22,
@@ -320,53 +339,70 @@ class _ProviderMissionDetailsPageState extends State<ProviderMissionDetailsPage>
                           ),
                         ),
                         const SizedBox(height: 14),
-                        Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 22,
-                              backgroundColor: const Color(0xFFDBEAFE),
-                              child: Text(
-                                request.customerName.trim().isEmpty
-                                    ? 'CL'
-                                    : request.customerName
-                                        .trim()
-                                        .split(' ')
-                                        .map((e) => e.isNotEmpty ? e[0] : '')
-                                        .take(2)
-                                        .join(),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w900,
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final compact = constraints.maxWidth < 420;
+
+                            return Wrap(
+                              spacing: 12,
+                              runSpacing: 10,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                CircleAvatar(
+                                  radius: 22,
+                                  backgroundColor: const Color(0xFFDBEAFE),
+                                  child: Text(
+                                    request.customerName.trim().isEmpty
+                                        ? 'CL'
+                                        : request.customerName
+                                            .trim()
+                                            .split(' ')
+                                            .map(
+                                                (e) => e.isNotEmpty ? e[0] : '')
+                                            .take(2)
+                                            .join(),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                request.customerName,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 20,
+                                SizedBox(
+                                  width: compact
+                                      ? constraints.maxWidth
+                                      : (constraints.maxWidth - 150).clamp(
+                                          140.0,
+                                          420.0,
+                                        ),
+                                  child: Text(
+                                    request.customerName,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 20,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: request.status.color.withOpacity(0.12),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
-                                request.status.label,
-                                style: TextStyle(
-                                  color: request.status.color,
-                                  fontWeight: FontWeight.w800,
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: request.status.color.withValues(
+                                      alpha: 0.12,
+                                    ),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    request.status.label,
+                                    style: TextStyle(
+                                      color: request.status.color,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
-                          ],
+                              ],
+                            );
+                          },
                         ),
                         const SizedBox(height: 10),
                         Wrap(
@@ -392,7 +428,6 @@ class _ProviderMissionDetailsPageState extends State<ProviderMissionDetailsPage>
                           ],
                         ),
                         const SizedBox(height: 14),
-
                         _SectionCard(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -411,7 +446,7 @@ class _ProviderMissionDetailsPageState extends State<ProviderMissionDetailsPage>
                                     radius: 22,
                                     backgroundColor: const Color(0xFFDCFCE7),
                                     child: Text(
-                                      provider.avatarText,
+                                      provider?.avatarText ?? 'PR',
                                       style: const TextStyle(
                                         fontWeight: FontWeight.w900,
                                       ),
@@ -427,14 +462,14 @@ class _ProviderMissionDetailsPageState extends State<ProviderMissionDetailsPage>
                                           children: [
                                             Expanded(
                                               child: Text(
-                                                provider.name,
+                                                provider?.name ?? 'Provider',
                                                 style: const TextStyle(
                                                   fontWeight: FontWeight.w900,
                                                   fontSize: 16,
                                                 ),
                                               ),
                                             ),
-                                            if (provider.isVerified)
+                                            if (provider?.isVerified == true)
                                               const Icon(
                                                 Icons.verified,
                                                 color: Color(0xFF2563EB),
@@ -444,7 +479,7 @@ class _ProviderMissionDetailsPageState extends State<ProviderMissionDetailsPage>
                                         ),
                                         const SizedBox(height: 3),
                                         Text(
-                                          '⭐ ${provider.rating.toStringAsFixed(1)} · ${provider.missionsCompleted} missions',
+                                          '⭐ ${(provider?.rating ?? 5.0).toStringAsFixed(1)} · ${provider?.missionsCompleted ?? 0} missions',
                                           style: const TextStyle(
                                             color: Colors.black54,
                                           ),
@@ -457,22 +492,20 @@ class _ProviderMissionDetailsPageState extends State<ProviderMissionDetailsPage>
                               const SizedBox(height: 10),
                               InfoRow(
                                 title: 'Vehicule',
-                                value: provider.vehicleType,
+                                value: provider?.vehicleType ?? '-',
                               ),
                               InfoRow(
                                 title: 'Plaque',
-                                value: provider.plate,
+                                value: provider?.plate ?? '-',
                               ),
                               InfoRow(
                                 title: 'Telephone',
-                                value: provider.phone,
+                                value: provider?.phone ?? '-',
                               ),
                             ],
                           ),
                         ),
-
                         const SizedBox(height: 14),
-
                         _SectionCard(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -536,7 +569,6 @@ class _ProviderMissionDetailsPageState extends State<ProviderMissionDetailsPage>
                             ],
                           ),
                         ),
-
                         if (request.isClientRated &&
                             request.clientRatingForProvider != null) ...[
                           const SizedBox(height: 14),
@@ -575,7 +607,6 @@ class _ProviderMissionDetailsPageState extends State<ProviderMissionDetailsPage>
                             ),
                           ),
                         ],
-
                         if (request.isProviderRated &&
                             request.providerRatingForClient != null) ...[
                           const SizedBox(height: 14),
@@ -614,32 +645,67 @@ class _ProviderMissionDetailsPageState extends State<ProviderMissionDetailsPage>
                             ),
                           ),
                         ],
-
                         const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: () => LauncherService()
-                                    .callPhone(request.customerPhone),
-                                icon: const Icon(Icons.call_outlined),
-                                label: const Text('Appeler'),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: () {
-                                  LauncherService().openGoogleMaps(
-                                    origin: providerPosition,
-                                    destination: customerPosition,
-                                  );
-                                },
-                                icon: const Icon(Icons.navigation_outlined),
-                                label: const Text('Itineraire'),
-                              ),
-                            ),
-                          ],
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            if (constraints.maxWidth < 420) {
+                              return Column(
+                                children: [
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: OutlinedButton.icon(
+                                      onPressed: () => LauncherService()
+                                          .callPhone(request.customerPhone),
+                                      icon: const Icon(Icons.call_outlined),
+                                      label: const Text('Appeler'),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: OutlinedButton.icon(
+                                      onPressed: () {
+                                        LauncherService().openGoogleMaps(
+                                          origin: providerPosition,
+                                          destination: customerPosition,
+                                        );
+                                      },
+                                      icon: const Icon(
+                                        Icons.navigation_outlined,
+                                      ),
+                                      label: const Text('Itineraire'),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }
+
+                            return Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: () => LauncherService()
+                                        .callPhone(request.customerPhone),
+                                    icon: const Icon(Icons.call_outlined),
+                                    label: const Text('Appeler'),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: () {
+                                      LauncherService().openGoogleMaps(
+                                        origin: providerPosition,
+                                        destination: customerPosition,
+                                      );
+                                    },
+                                    icon: const Icon(Icons.navigation_outlined),
+                                    label: const Text('Itineraire'),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
                         ),
                         const SizedBox(height: 10),
                         SizedBox(
@@ -677,7 +743,8 @@ class _ProviderMissionDetailsPageState extends State<ProviderMissionDetailsPage>
                             child: OutlinedButton.icon(
                               onPressed: () async {
                                 await widget.store
-                                    .rejectRequestForCurrentProvider(request.id);
+                                    .rejectRequestForCurrentProvider(
+                                        request.id);
                                 if (context.mounted) {
                                   Navigator.of(context).pop();
                                 }

@@ -91,12 +91,18 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
   @override
   Widget build(BuildContext context) {
     final store = widget.store;
-    final provider = store.selectedProvider;
+    final provider = store.selectedProviderOrNull;
+    if (provider == null) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
     final providerPosition = store.providerCurrentPosition ?? provider.position;
 
     final active = store.providerAssignedRequests;
     final available = store.providerAvailableRequests;
-
     final markers = <Marker>[
       Marker(
         point: providerPosition,
@@ -104,8 +110,8 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
         height: 86,
         child: const MapPin(
           label: 'Provider',
-          icon: Icons.local_shipping,
-          color: Colors.blue,
+          icon: Icons.car_repair_rounded,
+          color: Color(0xFFF59E0B),
         ),
       ),
     ];
@@ -120,21 +126,6 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
             label: 'Client',
             icon: Icons.place,
             color: Colors.red,
-          ),
-        ),
-      );
-    }
-
-    for (final item in available.take(2)) {
-      markers.add(
-        Marker(
-          point: item.customerPosition,
-          width: 80,
-          height: 80,
-          child: const MapPin(
-            label: 'Mission',
-            icon: Icons.assignment_outlined,
-            color: Colors.orange,
           ),
         ),
       );
@@ -185,7 +176,8 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
                   Switch(
                     value: provider.isOnline,
                     onChanged: (value) async {
-                      await store.updateProviderOnlineStatus(provider.id, value);
+                      await store.updateProviderOnlineStatus(
+                          provider.id, value);
                     },
                   ),
                 ],
@@ -193,37 +185,37 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
             ),
           ),
           Positioned(
-  top: MediaQuery.of(context).padding.top + 12,
-  right: 14,
-  child: Material(
-    color: Colors.transparent,
-    child: InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => ProviderEarningsPage(store: store),
-          ),
-        );
-      },
-      child: _FloatingPill(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.payments_outlined, size: 18),
-            const SizedBox(width: 8),
-            Text(
-              '${netRevenue.toStringAsFixed(0)} DA',
-              style: const TextStyle(
-                fontWeight: FontWeight.w900,
+            top: MediaQuery.of(context).padding.top + 12,
+            right: 14,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(18),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ProviderEarningsPage(store: store),
+                    ),
+                  );
+                },
+                child: _FloatingPill(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.payments_outlined, size: 18),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${netRevenue.toStringAsFixed(0)} DA',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-          ],
-        ),
-      ),
-    ),
-  ),
-),
+          ),
           Positioned(
             right: 14,
             bottom: 110,
@@ -255,29 +247,64 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
             right: 14,
             bottom: 20,
             child: _FloatingBottomCard(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _MiniStat(
-                      title: 'Disponibles',
-                      value: '${available.length}',
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _MiniStat(
-                      title: 'Actives',
-                      value: '${active.length}',
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _MiniStat(
-                      title: 'Note',
-                      value: provider.rating.toStringAsFixed(1),
-                    ),
-                  ),
-                ],
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  if (constraints.maxWidth < 360) {
+                    return Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: (constraints.maxWidth - 10) / 2,
+                          child: _MiniStat(
+                            title: 'Disponibles',
+                            value: '${available.length}',
+                          ),
+                        ),
+                        SizedBox(
+                          width: (constraints.maxWidth - 10) / 2,
+                          child: _MiniStat(
+                            title: 'Actives',
+                            value: '${active.length}',
+                          ),
+                        ),
+                        SizedBox(
+                          width: constraints.maxWidth,
+                          child: _MiniStat(
+                            title: 'Note',
+                            value: provider.rating.toStringAsFixed(1),
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: _MiniStat(
+                          title: 'Disponibles',
+                          value: '${available.length}',
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _MiniStat(
+                          title: 'Actives',
+                          value: '${active.length}',
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _MiniStat(
+                          title: 'Note',
+                          value: provider.rating.toStringAsFixed(1),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ),
@@ -297,7 +324,7 @@ class _FloatingPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.82),
+        color: Colors.white.withValues(alpha: 0.82),
         borderRadius: BorderRadius.circular(18),
         boxShadow: const [
           BoxShadow(
@@ -324,7 +351,7 @@ class _RoundMapButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white.withOpacity(0.9),
+      color: Colors.white.withValues(alpha: 0.9),
       shape: const CircleBorder(),
       elevation: 3,
       child: InkWell(
@@ -350,7 +377,7 @@ class _FloatingBottomCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.88),
+        color: Colors.white.withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(22),
         boxShadow: const [
           BoxShadow(

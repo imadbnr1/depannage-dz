@@ -30,6 +30,14 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/requests/$(id));
     }
 
+    function validProviderTransition(from, to) {
+      return (from == 'accepted' && to == 'onTheWay') ||
+        (from == 'onTheWay' && to == 'arrived') ||
+        (from == 'arrived' && to == 'inService') ||
+        (from == 'inService' && to == 'completed') ||
+        from == to;
+    }
+
     function canReadRequest(data) {
       return isAdmin() ||
         (isCustomer() && data.customerUid == request.auth.uid) ||
@@ -62,23 +70,46 @@ service cloud.firestore {
 
       // only customer creates request
       allow create: if isCustomer() &&
-        request.resource.data.customerUid == request.auth.uid;
+        request.resource.data.customerUid == request.auth.uid &&
+        request.resource.data.status == 'searching' &&
+        request.resource.data.providerUid == null &&
+        request.resource.data.offeredProviderUid == null;
 
       // UPDATE RULES
       allow update: if isSignedIn() && (
         isAdmin()
 
-        // customer can cancel own request
+        // customer can only cancel own request
         || (isCustomer() &&
-            resource.data.customerUid == request.auth.uid)
+            resource.data.customerUid == request.auth.uid &&
+            resource.data.status != 'completed' &&
+            resource.data.status != 'cancelled' &&
+            request.resource.data.status == 'cancelled')
 
-        // provider logic
+        // offered provider can reject current offer
         || (isProvider() && (
-          // accept only if offered
-          resource.data.offeredProviderUid == request.auth.uid
-
-          // OR already assigned provider
-          || resource.data.providerUid == request.auth.uid
+          (
+            resource.data.status == 'searching' &&
+            resource.data.offeredProviderUid == request.auth.uid &&
+            request.resource.data.status == 'searching' &&
+            request.resource.data.providerUid == null &&
+            request.resource.data.offeredProviderUid == null
+          ) ||
+          (
+            resource.data.status == 'searching' &&
+            resource.data.offeredProviderUid == request.auth.uid &&
+            request.resource.data.status == 'accepted' &&
+            request.resource.data.providerUid == request.auth.uid &&
+            request.resource.data.offeredProviderUid == null
+          ) ||
+          (
+            resource.data.providerUid == request.auth.uid &&
+            request.resource.data.providerUid == request.auth.uid &&
+            validProviderTransition(
+              resource.data.status,
+              request.resource.data.status,
+            )
+          )
         ))
       );
 
@@ -105,7 +136,17 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // CHAT (basic for now)
+    match /request_chats/{requestId} {
+      allow read, write: if isSignedIn() &&
+        canReadRequest(requestDoc(requestId).data);
+
+      match /messages/{messageId} {
+        allow read, write: if isSignedIn() &&
+          canReadRequest(requestDoc(requestId).data);
+      }
+    }
+
+    // CHAT fallback
     match /chats/{chatId} {
       allow read, write: if isSignedIn();
     }

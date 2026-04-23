@@ -13,10 +13,12 @@ class AuthGate extends StatelessWidget {
     super.key,
     required this.authService,
     required this.store,
+    this.preferSignup = false,
   });
 
   final AuthService authService;
   final AppStore store;
+  final bool preferSignup;
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +35,10 @@ class AuthGate extends StatelessWidget {
 
         final firebaseUser = authService.currentFirebaseUser;
         if (firebaseUser == null) {
-          return LoginPage(authService: authService);
+          return LoginPage(
+            authService: authService,
+            launchSignupOnOpen: preferSignup,
+          );
         }
 
         return FutureBuilder<AppUser?>(
@@ -58,42 +63,8 @@ class AuthGate extends StatelessWidget {
 
             if (appUser.isProvider) {
               if (!appUser.isApproved) {
-                return Scaffold(
-                  appBar: AppBar(
-                    title: const Text('Validation en attente'),
-                  ),
-                  body: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.hourglass_top,
-                            size: 56,
-                            color: Colors.orange,
-                          ),
-                          const SizedBox(height: 16),
-                          const Text(
-                            'Votre compte provider est en attente de validation par l admin.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          FilledButton.icon(
-                            onPressed: () async {
-                              await authService.signOut();
-                            },
-                            icon: const Icon(Icons.logout),
-                            label: const Text('Se deconnecter'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                return _ProviderApprovalPendingScreen(
+                  authService: authService,
                 );
               }
 
@@ -104,6 +75,96 @@ class AuthGate extends StatelessWidget {
           },
         );
       },
+    );
+  }
+}
+
+class _ProviderApprovalPendingScreen extends StatefulWidget {
+  const _ProviderApprovalPendingScreen({
+    required this.authService,
+  });
+
+  final AuthService authService;
+
+  @override
+  State<_ProviderApprovalPendingScreen> createState() =>
+      _ProviderApprovalPendingScreenState();
+}
+
+class _ProviderApprovalPendingScreenState
+    extends State<_ProviderApprovalPendingScreen> {
+  bool _dialogShown = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted || _dialogShown) return;
+      _dialogShown = true;
+      await showDialog<void>(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text('Validation provider'),
+            content: const Text(
+              'Votre compte a ete cree. Vous devez attendre la validation de l administration avant de recevoir des missions.',
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Compris'),
+              ),
+            ],
+          );
+        },
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Validation en attente'),
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.hourglass_top,
+                size: 56,
+                color: Colors.orange,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Votre compte provider est en attente de validation par l admin.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Vous recevrez les missions seulement apres approbation.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.black54),
+              ),
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                onPressed: () async {
+                  await widget.authService.signOut();
+                },
+                icon: const Icon(Icons.logout),
+                label: const Text('Se deconnecter'),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

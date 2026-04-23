@@ -14,6 +14,8 @@ abstract class RequestRepository {
   Future<bool> offerRequestToProvider({
     required String requestId,
     required String providerUid,
+    required DateTime offeredAt,
+    required DateTime offerExpiresAt,
   });
 
   Future<bool> rejectOfferedRequest({

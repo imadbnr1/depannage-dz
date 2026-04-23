@@ -1,9 +1,13 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../core/services/alert_service.dart';
 import '../../../core/services/fcm_service.dart';
+import '../../../models/app_request.dart';
 import '../../../state/app_store.dart';
 import '../../shared/pages/chat_page.dart';
 import 'provider_dashboard_page.dart';
@@ -33,6 +37,10 @@ class _ProviderShellPageState extends State<ProviderShellPage> {
   final Set<String> _shownOfferAlerts = {};
   String? _lastFcmSignature;
   bool _offerDialogOpen = false;
+  String? _pendingOfferDialogRequestId;
+  final Map<String, StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>>
+      _chatSubscriptions = {};
+  final Map<String, String> _lastChatSignatures = {};
 
   @override
   void initState() {
@@ -40,12 +48,23 @@ class _ProviderShellPageState extends State<ProviderShellPage> {
     _index = widget.store.providerTab;
     widget.store.addListener(_onStoreChanged);
     FcmService.payloadNotifier.addListener(_onFcmPayload);
+    widget.store.setAdminNotificationDeliveryReady(_index == 0);
+    _syncChatListeners();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _detectNewOfferedMission();
+    });
   }
 
   @override
   void dispose() {
+    widget.store.setAdminNotificationDeliveryReady(false);
     widget.store.removeListener(_onStoreChanged);
     FcmService.payloadNotifier.removeListener(_onFcmPayload);
+    for (final sub in _chatSubscriptions.values) {
+      sub.cancel();
+    }
+    _chatSubscriptions.clear();
     super.dispose();
   }
 
@@ -56,9 +75,93 @@ class _ProviderShellPageState extends State<ProviderShellPage> {
       _index = widget.store.providerTab;
     }
 
+    widget.store.setAdminNotificationDeliveryReady(_index == 0);
     _detectNewOfferedMission();
     _checkRatingRequired();
+    _syncChatListeners();
     setState(() {});
+  }
+
+  void _syncChatListeners() {
+    final requestIds = widget.store.providerAssignedRequests
+        .map((request) => request.id)
+        .toSet();
+
+    final staleIds = _chatSubscriptions.keys
+        .where((requestId) => !requestIds.contains(requestId))
+        .toList();
+
+    for (final requestId in staleIds) {
+      _chatSubscriptions.remove(requestId)?.cancel();
+      _lastChatSignatures.remove(requestId);
+    }
+
+    for (final requestId in requestIds) {
+      if (_chatSubscriptions.containsKey(requestId)) continue;
+
+      _chatSubscriptions[requestId] = FirebaseFirestore.instance
+          .collection('request_chats')
+          .doc(requestId)
+          .snapshots()
+          .listen((doc) {
+        final data = doc.data();
+        if (data == null) return;
+        _handleChatMetadata(requestId, data);
+      });
+    }
+  }
+
+  void _handleChatMetadata(String requestId, Map<String, dynamic> data) {
+    final senderUid = (data['lastMessageSenderUid'] ?? '').toString();
+    final createdAtIso = (data['lastMessageCreatedAtIso'] ?? '').toString();
+    final messageText = (data['lastMessageText'] ?? '').toString().trim();
+
+    if (senderUid.isEmpty || createdAtIso.isEmpty || messageText.isEmpty) {
+      return;
+    }
+
+    final signature = '$senderUid|$createdAtIso|$messageText';
+    final previous = _lastChatSignatures[requestId];
+    _lastChatSignatures[requestId] = signature;
+
+    if (previous == null || previous == signature) {
+      return;
+    }
+
+    final currentUid = FirebaseAuth.instance.currentUser?.uid;
+    if (senderUid == currentUid) return;
+
+    final request = widget.store.findRequest(requestId);
+    final senderName = request?.customerName.trim().isNotEmpty == true
+        ? request!.customerName
+        : 'Client';
+
+    widget.store.pushExternalNotification(
+      title: 'Nouveau message',
+      body: '$senderName: $messageText',
+      type: 'chat',
+    );
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Nouveau message de $senderName'),
+        action: SnackBarAction(
+          label: 'Ouvrir',
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ChatPage(
+                  requestId: requestId,
+                  title: 'Chat client',
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
   }
 
   void _onFcmPayload() {
@@ -106,6 +209,12 @@ class _ProviderShellPageState extends State<ProviderShellPage> {
     for (final request in widget.store.requests) {
       final previous = _previousOfferedMap[request.id];
       final current = request.offeredProviderUid;
+      final stillOfferedToMe =
+          current == providerId && request.status.name == 'searching';
+
+      if (!stillOfferedToMe) {
+        _shownOfferAlerts.remove(request.id);
+      }
 
       final newlyOfferedToMe = current == providerId && previous != providerId;
 
@@ -113,71 +222,111 @@ class _ProviderShellPageState extends State<ProviderShellPage> {
           request.status.name == 'searching' &&
           !_shownOfferAlerts.contains(request.id)) {
         _shownOfferAlerts.add(request.id);
-        _showMissionOfferDialog(request.id);
+        _scheduleMissionOfferDialog(request.id);
       }
 
       _previousOfferedMap[request.id] = current;
     }
+
+    for (final request in widget.store.providerAvailableRequests) {
+      if (_offerDialogOpen) break;
+      if (_shownOfferAlerts.contains(request.id)) continue;
+      _shownOfferAlerts.add(request.id);
+      _scheduleMissionOfferDialog(request.id);
+    }
+  }
+
+  void _scheduleMissionOfferDialog(String requestId) {
+    if (_offerDialogOpen || _pendingOfferDialogRequestId == requestId) return;
+
+    final latest = widget.store.findRequest(requestId);
+    final providerId = widget.store.selectedProviderOrNull?.id;
+    if (latest == null ||
+        providerId == null ||
+        latest.status.name != 'searching' ||
+        latest.offeredProviderUid != providerId) {
+      return;
+    }
+
+    _pendingOfferDialogRequestId = requestId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        _pendingOfferDialogRequestId = null;
+        return;
+      }
+
+      final pendingId = _pendingOfferDialogRequestId;
+      _pendingOfferDialogRequestId = null;
+      if (pendingId == null) return;
+
+      unawaited(_showMissionOfferDialog(pendingId));
+    });
   }
 
   Future<void> _showMissionOfferDialog(String requestId) async {
     if (_offerDialogOpen) return;
 
     final request = widget.store.findRequest(requestId);
-    if (request == null) return;
-
-    _offerDialogOpen = true;
-    await AlertService.startProviderAlertLoop();
-
-    if (!mounted) {
-      _offerDialogOpen = false;
+    final providerId = widget.store.selectedProviderOrNull?.id;
+    if (request == null ||
+        providerId == null ||
+        request.status.name != 'searching' ||
+        request.offeredProviderUid != providerId) {
       return;
     }
 
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        return _MissionOfferDialog(
-          requestId: requestId,
-          store: widget.store,
-          onAccept: () async {
-            await AlertService.stopProviderAlertLoop();
-            await widget.store.acceptRequest(request.id);
+    _offerDialogOpen = true;
+    try {
+      await AlertService.startProviderAlertLoop();
 
-            if (!mounted) return;
-            widget.store.setProviderTab(1);
+      if (!mounted) return;
 
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => ProviderTrackingPage(
-                  store: widget.store,
-                  requestId: request.id,
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        useRootNavigator: true,
+        builder: (dialogContext) {
+          return _MissionOfferDialog(
+            requestId: requestId,
+            initialRequest: request,
+            store: widget.store,
+            onAccept: () async {
+              await widget.store.acceptRequest(request.id);
+
+              if (!mounted) return;
+              widget.store.setProviderTab(1);
+
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ProviderTrackingPage(
+                    store: widget.store,
+                    requestId: request.id,
+                  ),
                 ),
-              ),
-            );
-          },
-          onReject: () async {
-            await AlertService.stopProviderAlertLoop();
-            await widget.store.rejectRequestForCurrentProvider(request.id);
-          },
-          onLater: () async {
-            await AlertService.stopProviderAlertLoop();
-            widget.store.setProviderTab(1);
-          },
-          onTimeout: () async {
-            await AlertService.stopProviderAlertLoop();
-            widget.store.setProviderTab(1);
-          },
-        );
-      },
-    );
-
-    _offerDialogOpen = false;
+              );
+            },
+            onReject: () async {
+              await widget.store.rejectRequestForCurrentProvider(request.id);
+            },
+            onLater: () async {
+              widget.store.setProviderTab(1);
+            },
+            onTimeout: () async {
+              await widget.store.rejectRequestForCurrentProvider(request.id);
+              widget.store.setProviderTab(1);
+            },
+          );
+        },
+      );
+    } finally {
+      await AlertService.stopProviderAlertLoop();
+      _offerDialogOpen = false;
+    }
   }
 
   void _checkRatingRequired() {
-    final providerId = widget.store.selectedProvider.id;
+    final providerId = widget.store.currentProviderUid;
+    if (providerId == null) return;
     final pending = widget.store.requests.where((r) {
       return r.providerUid == providerId && r.canProviderRate;
     }).toList();
@@ -223,31 +372,32 @@ class _ProviderShellPageState extends State<ProviderShellPage> {
         onDestinationSelected: (value) {
           setState(() => _index = value);
           widget.store.setProviderTab(value);
+          widget.store.setAdminNotificationDeliveryReady(value == 0);
         },
         destinations: const [
           NavigationDestination(
-            icon: Icon(Icons.map_outlined),
-            selectedIcon: Icon(Icons.map),
+            icon: Icon(Icons.explore_outlined),
+            selectedIcon: Icon(Icons.explore),
             label: 'Accueil',
           ),
           NavigationDestination(
-            icon: Icon(Icons.assignment_outlined),
-            selectedIcon: Icon(Icons.assignment),
+            icon: Icon(Icons.car_repair_outlined),
+            selectedIcon: Icon(Icons.car_repair),
             label: 'Missions',
           ),
           NavigationDestination(
-            icon: Icon(Icons.history_outlined),
+            icon: Icon(Icons.history_rounded),
             selectedIcon: Icon(Icons.history),
             label: 'Historique',
           ),
           NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
+            icon: Icon(Icons.account_circle_outlined),
+            selectedIcon: Icon(Icons.account_circle),
             label: 'Profil',
           ),
           NavigationDestination(
-            icon: Icon(Icons.support_agent_outlined),
-            selectedIcon: Icon(Icons.support_agent),
+            icon: Icon(Icons.headset_mic_outlined),
+            selectedIcon: Icon(Icons.headset_mic),
             label: 'Support',
           ),
         ],
@@ -259,6 +409,7 @@ class _ProviderShellPageState extends State<ProviderShellPage> {
 class _MissionOfferDialog extends StatefulWidget {
   const _MissionOfferDialog({
     required this.requestId,
+    required this.initialRequest,
     required this.store,
     required this.onAccept,
     required this.onReject,
@@ -267,6 +418,7 @@ class _MissionOfferDialog extends StatefulWidget {
   });
 
   final String requestId;
+  final AppRequest initialRequest;
   final AppStore store;
   final Future<void> Function() onAccept;
   final Future<void> Function() onReject;
@@ -285,12 +437,13 @@ class _MissionOfferDialogState extends State<_MissionOfferDialog> {
   @override
   void initState() {
     super.initState();
-    _secondsLeft = 30;
+    _secondsLeft = widget.store.offerSecondsRemaining(widget.requestId) ?? 0;
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) async {
       final latest = widget.store.findRequest(widget.requestId);
-      final providerId = widget.store.selectedProvider.id;
+      final providerId = widget.store.currentProviderUid;
 
       if (latest == null ||
+          providerId == null ||
           latest.status.name != 'searching' ||
           latest.offeredProviderUid != providerId) {
         timer.cancel();
@@ -300,7 +453,10 @@ class _MissionOfferDialogState extends State<_MissionOfferDialog> {
         return;
       }
 
-      if (_secondsLeft <= 1) {
+      final nextSeconds =
+          widget.store.offerSecondsRemaining(widget.requestId) ?? 0;
+
+      if (nextSeconds <= 0) {
         timer.cancel();
         if (!_actionTaken) {
           _actionTaken = true;
@@ -314,7 +470,7 @@ class _MissionOfferDialogState extends State<_MissionOfferDialog> {
 
       if (mounted) {
         setState(() {
-          _secondsLeft -= 1;
+          _secondsLeft = nextSeconds;
         });
       }
     });
@@ -352,65 +508,207 @@ class _MissionOfferDialogState extends State<_MissionOfferDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final request = widget.store.findRequest(widget.requestId);
-    if (request == null) {
-      return const SizedBox.shrink();
-    }
+    final request =
+        widget.store.findRequest(widget.requestId) ?? widget.initialRequest;
+    final providerPosition = widget.store.selectedProviderOrNull?.position ??
+        request.providerPosition;
+    final customerPosition = request.customerPosition;
+    final distanceKm = providerPosition == null
+        ? null
+        : const Distance().as(
+            LengthUnit.Kilometer,
+            providerPosition,
+            customerPosition,
+          );
+    final urgencyTone = _urgencyTone(request.urgency);
+    final estimatedPrice = request.estimatedPrice;
+    final netEarning = estimatedPrice == null
+        ? null
+        : estimatedPrice -
+            widget.store.estimateCommissionAmount(estimatedPrice);
 
     return PopScope(
       canPop: false,
       child: AlertDialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
         ),
-        title: const Text(
-          'Nouvelle mission',
-          style: TextStyle(
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEEF2FF),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  'Temps restant: ${_secondsLeft}s',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF4338CA),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFDBEAFE),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(
+                      Icons.local_shipping_rounded,
+                      color: Color(0xFF1D4ED8),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Nouvelle mission',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 20,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEEF2FF),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    'Temps restant: ${_secondsLeft}s',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF4338CA),
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              request.customerName,
-              style: const TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 17,
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8F5EF),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF5DB),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(
+                        Icons.location_on_rounded,
+                        color: Color(0xFFDC2626),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Intervention a proximite',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            request.pickupLabel,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: Colors.black54),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            _InfoLine(label: 'Telephone', value: request.customerPhone),
-            _InfoLine(label: 'Depart', value: request.pickupLabel),
-            if (request.destination.isNotEmpty)
-              _InfoLine(label: 'Destination', value: request.destination),
-            if (request.estimatedPrice != null)
+              const SizedBox(height: 14),
+              Text(
+                request.customerName,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 17,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _OfferBadge(
+                    icon: Icons.directions_car_filled_rounded,
+                    label: request.brandModel.trim().isNotEmpty
+                        ? request.brandModel
+                        : request.vehicleType,
+                  ),
+                  if (distanceKm != null)
+                    _OfferBadge(
+                      icon: Icons.near_me_outlined,
+                      label: '${distanceKm.toStringAsFixed(1)} km',
+                    ),
+                  if (request.estimatedPrice != null)
+                    _OfferBadge(
+                      icon: Icons.payments_rounded,
+                      label: '${request.estimatedPrice!.toStringAsFixed(0)} DA',
+                    ),
+                  if (netEarning != null)
+                    _OfferBadge(
+                      icon: Icons.savings_outlined,
+                      label: 'Net ${netEarning.toStringAsFixed(0)} DA',
+                    ),
+                  _OfferBadge(
+                    icon: Icons.handyman_rounded,
+                    label: request.service.toString().split('.').last,
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: urgencyTone.background,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      request.urgency,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: urgencyTone.foreground,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _InfoLine(label: 'Telephone', value: request.customerPhone),
               _InfoLine(
-                label: 'Prix estime',
-                value: '${request.estimatedPrice!.toStringAsFixed(0)} DA',
+                label: 'Vehicule',
+                value:
+                    '${request.vehicleType}${request.brandModel.trim().isEmpty ? '' : ' · ${request.brandModel}'}',
               ),
-          ],
+              _InfoLine(label: 'Depart', value: request.pickupLabel),
+              if (request.destination.isNotEmpty)
+                _InfoLine(label: 'Destination', value: request.destination),
+              if (request.estimatedPrice != null)
+                _InfoLine(
+                  label: 'Prix estime',
+                  value: '${request.estimatedPrice!.toStringAsFixed(0)} DA',
+                ),
+              if (netEarning != null)
+                _InfoLine(
+                  label: 'Gain net',
+                  value: '${netEarning.toStringAsFixed(0)} DA',
+                ),
+            ],
+          ),
         ),
         actions: [
           SizedBox(
@@ -446,6 +744,70 @@ class _MissionOfferDialogState extends State<_MissionOfferDialog> {
       ),
     );
   }
+
+  _UrgencyTone _urgencyTone(String urgency) {
+    final lower = urgency.toLowerCase();
+    if (lower.contains('urgent')) {
+      return const _UrgencyTone(
+        background: Color(0xFFFEF3C7),
+        foreground: Color(0xFFB45309),
+      );
+    }
+    if (lower.contains('crit')) {
+      return const _UrgencyTone(
+        background: Color(0xFFFEE2E2),
+        foreground: Color(0xFFB91C1C),
+      );
+    }
+    return const _UrgencyTone(
+      background: Color(0xFFECFDF5),
+      foreground: Color(0xFF166534),
+    );
+  }
+}
+
+class _OfferBadge extends StatelessWidget {
+  const _OfferBadge({
+    required this.icon,
+    required this.label,
+  });
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: const Color(0xFF2563EB)),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UrgencyTone {
+  const _UrgencyTone({
+    required this.background,
+    required this.foreground,
+  });
+
+  final Color background;
+  final Color foreground;
 }
 
 class _InfoLine extends StatelessWidget {

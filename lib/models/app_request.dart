@@ -31,6 +31,8 @@ class AppRequest {
     this.providerPlate,
     this.providerPosition,
     this.offeredProviderUid,
+    this.offeredAt,
+    this.offerExpiresAt,
     this.rejectedProviderUids = const [],
     this.estimatedDistanceKm,
     this.estimatedDurationMinutes,
@@ -77,6 +79,8 @@ class AppRequest {
   final LatLng? providerPosition;
 
   final String? offeredProviderUid;
+  final DateTime? offeredAt;
+  final DateTime? offerExpiresAt;
   final List<String> rejectedProviderUids;
 
   final double? estimatedDistanceKm;
@@ -131,6 +135,8 @@ class AppRequest {
     Object? providerPlate = _sentinel,
     Object? providerPosition = _sentinel,
     Object? offeredProviderUid = _sentinel,
+    Object? offeredAt = _sentinel,
+    Object? offerExpiresAt = _sentinel,
     List<String>? rejectedProviderUids,
     Object? estimatedDistanceKm = _sentinel,
     Object? estimatedDurationMinutes = _sentinel,
@@ -182,6 +188,11 @@ class AppRequest {
       offeredProviderUid: offeredProviderUid == _sentinel
           ? this.offeredProviderUid
           : offeredProviderUid as String?,
+      offeredAt:
+          offeredAt == _sentinel ? this.offeredAt : offeredAt as DateTime?,
+      offerExpiresAt: offerExpiresAt == _sentinel
+          ? this.offerExpiresAt
+          : offerExpiresAt as DateTime?,
       rejectedProviderUids: rejectedProviderUids ?? this.rejectedProviderUids,
       estimatedDistanceKm: estimatedDistanceKm == _sentinel
           ? this.estimatedDistanceKm
@@ -247,6 +258,8 @@ class AppRequest {
               'lng': providerPosition!.longitude,
             },
       'offeredProviderUid': offeredProviderUid,
+      'offeredAt': offeredAt?.toIso8601String(),
+      'offerExpiresAt': offerExpiresAt?.toIso8601String(),
       'rejectedProviderUids': rejectedProviderUids,
       'estimatedDistanceKm': estimatedDistanceKm,
       'estimatedDurationMinutes': estimatedDurationMinutes,
@@ -333,6 +346,8 @@ class AppRequest {
           ? null
           : parseLatLng(map['providerPosition']),
       offeredProviderUid: map['offeredProviderUid']?.toString(),
+      offeredAt: parseDateNullable(map['offeredAt']),
+      offerExpiresAt: parseDateNullable(map['offerExpiresAt']),
       rejectedProviderUids: (map['rejectedProviderUids'] as List?)
               ?.map((e) => e.toString())
               .toList() ??

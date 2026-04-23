@@ -64,6 +64,17 @@ class _ChatPageState extends State<ChatPage> {
       );
 
       await ref.set(message.toMap());
+      await FirebaseFirestore.instance
+          .collection('request_chats')
+          .doc(widget.requestId)
+          .set({
+        'requestId': widget.requestId,
+        'lastMessageId': message.id,
+        'lastMessageText': message.text,
+        'lastMessageSenderUid': message.senderUid,
+        'lastMessageSenderRole': message.senderRole,
+        'lastMessageCreatedAtIso': message.createdAt.toIso8601String(),
+      }, SetOptions(merge: true));
 
       _messageController.clear();
 

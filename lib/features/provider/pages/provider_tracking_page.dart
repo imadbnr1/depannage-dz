@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/services/routing_service.dart';
 import '../../../models/request_status.dart';
 import '../../../state/app_store.dart';
+import '../../shared/pages/chat_page.dart';
 
 class ProviderTrackingPage extends StatefulWidget {
   const ProviderTrackingPage({
@@ -34,11 +35,14 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
   bool _loadingRoute = false;
   double? _routeDistanceMeters;
   double? _routeDurationSeconds;
+  double? _routeProgress;
   LatLng? _lastRouteStart;
+  bool _didAutoFitRoute = false;
 
   @override
   void initState() {
     super.initState();
+    widget.store.addListener(_handleStoreChanged);
 
     _trackingSub = widget.store.watchTracking(widget.requestId).listen((_) {
       if (!mounted) return;
@@ -53,14 +57,20 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
 
   @override
   void dispose() {
+    widget.store.removeListener(_handleStoreChanged);
     _trackingSub?.cancel();
     _routeTimer?.cancel();
     super.dispose();
   }
 
+  void _handleStoreChanged() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
   void _scheduleRouteUpdate() {
     _routeTimer?.cancel();
-    _routeTimer = Timer(const Duration(seconds: 4), _loadRoute);
+    _routeTimer = Timer(const Duration(seconds: 3), _loadRoute);
   }
 
   Future<void> _loadRoute() async {
@@ -83,7 +93,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
         providerPosition,
       );
 
-      if (movedMeters < 20) {
+      if (movedMeters < 12) {
         return;
       }
     }
@@ -106,12 +116,23 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
           _routePoints = [providerPosition, customerPosition];
           _routeDistanceMeters = null;
           _routeDurationSeconds = null;
+          _routeProgress = null;
         });
       } else {
+        final estimatedTotalMeters =
+            (request.estimatedDistanceKm ?? (route.distanceMeters / 1000)) *
+                1000;
+        final progress = estimatedTotalMeters <= 0
+            ? null
+            : ((estimatedTotalMeters - route.distanceMeters) /
+                    estimatedTotalMeters)
+                .clamp(0.0, 1.0);
+
         setState(() {
           _routePoints = route.points;
           _routeDistanceMeters = route.distanceMeters;
           _routeDurationSeconds = route.durationSeconds;
+          _routeProgress = progress;
         });
       }
 
@@ -123,6 +144,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
         _routePoints = [providerPosition, customerPosition];
         _routeDistanceMeters = null;
         _routeDurationSeconds = null;
+        _routeProgress = null;
       });
 
       _fitRoute(providerPosition, customerPosition);
@@ -134,6 +156,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
   }
 
   void _fitRoute(LatLng a, LatLng b) {
+    if (_didAutoFitRoute) return;
     final bounds = LatLngBounds.fromPoints([a, b]);
     _mapController.fitCamera(
       CameraFit.bounds(
@@ -141,6 +164,12 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
         padding: const EdgeInsets.all(48),
       ),
     );
+    _didAutoFitRoute = true;
+  }
+
+  void _recenterRoute(LatLng a, LatLng b) {
+    _didAutoFitRoute = false;
+    _fitRoute(a, b);
   }
 
   String _statusLabel(RequestStatus status) {
@@ -200,6 +229,10 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
 
   String _actionLabel(RequestStatus status) {
     switch (status) {
+      case RequestStatus.accepted:
+        return 'Passer en route';
+      case RequestStatus.onTheWay:
+        return 'Confirmer arrivee';
       case RequestStatus.arrived:
         return 'Commencer service';
       case RequestStatus.inService:
@@ -210,31 +243,15 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
   }
 
   bool _canAdvance(RequestStatus status) {
-    return status == RequestStatus.arrived ||
+    return status == RequestStatus.accepted ||
+        status == RequestStatus.onTheWay ||
+        status == RequestStatus.arrived ||
         status == RequestStatus.inService;
   }
 
   Future<void> _callClient(String phone) async {
     final uri = Uri.parse('tel:$phone');
     await launchUrl(uri);
-  }
-
-  Future<void> _startNavigation(LatLng destination) async {
-    final googleUri = Uri.parse(
-      'https://www.google.com/maps/dir/?api=1'
-      '&destination=${destination.latitude},${destination.longitude}'
-      '&travelmode=driving&dir_action=navigate',
-    );
-
-    final wazeUri = Uri.parse(
-      'https://waze.com/ul?ll=${destination.latitude},${destination.longitude}&navigate=yes',
-    );
-
-    if (await canLaunchUrl(wazeUri)) {
-      await launchUrl(wazeUri, mode: LaunchMode.externalApplication);
-    } else {
-      await launchUrl(googleUri, mode: LaunchMode.externalApplication);
-    }
   }
 
   @override
@@ -262,7 +279,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
         height: 80,
         child: const _PinnedMarker(
           label: 'Client',
-          icon: Icons.place,
+          icon: Icons.person_pin_circle_rounded,
           color: Colors.red,
         ),
       ),
@@ -275,20 +292,19 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
           width: 120,
           height: 80,
           child: const _PinnedMarker(
-            label: 'Provider',
-            icon: Icons.local_shipping,
-            color: Colors.blue,
+            label: 'DEPANNAGE',
+            icon: Icons.car_repair_rounded,
+            color: Color(0xFFF59E0B),
           ),
         ),
       );
     }
 
+    final topInset = MediaQuery.of(context).padding.top;
     return Scaffold(
-      
-      body: Column(
+      body: Stack(
         children: [
-          Expanded(
-            flex: 5,
+          Positioned.fill(
             child: FlutterMap(
               mapController: _mapController,
               options: MapOptions(
@@ -314,128 +330,141 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
               ],
             ),
           ),
-          Expanded(
-            flex: 4,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-              decoration: const BoxDecoration(
-                color: Color(0xFFF3F4F6),
-                borderRadius: BorderRadius.vertical(
-                  top: Radius.circular(24),
+          Positioned(
+            top: topInset + 12,
+            left: 12,
+            right: 12,
+            child: Row(
+              children: [
+                _MapGlassButton(
+                  icon: Icons.arrow_back,
+                  onTap: () => Navigator.of(context).pop(),
                 ),
-              ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _TopTrackingBanner(
+                    title: request.customerName,
+                    status: _statusLabel(request.status),
+                    color: _statusColor(request.status),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                _MapGlassButton(
+                  icon: Icons.my_location_outlined,
+                  onTap: providerPosition == null
+                      ? null
+                      : () =>
+                          _recenterRoute(providerPosition, customerPosition),
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            left: 12,
+            right: 12,
+            bottom: 12,
+            child: _TrackingOverlayCard(
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    request.customerName,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _statusLabel(request.status),
-                    style: TextStyle(
-                      color: _statusColor(request.status),
-                      fontWeight: FontWeight.w800,
-                      fontSize: 15,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
                   Row(
                     children: [
                       Expanded(
                         child: _InfoBox(
                           title: 'Distance',
                           value: _formatDistance(),
+                          accent: const Color(0xFF2563EB),
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: _InfoBox(
                           title: 'ETA',
                           value: _formatEta(),
+                          accent: const Color(0xFF16A34A),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _InfoBox(
+                          title: 'Action',
+                          value: _canAdvance(request.status)
+                              ? 'Disponible'
+                              : 'Bloquee',
+                          accent: const Color(0xFFF59E0B),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 14),
-                  Text(
-                    request.landmark,
-                    style: const TextStyle(
-                      color: Colors.black54,
-                      fontSize: 14,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Destination: ${request.destination}',
-                    style: const TextStyle(
-                      color: Colors.black54,
-                      fontSize: 14,
-                    ),
-                  ),
-                  if (_loadingRoute) ...[
+                  if (_routeProgress != null) ...[
                     const SizedBox(height: 8),
-                    const Text(
-                      'Calcul de l itineraire...',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.black45,
+                    _CompactProgressCard(progress: _routeProgress!),
+                  ],
+                  const SizedBox(height: 8),
+                  _SummaryInlineRow(
+                    icon: Icons.place_rounded,
+                    title: 'Depart',
+                    value: request.pickupLabel,
+                  ),
+                  const SizedBox(height: 6),
+                  _SummaryInlineRow(
+                    icon: Icons.outlined_flag_rounded,
+                    title: 'Destination',
+                    value: request.destination,
+                  ),
+                  const SizedBox(height: 6),
+                  _SummaryInlineRow(
+                    icon: Icons.phone_outlined,
+                    title: 'Client',
+                    value: request.customerPhone,
+                  ),
+                  if (_loadingRoute)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 6),
+                      child: Text(
+                        'Calcul de l itineraire...',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.black45,
+                        ),
                       ),
                     ),
-                  ],
-                  const Spacer(),
+                  const SizedBox(height: 10),
                   Row(
                     children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: request.customerPhone.trim().isEmpty
-                              ? null
-                              : () => _callClient(request.customerPhone),
-                          icon: const Icon(Icons.phone_outlined),
-                          label: const Text('Appeler'),
-                        ),
+                      _BottomActionIconButton(
+                        icon: Icons.phone_outlined,
+                        onPressed: request.customerPhone.trim().isEmpty
+                            ? null
+                            : () => _callClient(request.customerPhone),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Le chat est gere dans la page chat.',
-                                ),
+                      const SizedBox(width: 8),
+                      _BottomActionIconButton(
+                        icon: Icons.chat_bubble_outline,
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => ChatPage(
+                                requestId: request.id,
+                                title: 'Chat client',
                               ),
-                            );
-                          },
-                          icon: const Icon(Icons.chat_bubble_outline),
-                          label: const Text('Chat'),
-                        ),
+                            ),
+                          );
+                        },
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 8),
                       Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => _startNavigation(customerPosition),
-                          icon: const Icon(Icons.map_outlined),
-                          label: const Text('Maps'),
+                        child: FilledButton.icon(
+                          onPressed: _canAdvance(request.status)
+                              ? () =>
+                                  widget.store.advanceMission(widget.requestId)
+                              : null,
+                          icon: const Icon(Icons.flag_outlined),
+                          label: Text(_actionLabel(request.status)),
                         ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: _canAdvance(request.status)
-                          ? () => widget.store.advanceMission(widget.requestId)
-                          : null,
-                      icon: const Icon(Icons.flag_outlined),
-                      label: Text(_actionLabel(request.status)),
-                    ),
                   ),
                 ],
               ),
@@ -464,8 +493,8 @@ class _PinnedMarker extends StatelessWidget {
       children: [
         Container(
           padding: const EdgeInsets.symmetric(
-            horizontal: 10,
-            vertical: 6,
+            horizontal: 12,
+            vertical: 7,
           ),
           decoration: BoxDecoration(
             color: Colors.white,
@@ -485,12 +514,258 @@ class _PinnedMarker extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
-        Icon(
-          icon,
-          color: color,
-          size: 34,
+        Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+              colors: [
+                color.withValues(alpha: 0.88),
+                color,
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: 0.35),
+                blurRadius: 14,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Icon(
+            icon,
+            color: Colors.white,
+            size: 24,
+          ),
         ),
       ],
+    );
+  }
+}
+
+class _CompactProgressCard extends StatelessWidget {
+  const _CompactProgressCard({
+    required this.progress,
+  });
+
+  final double progress;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Progression ${(100 * progress).round()}%',
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 8,
+              backgroundColor: const Color(0xFFE5E7EB),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                Color(0xFF16A34A),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrackingOverlayCard extends StatelessWidget {
+  const _TrackingOverlayCard({
+    required this.child,
+  });
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.96),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 24,
+            offset: Offset(0, 12),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
+class _MapGlassButton extends StatelessWidget {
+  const _MapGlassButton({
+    required this.icon,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withValues(alpha: 0.92),
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          width: 46,
+          height: 46,
+          alignment: Alignment.center,
+          child: Icon(icon, color: const Color(0xFF0F172A)),
+        ),
+      ),
+    );
+  }
+}
+
+class _TopTrackingBanner extends StatelessWidget {
+  const _TopTrackingBanner({
+    required this.title,
+    required this.status,
+    required this.color,
+  });
+
+  final String title;
+  final String status;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.94),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            status,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryInlineRow extends StatelessWidget {
+  const _SummaryInlineRow({
+    required this.icon,
+    required this.title,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String title;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF4D6),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: const Color(0xFFF59E0B), size: 16),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 78,
+          child: Text(
+            title,
+            style: const TextStyle(
+              color: Colors.black54,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BottomActionIconButton extends StatelessWidget {
+  const _BottomActionIconButton({
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 46,
+      height: 46,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          padding: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+        child: Icon(icon),
+      ),
     );
   }
 }
@@ -499,10 +774,12 @@ class _InfoBox extends StatelessWidget {
   const _InfoBox({
     required this.title,
     required this.value,
+    required this.accent,
   });
 
   final String title;
   final String value;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
@@ -511,6 +788,7 @@ class _InfoBox extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: accent.withValues(alpha: 0.16)),
       ),
       child: Column(
         children: [
@@ -525,9 +803,10 @@ class _InfoBox extends StatelessWidget {
           Text(
             value,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontWeight: FontWeight.w900,
               fontSize: 15,
+              color: accent,
             ),
           ),
         ],

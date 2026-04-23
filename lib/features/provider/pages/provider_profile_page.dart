@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-
 class ProviderProfilePage extends StatefulWidget {
   const ProviderProfilePage({super.key});
 
@@ -50,7 +49,8 @@ class _ProviderProfilePageState extends State<ProviderProfilePage> {
       final firestore = FirebaseFirestore.instance;
 
       final userDoc = await firestore.collection('users').doc(uid).get();
-      final providerDoc = await firestore.collection('providers').doc(uid).get();
+      final providerDoc =
+          await firestore.collection('providers').doc(uid).get();
 
       final userData = userDoc.data() ?? <String, dynamic>{};
       final providerData = providerDoc.data() ?? <String, dynamic>{};
@@ -99,7 +99,7 @@ class _ProviderProfilePageState extends State<ProviderProfilePage> {
     try {
       final firestore = FirebaseFirestore.instance;
       final fullName = _fullNameController.text.trim();
-      final phone = _phoneController.text.trim();
+      final phone = _phoneController.text.trim().replaceAll(RegExp(r'\s+'), '');
       final vehicleType = _vehicleTypeController.text.trim();
       final plate = _plateController.text.trim();
 
@@ -294,34 +294,6 @@ class _ProviderProfilePageState extends State<ProviderProfilePage> {
                     ),
                   ],
                 ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Infos',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 16,
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Ce profil est maintenant base sur vos vraies donnees Firestore. Les champs saisis ici seront utilises dans les missions, le dashboard et l administration.',
-                    style: TextStyle(
-                      color: Colors.black54,
-                      height: 1.35,
-                    ),
-                  ),
-                ],
               ),
             ),
           ],

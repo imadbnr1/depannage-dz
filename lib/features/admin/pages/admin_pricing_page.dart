@@ -95,17 +95,20 @@ class _AdminPricingPageState extends State<AdminPricingPage> {
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               colors: [
-                Color(0xFF7C3AED),
-                Color(0xFF9333EA),
+                Color(0xFF0F172A),
+                Color(0xFF1D4ED8),
+                Color(0xFF0891B2),
               ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(28),
           ),
           child: const Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Controle des prix',
+                'Pricing Lab',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w900,
@@ -114,9 +117,10 @@ class _AdminPricingPageState extends State<AdminPricingPage> {
               ),
               SizedBox(height: 6),
               Text(
-                'Modifiez les prix de base, prix au km, urgence et commission.',
+                'Modifiez la base, le km, l urgence et la commission avec une lecture plus premium.',
                 style: TextStyle(
                   color: Colors.white70,
+                  height: 1.35,
                 ),
               ),
             ],

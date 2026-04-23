@@ -107,35 +107,78 @@ class _CustomerRequestsPageState extends State<CustomerRequestsPage> {
                             value: request.providerName!,
                           ),
                         const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => CustomerTrackingPage(
-                                        store: widget.store,
-                                        requestId: request.id,
-                                      ),
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            if (constraints.maxWidth < 420) {
+                              return Column(
+                                children: [
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: OutlinedButton.icon(
+                                      onPressed: () {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) =>
+                                                CustomerTrackingPage(
+                                              store: widget.store,
+                                              requestId: request.id,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      icon: const Icon(Icons.map_outlined),
+                                      label: const Text('Tracking'),
                                     ),
-                                  );
-                                },
-                                icon: const Icon(Icons.map_outlined),
-                                label: const Text('Tracking'),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: FilledButton.icon(
-                                onPressed: () async {
-                                  await widget.store.cancelRequest(request.id);
-                                },
-                                icon: const Icon(Icons.close),
-                                label: const Text('Annuler'),
-                              ),
-                            ),
-                          ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: FilledButton.icon(
+                                      onPressed: () async {
+                                        await widget.store
+                                            .cancelRequest(request.id);
+                                      },
+                                      icon: const Icon(Icons.close),
+                                      label: const Text('Annuler'),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }
+
+                            return Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) =>
+                                              CustomerTrackingPage(
+                                            store: widget.store,
+                                            requestId: request.id,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    icon: const Icon(Icons.map_outlined),
+                                    label: const Text('Tracking'),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: FilledButton.icon(
+                                    onPressed: () async {
+                                      await widget.store
+                                          .cancelRequest(request.id);
+                                    },
+                                    icon: const Icon(Icons.close),
+                                    label: const Text('Annuler'),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
                         ),
                       ],
                     ),

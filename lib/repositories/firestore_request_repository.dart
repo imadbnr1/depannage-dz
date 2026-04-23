@@ -58,6 +58,8 @@ class FirestoreRequestRepository implements RequestRepository {
   Future<bool> offerRequestToProvider({
     required String requestId,
     required String providerUid,
+    required DateTime offeredAt,
+    required DateTime offerExpiresAt,
   }) async {
     return _firestore.runTransaction((tx) async {
       final ref = _requests.doc(requestId);
@@ -78,6 +80,8 @@ class FirestoreRequestRepository implements RequestRepository {
 
       tx.set(ref, {
         'offeredProviderUid': providerUid,
+        'offeredAt': offeredAt.toIso8601String(),
+        'offerExpiresAt': offerExpiresAt.toIso8601String(),
       }, SetOptions(merge: true));
       return true;
     });
@@ -108,6 +112,8 @@ class FirestoreRequestRepository implements RequestRepository {
 
       tx.set(ref, {
         'offeredProviderUid': null,
+        'offeredAt': null,
+        'offerExpiresAt': null,
         'rejectedProviderUids': rejected,
       }, SetOptions(merge: true));
       return true;
@@ -150,6 +156,8 @@ class FirestoreRequestRepository implements RequestRepository {
           'lng': providerPosition.longitude,
         },
         'offeredProviderUid': null,
+        'offeredAt': null,
+        'offerExpiresAt': null,
         'acceptedAt': DateTime.now().toIso8601String(),
       }, SetOptions(merge: true));
       return true;

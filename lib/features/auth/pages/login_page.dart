@@ -8,9 +8,11 @@ class LoginPage extends StatefulWidget {
   const LoginPage({
     super.key,
     required this.authService,
+    this.launchSignupOnOpen = false,
   });
 
   final AuthService authService;
+  final bool launchSignupOnOpen;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -18,28 +20,41 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
-
-  final _emailController = TextEditingController();
+  final _identifierController = TextEditingController();
   final _passwordController = TextEditingController();
 
   bool _loading = false;
   bool _obscure = true;
+  bool _didLaunchSignup = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !widget.launchSignupOnOpen || _didLaunchSignup) return;
+      _didLaunchSignup = true;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => SignupPage(authService: widget.authService),
+        ),
+      );
+    });
+  }
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _identifierController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
   Future<void> _login() async {
     FocusScope.of(context).unfocus();
-
     if (_loading) return;
 
     final isValid = _formKey.currentState?.validate() ?? false;
     if (!isValid) {
-      AppFeedback.showError(context, 'Verifiez email et mot de passe.');
+      AppFeedback.showError(context, 'Verifiez vos informations.');
       return;
     }
 
@@ -47,7 +62,7 @@ class _LoginPageState extends State<LoginPage> {
 
     try {
       await widget.authService.signInWithEmailPassword(
-        email: _emailController.text.trim(),
+        identifier: _identifierController.text.trim(),
         password: _passwordController.text.trim(),
       );
     } catch (e) {
@@ -71,9 +86,9 @@ class _LoginPageState extends State<LoginPage> {
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              Color(0xFF0F172A),
-              Color(0xFF1E3A8A),
-              Color(0xFF2563EB),
+              Color(0xFF171717),
+              Color(0xFF2B2114),
+              Color(0xFFF59E0B),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -84,39 +99,36 @@ class _LoginPageState extends State<LoginPage> {
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(20),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 440),
+                constraints: const BoxConstraints(maxWidth: 460),
                 child: Column(
                   children: [
                     Container(
-                      width: 94,
-                      height: 94,
+                      width: 96,
+                      height: 96,
                       decoration: BoxDecoration(
-                        // ignore: deprecated_member_use
-                        color: Colors.white.withOpacity(0.14),
+                        color: Colors.white.withValues(alpha: 0.12),
                         shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.white24,
-                          width: 1.5,
-                        ),
+                        border: Border.all(color: Colors.white24),
                       ),
                       child: const Icon(
-                        Icons.local_shipping_outlined,
+                        Icons.car_repair_rounded,
                         color: Colors.white,
                         size: 42,
                       ),
                     ),
                     const SizedBox(height: 18),
                     const Text(
-                      'Depannage DZ',
+                      'Depaniny',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 30,
+                        fontSize: 32,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Connectez-vous a votre espace',
+                      'Depannage routier simple, rapide et local',
+                      textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white70,
                         fontSize: 14,
@@ -124,58 +136,52 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     const SizedBox(height: 24),
                     Container(
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.all(22),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(28),
                         boxShadow: const [
                           BoxShadow(
                             color: Colors.black12,
-                            blurRadius: 18,
-                            offset: Offset(0, 10),
+                            blurRadius: 24,
+                            offset: Offset(0, 12),
                           ),
                         ],
                       ),
                       child: Form(
                         key: _formKey,
                         child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                'Connexion',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 24,
-                                ),
+                            const Text(
+                              'Connexion',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 24,
                               ),
                             ),
                             const SizedBox(height: 6),
-                            const Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                'Customer, provider ou admin',
-                                style: TextStyle(
-                                  color: Colors.black54,
-                                ),
-                              ),
+                            const Text(
+                              'Email ou numero de telephone',
+                              style: TextStyle(color: Colors.black54),
                             ),
                             const SizedBox(height: 18),
                             TextFormField(
-                              controller: _emailController,
-                              keyboardType: TextInputType.emailAddress,
+                              controller: _identifierController,
                               textInputAction: TextInputAction.next,
+                              keyboardType: TextInputType.emailAddress,
                               validator: (value) {
-                                final text = (value ?? '').trim();
-                                if (text.isEmpty) return 'Entrez votre email';
-                                if (!text.contains('@')) return 'Email invalide';
+                                if ((value ?? '').trim().isEmpty) {
+                                  return 'Entrez votre email ou numero';
+                                }
                                 return null;
                               },
                               decoration: InputDecoration(
-                                labelText: 'Email',
-                                prefixIcon: const Icon(Icons.email_outlined),
+                                labelText: 'Email ou numero',
+                                hintText: '0550 12 34 56',
+                                prefixIcon: const Icon(Icons.person_outline),
                                 filled: true,
-                                fillColor: const Color(0xFFF8FAFC),
+                                fillColor: const Color(0xFFF8F5EF),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(18),
                                   borderSide: BorderSide.none,
@@ -212,10 +218,26 @@ class _LoginPageState extends State<LoginPage> {
                                   ),
                                 ),
                                 filled: true,
-                                fillColor: const Color(0xFFF8FAFC),
+                                fillColor: const Color(0xFFF8F5EF),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(18),
                                   borderSide: BorderSide.none,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFF7E8),
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                              child: const Text(
+                                'Client, provider ou admin: tout le monde utilise la meme entree. Les providers gardent la validation admin.',
+                                style: TextStyle(
+                                  color: Color(0xFF6B4F1D),
+                                  height: 1.35,
                                 ),
                               ),
                             ),
@@ -253,20 +275,13 @@ class _LoginPageState extends State<LoginPage> {
                                           ),
                                         );
                                       },
-                                icon: const Icon(Icons.person_add_alt_1_outlined),
+                                icon:
+                                    const Icon(Icons.person_add_alt_1_outlined),
                                 label: const Text('Creer un compte'),
                               ),
                             ),
                           ],
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Projet de fin d etudes • Depannage DZ • 2026',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
                       ),
                     ),
                   ],

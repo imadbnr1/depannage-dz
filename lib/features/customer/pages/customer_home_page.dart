@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../../../models/service_type.dart';
 import '../../../state/app_store.dart';
+import 'customer_tracking_page.dart';
 import '../../../widgets/map_pin.dart';
 import 'create_order_page.dart';
 
@@ -57,6 +58,9 @@ class _CustomerHomePageState extends State<CustomerHomePage> {
     final store = widget.store;
     final customerPosition =
         store.customerCurrentPosition ?? const LatLng(36.7538, 3.0588);
+    final activeRequest = store.activeCustomerRequests.isNotEmpty
+        ? store.activeCustomerRequests.first
+        : null;
 
     return Scaffold(
       body: Stack(
@@ -158,6 +162,17 @@ class _CustomerHomePageState extends State<CustomerHomePage> {
             width: double.infinity,
             child: FilledButton.icon(
               onPressed: () {
+                if (activeRequest != null) {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => CustomerTrackingPage(
+                        store: store,
+                        requestId: activeRequest.id,
+                      ),
+                    ),
+                  );
+                  return;
+                }
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => CreateOrderPage(
@@ -168,7 +183,11 @@ class _CustomerHomePageState extends State<CustomerHomePage> {
                 );
               },
               icon: const Icon(Icons.route_outlined),
-              label: const Text('Choisir destination'),
+              label: Text(
+                activeRequest != null
+                    ? 'Suivre ma mission actuelle'
+                    : 'Choisir destination',
+              ),
             ),
           ),
         ],
@@ -180,7 +199,7 @@ class _CustomerHomePageState extends State<CustomerHomePage> {
             right: 16,
             bottom: 180,
             child: Material(
-              color: Colors.white.withOpacity(0.9),
+              color: Colors.white.withValues(alpha: 0.9),
               shape: const CircleBorder(),
               elevation: 3,
               child: InkWell(

@@ -57,9 +57,9 @@ class _SplashPageState extends State<SplashPage>
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              Color(0xFF0F172A),
-              Color(0xFF1E293B),
-              Color(0xFF2563EB),
+              Color(0xFF171717),
+              Color(0xFF2B2114),
+              Color(0xFFF59E0B),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -74,7 +74,7 @@ class _SplashPageState extends State<SplashPage>
                 width: 92,
                 height: 92,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.14),
+                  color: Colors.white.withValues(alpha: 0.14),
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: Colors.white24,
@@ -82,14 +82,14 @@ class _SplashPageState extends State<SplashPage>
                   ),
                 ),
                 child: const Icon(
-                  Icons.local_shipping_outlined,
+                  Icons.car_repair_rounded,
                   color: Colors.white,
                   size: 42,
                 ),
               ),
               const SizedBox(height: 20),
               const Text(
-                'Depannage DZ',
+                'Depaniny',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 30,
@@ -99,7 +99,7 @@ class _SplashPageState extends State<SplashPage>
               ),
               const SizedBox(height: 8),
               const Text(
-                'Assistance routiere intelligente',
+                'Depannage routier rapide en Algerie',
                 style: TextStyle(
                   color: Colors.white70,
                   fontSize: 14,

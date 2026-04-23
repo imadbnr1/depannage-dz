@@ -18,91 +18,256 @@ class AdminDashboardPage extends StatefulWidget {
 class _AdminDashboardPageState extends State<AdminDashboardPage> {
   int _index = 0;
 
+  static const _destinations = [
+    _AdminDestination(
+      label: 'Command',
+      title: 'Command Center',
+      icon: Icons.space_dashboard_outlined,
+      selectedIcon: Icons.space_dashboard,
+    ),
+    _AdminDestination(
+      label: 'Demandes',
+      title: 'Mission Control',
+      icon: Icons.receipt_long_outlined,
+      selectedIcon: Icons.receipt_long,
+    ),
+    _AdminDestination(
+      label: 'Providers',
+      title: 'Provider Ops',
+      icon: Icons.local_shipping_outlined,
+      selectedIcon: Icons.local_shipping,
+    ),
+    _AdminDestination(
+      label: 'Tarifs',
+      title: 'Pricing Lab',
+      icon: Icons.tune_outlined,
+      selectedIcon: Icons.tune,
+    ),
+    _AdminDestination(
+      label: 'Analytics',
+      title: 'Revenue Pulse',
+      icon: Icons.analytics_outlined,
+      selectedIcon: Icons.analytics,
+    ),
+    _AdminDestination(
+      label: 'Notif',
+      title: 'Broadcast Studio',
+      icon: Icons.campaign_outlined,
+      selectedIcon: Icons.campaign,
+    ),
+    _AdminDestination(
+      label: 'Support',
+      title: 'Support Control',
+      icon: Icons.support_agent_outlined,
+      selectedIcon: Icons.support_agent,
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
-    const pages = [
-      _AdminOverviewPage(),
-      AdminRequestsPage(),
-      _AdminProvidersPage(),
-      AdminPricingPage(),
-      AdminAnalyticsPage(),
-      AdminNotificationsPage(),
-      AdminSupportConfigPage(),
+    final pages = [
+      _AdminOverviewPage(onNavigate: _onSelect),
+      const AdminRequestsPage(),
+      const _AdminProvidersPage(),
+      const AdminPricingPage(),
+      const AdminAnalyticsPage(),
+      const AdminNotificationsPage(),
+      const AdminSupportConfigPage(),
     ];
 
-    const titles = [
-      'Admin Overview',
-      'Demandes',
-      'Providers',
-      'Tarification',
-      'Analytics',
-      'Notifications',
-      'Support',
-    ];
+    final theme = Theme.of(context);
+    final current = _destinations[_index];
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(titles[_index]),
-        actions: [
-          IconButton(
-            tooltip: 'Deconnexion',
-            onPressed: () async {
-              await AuthService().signOut();
-            },
-            icon: const Icon(Icons.logout),
-          ),
-        ],
+      backgroundColor: const Color(0xFFF5F7FB),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final wide = constraints.maxWidth >= 1100;
+
+            return Row(
+              children: [
+                if (wide) _AdminSidebar(index: _index, onSelect: _onSelect),
+                Expanded(
+                  child: Column(
+                    children: [
+                      Container(
+                        margin: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [
+                              Color(0xFF0F172A),
+                              Color(0xFF1E293B),
+                              Color(0xFF1D4ED8),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(30),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x220F172A),
+                              blurRadius: 24,
+                              offset: Offset(0, 14),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Wrap(
+                              spacing: 14,
+                              runSpacing: 14,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                Container(
+                                  width: 52,
+                                  height: 52,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(18),
+                                  ),
+                                  child: Icon(
+                                    current.selectedIcon,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: wide
+                                      ? (constraints.maxWidth - 520).clamp(
+                                          280.0,
+                                          700.0,
+                                        )
+                                      : (constraints.maxWidth - 80).clamp(
+                                          220.0,
+                                          700.0,
+                                        ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        current.title,
+                                        style: theme.textTheme.headlineSmall
+                                            ?.copyWith(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Pilotage en temps reel, operations plus rapides, controles admin renforces.',
+                                        style: theme.textTheme.bodyMedium
+                                            ?.copyWith(
+                                          color: Colors.white70,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                FilledButton.icon(
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: const Color(0xFFF8FAFC),
+                                    foregroundColor: const Color(0xFF0F172A),
+                                  ),
+                                  onPressed: () async {
+                                    await AuthService().signOut();
+                                  },
+                                  icon: const Icon(Icons.logout),
+                                  label: const Text('Deconnexion'),
+                                ),
+                              ],
+                            ),
+                            if (!wide) ...[
+                              const SizedBox(height: 16),
+                              SizedBox(
+                                height: 50,
+                                child: ListView.separated(
+                                  scrollDirection: Axis.horizontal,
+                                  itemCount: _destinations.length,
+                                  separatorBuilder: (_, __) =>
+                                      const SizedBox(width: 10),
+                                  itemBuilder: (context, index) {
+                                    final item = _destinations[index];
+                                    final selected = index == _index;
+                                    return ChoiceChip(
+                                      label: Text(item.label),
+                                      selected: selected,
+                                      onSelected: (_) => _onSelect(index),
+                                      avatar: Icon(
+                                        selected
+                                            ? item.selectedIcon
+                                            : item.icon,
+                                        size: 18,
+                                        color: selected
+                                            ? const Color(0xFF0F172A)
+                                            : Colors.white,
+                                      ),
+                                      labelStyle: TextStyle(
+                                        color: selected
+                                            ? const Color(0xFF0F172A)
+                                            : Colors.white,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                      backgroundColor:
+                                          Colors.white.withValues(alpha: 0.08),
+                                      selectedColor: const Color(0xFFF8FAFC),
+                                      side: BorderSide(
+                                        color:
+                                            Colors.white.withValues(alpha: 0.1),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: Container(
+                          margin: const EdgeInsets.all(20),
+                          child: pages[_index],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
-      body: pages[_index],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (value) {
-          setState(() => _index = value);
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: 'Overview',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon: Icon(Icons.receipt_long),
-            label: 'Demandes',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.local_shipping_outlined),
-            selectedIcon: Icon(Icons.local_shipping),
-            label: 'Providers',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.tune_outlined),
-            selectedIcon: Icon(Icons.tune),
-            label: 'Prix',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.bar_chart_outlined),
-            selectedIcon: Icon(Icons.bar_chart),
-            label: 'Analytics',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.notifications_active_outlined),
-            selectedIcon: Icon(Icons.notifications_active),
-            label: 'Notif',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.support_agent_outlined),
-            selectedIcon: Icon(Icons.support_agent),
-            label: 'Support',
-          ),
-        ],
-      ),
+      bottomNavigationBar: MediaQuery.of(context).size.width >= 1100
+          ? null
+          : NavigationBar(
+              selectedIndex: _index,
+              onDestinationSelected: _onSelect,
+              destinations: _destinations
+                  .map(
+                    (item) => NavigationDestination(
+                      icon: Icon(item.icon),
+                      selectedIcon: Icon(item.selectedIcon),
+                      label: item.label,
+                    ),
+                  )
+                  .toList(),
+            ),
     );
+  }
+
+  void _onSelect(int index) {
+    setState(() => _index = index);
   }
 }
 
 class _AdminOverviewPage extends StatelessWidget {
-  const _AdminOverviewPage();
+  const _AdminOverviewPage({
+    required this.onNavigate,
+  });
+
+  final ValueChanged<int> onNavigate;
 
   @override
   Widget build(BuildContext context) {
@@ -117,8 +282,25 @@ class _AdminOverviewPage extends StatelessWidget {
             return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: firestore.collection('users').snapshots(),
               builder: (context, usersSnapshot) {
-                if (requestsSnapshot.connectionState == ConnectionState.waiting ||
-                    providersSnapshot.connectionState == ConnectionState.waiting ||
+                if (requestsSnapshot.hasError ||
+                    providersSnapshot.hasError ||
+                    usersSnapshot.hasError) {
+                  return _AdminErrorPanel(
+                    title: 'Dashboard indisponible',
+                    subtitle:
+                        'Les donnees admin n ont pas pu charger. Verifiez les regles Firestore, les index ou la connexion.',
+                    details: [
+                      requestsSnapshot.error,
+                      providersSnapshot.error,
+                      usersSnapshot.error,
+                    ].whereType<Object>().join('\n'),
+                  );
+                }
+
+                if (requestsSnapshot.connectionState ==
+                        ConnectionState.waiting ||
+                    providersSnapshot.connectionState ==
+                        ConnectionState.waiting ||
                     usersSnapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
@@ -130,155 +312,268 @@ class _AdminOverviewPage extends StatelessWidget {
                 final searching = requests
                     .where((d) => (d.data()['status'] ?? '') == 'searching')
                     .length;
-
                 final active = requests.where((d) {
-                  final s = (d.data()['status'] ?? '').toString();
-                  return s == 'accepted' ||
-                      s == 'onTheWay' ||
-                      s == 'arrived' ||
-                      s == 'inService';
+                  final status = (d.data()['status'] ?? '').toString();
+                  return status == 'accepted' ||
+                      status == 'onTheWay' ||
+                      status == 'arrived' ||
+                      status == 'inService';
                 }).length;
-
                 final completed = requests
                     .where((d) => (d.data()['status'] ?? '') == 'completed')
                     .length;
-
                 final cancelled = requests
                     .where((d) => (d.data()['status'] ?? '') == 'cancelled')
                     .length;
+                final urgent = requests.where((d) {
+                  final urgency =
+                      (d.data()['urgency'] ?? '').toString().toLowerCase();
+                  return urgency.contains('urgent') || urgency.contains('crit');
+                }).length;
 
-                final onlineProviders = providers
-                    .where((d) => d.data()['isOnline'] == true)
-                    .length;
-
-                final busyProviders = providers
-                    .where((d) => d.data()['isBusy'] == true)
-                    .length;
-
+                final onlineProviders =
+                    providers.where((d) => d.data()['isOnline'] == true).length;
+                final busyProviders =
+                    providers.where((d) => d.data()['isBusy'] == true).length;
                 final approvedProviders = providers
                     .where((d) => d.data()['isApproved'] == true)
                     .length;
-
-                final pendingProviders = providers
-                    .where((d) => d.data()['isApproved'] != true)
+                final blockedProviders = providers
+                    .where((d) => d.data()['isBlocked'] == true)
                     .length;
 
                 final customers = users
                     .where((d) => (d.data()['role'] ?? '') == 'customer')
                     .length;
-
                 final providerUsers = users
                     .where((d) => (d.data()['role'] ?? '') == 'provider')
                     .length;
+                final screenWidth = MediaQuery.of(context).size.width;
+                final kpiColumns = screenWidth >= 1300
+                    ? 4
+                    : screenWidth >= 900
+                        ? 3
+                        : screenWidth >= 620
+                            ? 2
+                            : 1;
+                final stackOverviewPanels = screenWidth < 900;
 
                 return ListView(
-                  padding: const EdgeInsets.all(16),
                   children: [
                     GridView.count(
-                      crossAxisCount: 2,
+                      crossAxisCount: kpiColumns,
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      crossAxisSpacing: 10,
-                      mainAxisSpacing: 10,
-                      childAspectRatio: 1.35,
+                      crossAxisSpacing: 14,
+                      mainAxisSpacing: 14,
+                      childAspectRatio: 1.48,
                       children: [
-                        _StatCard(
+                        _KpiCard(
                           title: 'Recherche',
                           value: '$searching',
-                          icon: Icons.search,
+                          subtitle: 'Missions sans provider',
+                          accent: const Color(0xFFEA580C),
+                          icon: Icons.radar_outlined,
                         ),
-                        _StatCard(
+                        _KpiCard(
                           title: 'Actives',
                           value: '$active',
-                          icon: Icons.local_shipping_outlined,
+                          subtitle: 'Suivis en direct',
+                          accent: const Color(0xFF2563EB),
+                          icon: Icons.route_outlined,
                         ),
-                        _StatCard(
+                        _KpiCard(
                           title: 'Terminees',
                           value: '$completed',
-                          icon: Icons.check_circle_outline,
-                        ),
-                        _StatCard(
-                          title: 'Annulees',
-                          value: '$cancelled',
-                          icon: Icons.cancel_outlined,
-                        ),
-                        _StatCard(
-                          title: 'Providers ON',
-                          value: '$onlineProviders',
-                          icon: Icons.wifi_tethering,
-                        ),
-                        _StatCard(
-                          title: 'Providers occupes',
-                          value: '$busyProviders',
-                          icon: Icons.engineering_outlined,
-                        ),
-                        _StatCard(
-                          title: 'Approuves',
-                          value: '$approvedProviders',
+                          subtitle: 'Missions bouclees',
+                          accent: const Color(0xFF16A34A),
                           icon: Icons.verified_outlined,
                         ),
-                        _StatCard(
-                          title: 'En attente',
-                          value: '$pendingProviders',
-                          icon: Icons.hourglass_top_outlined,
+                        _KpiCard(
+                          title: 'Urgentes',
+                          value: '$urgent',
+                          subtitle: 'A surveiller maintenant',
+                          accent: const Color(0xFFDC2626),
+                          icon: Icons.priority_high_outlined,
                         ),
-                        _StatCard(
+                        _KpiCard(
+                          title: 'Providers ON',
+                          value: '$onlineProviders',
+                          subtitle: '$busyProviders occupes',
+                          accent: const Color(0xFF0EA5E9),
+                          icon: Icons.wifi_tethering_outlined,
+                        ),
+                        _KpiCard(
+                          title: 'Approuves',
+                          value: '$approvedProviders',
+                          subtitle: '$blockedProviders bloques',
+                          accent: const Color(0xFF7C3AED),
+                          icon: Icons.verified_user_outlined,
+                        ),
+                        _KpiCard(
                           title: 'Clients',
                           value: '$customers',
-                          icon: Icons.people_outline,
+                          subtitle: 'Base utilisateur',
+                          accent: const Color(0xFF0891B2),
+                          icon: Icons.people_alt_outlined,
                         ),
-                        _StatCard(
-                          title: 'Comptes provider',
+                        _KpiCard(
+                          title: 'Providers',
                           value: '$providerUsers',
-                          icon: Icons.manage_accounts_outlined,
+                          subtitle: 'Comptes metier',
+                          accent: const Color(0xFF4F46E5),
+                          icon: Icons.engineering_outlined,
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: const Color(0xFFE5E7EB)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    const SizedBox(height: 18),
+                    if (stackOverviewPanels)
+                      Column(
                         children: [
-                          const Text(
-                            'Lecture rapide',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w900,
-                              fontSize: 16,
+                          _AdminPanel(
+                            title: 'Lecture rapide',
+                            subtitle:
+                                'Signal instantane sur la sante des operations.',
+                            child: Column(
+                              children: [
+                                _InsightRow(
+                                  label: 'Charge mission',
+                                  value: active == 0
+                                      ? 'Faible'
+                                      : active < 20
+                                          ? 'Normale'
+                                          : active < 50
+                                              ? 'Elevee'
+                                              : 'Critique',
+                                ),
+                                _InsightRow(
+                                  label: 'Providers libres',
+                                  value:
+                                      '${onlineProviders - busyProviders < 0 ? 0 : onlineProviders - busyProviders}',
+                                ),
+                                _InsightRow(
+                                  label: 'Annulations',
+                                  value: '$cancelled',
+                                ),
+                                _InsightRow(
+                                  label: 'Demandes critiques',
+                                  value: '$urgent',
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 10),
-                          _QuickInfoRow(
-                            label: 'Charge active',
-                            value: active == 0
-                                ? 'Faible'
-                                : active < 20
-                                    ? 'Normale'
-                                    : active < 50
-                                        ? 'Elevee'
-                                        : 'Tres elevee',
+                          const SizedBox(height: 14),
+                          _AdminPanel(
+                            title: 'Actions rapides',
+                            subtitle:
+                                'Pilotage plus direct pour les cas chauds.',
+                            child: Column(
+                              children: [
+                                _QuickActionTile(
+                                  icon: Icons.campaign_outlined,
+                                  title: 'Lancer une promo',
+                                  subtitle:
+                                      'Envoyer une offre live avec image et popup.',
+                                  onTap: () => onNavigate(5),
+                                ),
+                                const SizedBox(height: 10),
+                                _QuickActionTile(
+                                  icon: Icons.local_shipping_outlined,
+                                  title: 'Verifier les providers',
+                                  subtitle:
+                                      'Valider, bloquer ou filtrer les comptes actifs.',
+                                  onTap: () => onNavigate(2),
+                                ),
+                                const SizedBox(height: 10),
+                                _QuickActionTile(
+                                  icon: Icons.payments_outlined,
+                                  title: 'Ajuster les prix',
+                                  subtitle:
+                                      'Reagir vite a la demande ou a la distance.',
+                                  onTap: () => onNavigate(3),
+                                ),
+                              ],
+                            ),
                           ),
-                          _QuickInfoRow(
-                            label: 'Providers libres',
-                            value:
-                                '${onlineProviders - busyProviders < 0 ? 0 : onlineProviders - busyProviders}',
+                        ],
+                      )
+                    else
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: _AdminPanel(
+                              title: 'Lecture rapide',
+                              subtitle:
+                                  'Signal instantane sur la sante des operations.',
+                              child: Column(
+                                children: [
+                                  _InsightRow(
+                                    label: 'Charge mission',
+                                    value: active == 0
+                                        ? 'Faible'
+                                        : active < 20
+                                            ? 'Normale'
+                                            : active < 50
+                                                ? 'Elevee'
+                                                : 'Critique',
+                                  ),
+                                  _InsightRow(
+                                    label: 'Providers libres',
+                                    value:
+                                        '${onlineProviders - busyProviders < 0 ? 0 : onlineProviders - busyProviders}',
+                                  ),
+                                  _InsightRow(
+                                    label: 'Annulations',
+                                    value: '$cancelled',
+                                  ),
+                                  _InsightRow(
+                                    label: 'Demandes critiques',
+                                    value: '$urgent',
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-                          _QuickInfoRow(
-                            label: 'Validation providers',
-                            value: '$pendingProviders en attente',
-                          ),
-                          const _QuickInfoRow(
-                            label: 'Support',
-                            value: 'Gere depuis l onglet Support',
+                          const SizedBox(width: 14),
+                          Expanded(
+                            flex: 2,
+                            child: _AdminPanel(
+                              title: 'Actions rapides',
+                              subtitle:
+                                  'Pilotage plus direct pour les cas chauds.',
+                              child: Column(
+                                children: [
+                                  _QuickActionTile(
+                                    icon: Icons.campaign_outlined,
+                                    title: 'Lancer une promo',
+                                    subtitle:
+                                        'Envoyer une offre live avec image et popup.',
+                                    onTap: () => onNavigate(5),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  _QuickActionTile(
+                                    icon: Icons.local_shipping_outlined,
+                                    title: 'Verifier les providers',
+                                    subtitle:
+                                        'Valider, bloquer ou filtrer les comptes actifs.',
+                                    onTap: () => onNavigate(2),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  _QuickActionTile(
+                                    icon: Icons.payments_outlined,
+                                    title: 'Ajuster les prix',
+                                    subtitle:
+                                        'Reagir vite a la demande ou a la distance.',
+                                    onTap: () => onNavigate(3),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ],
                       ),
-                    ),
                   ],
                 );
               },
@@ -358,25 +653,10 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
     final q = _searchController.text.trim().toLowerCase();
     if (q.isEmpty) return true;
 
-    final fullName = (data['fullName'] ?? '').toString().toLowerCase();
-    final email = (data['email'] ?? '').toString().toLowerCase();
-    final phone = (data['phone'] ?? '').toString().toLowerCase();
-    final plate = (data['plate'] ?? '').toString().toLowerCase();
-
-    return fullName.contains(q) ||
-        email.contains(q) ||
-        phone.contains(q) ||
-        plate.contains(q);
-  }
-
-  Widget _filterChip(String value, String label) {
-    return ChoiceChip(
-      label: Text(label),
-      selected: _filter == value,
-      onSelected: (_) {
-        setState(() => _filter = value);
-      },
-    );
+    return (data['fullName'] ?? '').toString().toLowerCase().contains(q) ||
+        (data['email'] ?? '').toString().toLowerCase().contains(q) ||
+        (data['phone'] ?? '').toString().toLowerCase().contains(q) ||
+        (data['plate'] ?? '').toString().toLowerCase().contains(q);
   }
 
   @override
@@ -384,12 +664,20 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: FirebaseFirestore.instance.collection('providers').snapshots(),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return _AdminErrorPanel(
+            title: 'Providers indisponibles',
+            subtitle:
+                'La liste providers n a pas pu etre chargee. Verifiez les permissions admin et la connexion.',
+            details: snapshot.error?.toString(),
+          );
+        }
+
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
 
         final docs = snapshot.data?.docs ?? [];
-
         final filtered = docs.where((doc) {
           final data = doc.data();
           return _matchesFilter(data) && _matchesSearch(data);
@@ -400,52 +688,136 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
             return bOnline.compareTo(aOnline);
           });
 
+        final onlineCount =
+            docs.where((doc) => doc.data()['isOnline'] == true).length;
+        final blockedCount =
+            docs.where((doc) => doc.data()['isBlocked'] == true).length;
+        final compactStats = MediaQuery.of(context).size.width < 720;
+
         return ListView(
-          padding: const EdgeInsets.all(16),
           children: [
-            TextField(
-              controller: _searchController,
-              onChanged: (_) => setState(() {}),
-              decoration: InputDecoration(
-                hintText: 'Rechercher provider, email, telephone, plaque...',
-                prefixIcon: const Icon(Icons.search),
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(18),
-                  borderSide: BorderSide.none,
-                ),
+            _AdminPanel(
+              title: 'Provider ops',
+              subtitle:
+                  'Filtrer rapidement, approuver plus vite, couper les comptes a risque.',
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _searchController,
+                          onChanged: (_) => setState(() {}),
+                          decoration: InputDecoration(
+                            hintText:
+                                'Rechercher nom, email, telephone, plaque...',
+                            prefixIcon: const Icon(Icons.search),
+                            filled: true,
+                            fillColor: const Color(0xFFF8FAFC),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(18),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _FilterChip(
+                        label: 'Tous',
+                        selected: _filter == 'all',
+                        onTap: () => setState(() => _filter = 'all'),
+                      ),
+                      _FilterChip(
+                        label: 'Approuves',
+                        selected: _filter == 'approved',
+                        onTap: () => setState(() => _filter = 'approved'),
+                      ),
+                      _FilterChip(
+                        label: 'En attente',
+                        selected: _filter == 'pending',
+                        onTap: () => setState(() => _filter = 'pending'),
+                      ),
+                      _FilterChip(
+                        label: 'En ligne',
+                        selected: _filter == 'online',
+                        onTap: () => setState(() => _filter = 'online'),
+                      ),
+                      _FilterChip(
+                        label: 'Occupes',
+                        selected: _filter == 'busy',
+                        onTap: () => setState(() => _filter = 'busy'),
+                      ),
+                      _FilterChip(
+                        label: 'Bloques',
+                        selected: _filter == 'blocked',
+                        onTap: () => setState(() => _filter = 'blocked'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  if (compactStats)
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        SizedBox(
+                          width: 150,
+                          child: _MiniStat(
+                            label: 'Resultats',
+                            value: '${filtered.length}',
+                          ),
+                        ),
+                        SizedBox(
+                          width: 150,
+                          child: _MiniStat(
+                            label: 'Online',
+                            value: '$onlineCount',
+                          ),
+                        ),
+                        SizedBox(
+                          width: 150,
+                          child: _MiniStat(
+                            label: 'Bloques',
+                            value: '$blockedCount',
+                          ),
+                        ),
+                      ],
+                    )
+                  else
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _MiniStat(
+                            label: 'Resultats',
+                            value: '${filtered.length}',
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _MiniStat(
+                            label: 'Online',
+                            value: '$onlineCount',
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _MiniStat(
+                            label: 'Bloques',
+                            value: '$blockedCount',
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
               ),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _filterChip('all', 'Tous'),
-                _filterChip('approved', 'Approuves'),
-                _filterChip('pending', 'En attente'),
-                _filterChip('online', 'En ligne'),
-                _filterChip('busy', 'Occupes'),
-                _filterChip('blocked', 'Bloques'),
-              ],
             ),
             const SizedBox(height: 14),
-            Text(
-              '${filtered.length} provider(s)',
-              style: const TextStyle(
-                fontWeight: FontWeight.w800,
-                color: Colors.black54,
-              ),
-            ),
-            const SizedBox(height: 10),
-            if (filtered.isEmpty)
-              const Padding(
-                padding: EdgeInsets.only(top: 40),
-                child: Center(
-                  child: Text('Aucun provider pour ce filtre'),
-                ),
-              ),
             ...filtered.map((doc) {
               final data = doc.data();
               final uid = (data['uid'] ?? doc.id).toString();
@@ -453,27 +825,59 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
               final online = data['isOnline'] == true;
               final busy = data['isBusy'] == true;
               final blocked = data['isBlocked'] == true;
+              final vehicleImageUrl =
+                  (data['vehicleImageUrl'] ?? '').toString().trim();
 
               return Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(14),
+                margin: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                  borderRadius: BorderRadius.circular(26),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x0D0F172A),
+                      blurRadius: 18,
+                      offset: Offset(0, 10),
+                    ),
+                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
+                        Container(
+                          width: 52,
+                          height: 52,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          child: const Icon(
+                            Icons.local_shipping_outlined,
+                            color: Color(0xFF2563EB),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
                         Expanded(
-                          child: Text(
-                            (data['fullName'] ?? 'Provider').toString(),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w900,
-                              fontSize: 16,
-                            ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                (data['fullName'] ?? 'Provider').toString(),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 17,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                (data['email'] ?? '--').toString(),
+                                style: const TextStyle(color: Colors.black54),
+                              ),
+                            ],
                           ),
                         ),
                         Switch(
@@ -484,57 +888,78 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 12),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        _StatusChip(
+                        _StatusPill(
                           label: approved ? 'Approuve' : 'En attente',
-                          color: approved
+                          background: approved
                               ? const Color(0xFFDCFCE7)
                               : const Color(0xFFFEF3C7),
                         ),
-                        _StatusChip(
+                        _StatusPill(
                           label: online ? 'En ligne' : 'Hors ligne',
-                          color: online
+                          background: online
                               ? const Color(0xFFDBEAFE)
-                              : const Color(0xFFF3F4F6),
+                              : const Color(0xFFF1F5F9),
                         ),
-                        _StatusChip(
+                        _StatusPill(
                           label: busy ? 'Occupe' : 'Libre',
-                          color: busy
+                          background: busy
                               ? const Color(0xFFFEE2E2)
                               : const Color(0xFFECFDF5),
                         ),
                         if (blocked)
-                          const _StatusChip(
+                          const _StatusPill(
                             label: 'Bloque',
-                            color: Color(0xFFFECACA),
+                            background: Color(0xFFFECACA),
                           ),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    Text(
-                      (data['email'] ?? '--').toString(),
-                      style: const TextStyle(color: Colors.black54),
+                    const SizedBox(height: 14),
+                    _InfoLine(
+                      title: 'Telephone',
+                      value: (data['phone'] ?? '--').toString(),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      (data['phone'] ?? '--').toString(),
-                      style: const TextStyle(color: Colors.black54),
+                    _InfoLine(
+                      title: 'Vehicule',
+                      value:
+                          '${data['vehicleType'] ?? '--'} · ${data['plate'] ?? '--'}',
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Vehicule: ${(data['vehicleType'] ?? '--')} · ${(data['plate'] ?? '--')}',
-                      style: const TextStyle(color: Colors.black54),
+                    _InfoLine(
+                      title: 'Performance',
+                      value:
+                          '${data['missionsCompleted'] ?? 0} missions · rating ${data['rating'] ?? 5.0}',
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Missions: ${(data['missionsCompleted'] ?? 0)} · Rating: ${(data['rating'] ?? 5.0)}',
-                      style: const TextStyle(color: Colors.black54),
-                    ),
-                    const SizedBox(height: 12),
+                    if (vehicleImageUrl.isNotEmpty) ...[
+                      const SizedBox(height: 14),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(18),
+                        child: Image.network(
+                          vehicleImageUrl,
+                          height: 170,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) {
+                            return Container(
+                              height: 90,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                              child: const Text(
+                                'Image vehicule indisponible',
+                                style: TextStyle(color: Colors.black54),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 14),
                     Row(
                       children: [
                         Expanded(
@@ -563,9 +988,7 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
                                   ? Icons.lock_open_outlined
                                   : Icons.block_outlined,
                             ),
-                            label: Text(
-                              blocked ? 'Debloquer' : 'Bloquer',
-                            ),
+                            label: Text(blocked ? 'Debloquer' : 'Bloquer'),
                           ),
                         ),
                       ],
@@ -581,41 +1004,465 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
   }
 }
 
-class _StatCard extends StatelessWidget {
-  const _StatCard({
+class _AdminSidebar extends StatelessWidget {
+  const _AdminSidebar({
+    required this.index,
+    required this.onSelect,
+  });
+
+  final int index;
+  final ValueChanged<int> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 270,
+      margin: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A),
+        borderRadius: BorderRadius.circular(32),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x1A0F172A),
+            blurRadius: 28,
+            offset: Offset(0, 16),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: const Row(
+              children: [
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: Color(0xFF2563EB),
+                  child: Icon(Icons.admin_panel_settings, color: Colors.white),
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Depaniny',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 18,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Premium Admin',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 22),
+          Expanded(
+            child: ListView.separated(
+              itemCount: _AdminDashboardPageState._destinations.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (context, itemIndex) {
+                final item = _AdminDashboardPageState._destinations[itemIndex];
+                final selected = itemIndex == index;
+
+                return InkWell(
+                  borderRadius: BorderRadius.circular(22),
+                  onTap: () => onSelect(itemIndex),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 220),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 14,
+                    ),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? Colors.white
+                          : Colors.white.withValues(alpha: 0.04),
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          selected ? item.selectedIcon : item.icon,
+                          color:
+                              selected ? const Color(0xFF0F172A) : Colors.white,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            item.label,
+                            style: TextStyle(
+                              color: selected
+                                  ? const Color(0xFF0F172A)
+                                  : Colors.white,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AdminDestination {
+  const _AdminDestination({
+    required this.label,
+    required this.title,
+    required this.icon,
+    required this.selectedIcon,
+  });
+
+  final String label;
+  final String title;
+  final IconData icon;
+  final IconData selectedIcon;
+}
+
+class _AdminPanel extends StatelessWidget {
+  const _AdminPanel({
+    required this.title,
+    required this.subtitle,
+    required this.child,
+  });
+
+  final String title;
+  final String subtitle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D0F172A),
+            blurRadius: 18,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 20,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            subtitle,
+            style: const TextStyle(
+              color: Colors.black54,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 18),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _KpiCard extends StatelessWidget {
+  const _KpiCard({
     required this.title,
     required this.value,
+    required this.subtitle,
+    required this.accent,
     required this.icon,
   });
 
   final String title;
   final String value;
+  final String subtitle;
+  final Color accent;
   final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D0F172A),
+            blurRadius: 18,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(icon, color: accent),
+          ),
+          const Spacer(),
+          Text(
+            value,
+            style: const TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 28,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: const TextStyle(
+              color: Colors.black54,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InsightRow extends StatelessWidget {
+  const _InsightRow({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF0F172A),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickActionTile extends StatelessWidget {
+  const _QuickActionTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFFF8FAFC),
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDBEAFE),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: const Color(0xFF2563EB)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: Colors.black54,
+                        fontSize: 12,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (onTap != null)
+                const Icon(
+                  Icons.arrow_forward_rounded,
+                  color: Color(0xFF64748B),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AdminErrorPanel extends StatelessWidget {
+  const _AdminErrorPanel({
+    required this.title,
+    required this.subtitle,
+    this.details,
+  });
+
+  final String title;
+  final String subtitle;
+  final String? details;
+
+  @override
+  Widget build(BuildContext context) {
+    return _AdminPanel(
+      title: title,
+      subtitle: subtitle,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFEF2F2),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFFECACA)),
+        ),
+        child: Text(
+          (details == null || details!.trim().isEmpty)
+              ? 'Aucun detail supplementaire disponible.'
+              : details!,
+          style: const TextStyle(
+            color: Color(0xFF991B1B),
+            fontWeight: FontWeight.w600,
+            height: 1.35,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => onTap(),
+      labelStyle: TextStyle(
+        fontWeight: FontWeight.w800,
+        color: selected ? Colors.white : const Color(0xFF0F172A),
+      ),
+      backgroundColor: const Color(0xFFF1F5F9),
+      selectedColor: const Color(0xFF0F172A),
+      side: BorderSide.none,
+    );
+  }
+}
+
+class _MiniStat extends StatelessWidget {
+  const _MiniStat({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon),
-          const Spacer(),
           Text(
             value,
             style: const TextStyle(
               fontWeight: FontWeight.w900,
-              fontSize: 22,
+              fontSize: 20,
             ),
           ),
           const SizedBox(height: 4),
           Text(
-            title,
+            label,
             style: const TextStyle(
               color: Colors.black54,
               fontWeight: FontWeight.w700,
@@ -627,21 +1474,21 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({
     required this.label,
-    required this.color,
+    required this.background,
   });
 
   final String label;
-  final Color color;
+  final Color background;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color,
+        color: background,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
@@ -655,13 +1502,13 @@ class _StatusChip extends StatelessWidget {
   }
 }
 
-class _QuickInfoRow extends StatelessWidget {
-  const _QuickInfoRow({
-    required this.label,
+class _InfoLine extends StatelessWidget {
+  const _InfoLine({
+    required this.title,
     required this.value,
   });
 
-  final String label;
+  final String title;
   final String value;
 
   @override
@@ -672,18 +1519,15 @@ class _QuickInfoRow extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              label,
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-              ),
+              title,
+              style: const TextStyle(color: Colors.black54),
             ),
           ),
-          const SizedBox(width: 8),
-          Flexible(
+          Expanded(
             child: Text(
               value,
               textAlign: TextAlign.right,
-              style: const TextStyle(color: Colors.black54),
+              style: const TextStyle(fontWeight: FontWeight.w700),
             ),
           ),
         ],

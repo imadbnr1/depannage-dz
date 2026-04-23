@@ -113,39 +113,78 @@ class _AdminSupportConfigPageState extends State<AdminSupportConfigPage> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Config Support'),
-      ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            _field('Telephone', _phoneController),
-            _field('WhatsApp', _whatsappController),
-            _field('Email', _emailController),
-            _field('Adresse', _addressController, maxLines: 2),
-            _field('Horaires', _hoursController),
-            const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: _saving ? null : _save,
-              icon: _saving
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.save_outlined),
-              label: Text(_saving ? 'Sauvegarde...' : 'Enregistrer'),
+    return ListView(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [
+                Color(0xFF0F172A),
+                Color(0xFF1E40AF),
+              ],
             ),
-          ],
+            borderRadius: BorderRadius.circular(28),
+          ),
+          child: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Support Control',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 24,
+                ),
+              ),
+              SizedBox(height: 6),
+              Text(
+                'Centralisez les canaux de contact visibles par les clients et providers.',
+                style: TextStyle(
+                  color: Colors.white70,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: const Color(0xFFE5E7EB)),
+          ),
+          child: Column(
+            children: [
+              _field('Telephone', _phoneController),
+              _field('WhatsApp', _whatsappController),
+              _field('Email', _emailController),
+              _field('Adresse', _addressController, maxLines: 2),
+              _field('Horaires', _hoursController),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _saving ? null : _save,
+                  icon: _saving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.save_outlined),
+                  label: Text(_saving ? 'Sauvegarde...' : 'Enregistrer'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

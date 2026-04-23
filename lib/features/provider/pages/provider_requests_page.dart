@@ -44,7 +44,6 @@ class _ProviderRequestsPageState extends State<ProviderRequestsPage> {
   @override
   Widget build(BuildContext context) {
     final store = widget.store;
-    final available = store.providerAvailableRequests;
     final active = store.providerAssignedRequests;
 
     return Scaffold(
@@ -52,29 +51,14 @@ class _ProviderRequestsPageState extends State<ProviderRequestsPage> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            if (available.isEmpty)
-              const SizedBox(
-                height: 210,
-                child: AppEmptyState(
-                  icon: Icons.assignment_outlined,
-                  title: 'Aucune nouvelle mission',
-                  message: 'Les nouvelles demandes apparaitront ici.',
-                ),
-              ),
-            ...available.map(
-              (item) => _IncomingMissionCard(
-                store: store,
-                item: item,
-              ),
-            ),
-            const SizedBox(height: 18),
             if (active.isEmpty)
               const SizedBox(
-                height: 200,
+                height: 280,
                 child: AppEmptyState(
-                  icon: Icons.local_shipping_outlined,
+                  icon: Icons.car_repair_outlined,
                   title: 'Aucune mission active',
-                  message: 'Vos missions en cours apparaitront ici.',
+                  message:
+                      'Les nouvelles missions arrivent en popup. Seules les missions en cours restent ici.',
                 ),
               ),
             ...active.map(
@@ -107,7 +91,7 @@ class _IncomingMissionCardState extends State<_IncomingMissionCard>
     with SingleTickerProviderStateMixin {
   late final AnimationController _pulseController;
   Timer? _countdownTimer;
-  int _secondsLeft = 30;
+  int _secondsLeft = 0;
 
   @override
   void initState() {
@@ -134,7 +118,7 @@ class _IncomingMissionCardState extends State<_IncomingMissionCard>
 
   void _startLocalCountdown() {
     _countdownTimer?.cancel();
-    _secondsLeft = 30;
+    _secondsLeft = widget.store.offerSecondsRemaining(widget.item.id) ?? 0;
 
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) {
@@ -142,20 +126,22 @@ class _IncomingMissionCardState extends State<_IncomingMissionCard>
         return;
       }
 
-      final stillSearching =
-          widget.store.findRequest(widget.item.id)?.status ==
-              RequestStatus.searching;
+      final stillSearching = widget.store.findRequest(widget.item.id)?.status ==
+          RequestStatus.searching;
 
       if (!stillSearching) {
         timer.cancel();
         return;
       }
 
-      if (_secondsLeft <= 1) {
+      final nextSeconds =
+          widget.store.offerSecondsRemaining(widget.item.id) ?? 0;
+
+      if (nextSeconds <= 0) {
         setState(() => _secondsLeft = 0);
         timer.cancel();
       } else {
-        setState(() => _secondsLeft -= 1);
+        setState(() => _secondsLeft = nextSeconds);
       }
     });
   }
@@ -183,6 +169,11 @@ class _IncomingMissionCardState extends State<_IncomingMissionCard>
     final store = widget.store;
     final latest = store.findRequest(widget.item.id) ?? widget.item;
     final offeredProvider = store.currentOfferedProviderName(latest.id);
+    final secondsLeft = store.offerSecondsRemaining(latest.id) ?? _secondsLeft;
+    final estimatedPrice = latest.estimatedPrice;
+    final netEarning = estimatedPrice == null
+        ? null
+        : estimatedPrice - store.estimateCommissionAmount(estimatedPrice);
 
     return FadeTransition(
       opacity: _pulseController.drive(Tween(begin: 0.75, end: 1)),
@@ -267,7 +258,7 @@ class _IncomingMissionCardState extends State<_IncomingMissionCard>
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Text(
-                        '$_secondsLeft s',
+                        '$secondsLeft s',
                         style: const TextStyle(
                           fontWeight: FontWeight.w800,
                           color: Color(0xFF4338CA),
@@ -291,6 +282,10 @@ class _IncomingMissionCardState extends State<_IncomingMissionCard>
                 if (latest.estimatedPrice != null)
                   _MiniBadge(
                     label: '${latest.estimatedPrice!.toStringAsFixed(0)} DA',
+                  ),
+                if (netEarning != null)
+                  _MiniBadge(
+                    label: 'Net ${netEarning.toStringAsFixed(0)} DA',
                   ),
               ],
             ),
@@ -316,39 +311,89 @@ class _IncomingMissionCardState extends State<_IncomingMissionCard>
                 title: 'Destination',
                 value: latest.destination,
               ),
+            if (netEarning != null)
+              InfoRow(
+                title: 'Gain estime',
+                value: '${netEarning.toStringAsFixed(0)} DA apres commission',
+              ),
             const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: () async {
-                      await store.acceptRequest(latest.id);
-                      if (!mounted) return;
-                      if (!context.mounted) return;
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => ProviderTrackingPage(
-                            store: store,
-                            requestId: latest.id,
-                          ),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 520;
+                if (compact) {
+                  return Column(
+                    children: [
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: () async {
+                            await store.acceptRequest(latest.id);
+                            if (!mounted) return;
+                            if (!context.mounted) return;
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => ProviderTrackingPage(
+                                  store: store,
+                                  requestId: latest.id,
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.check_circle_outline),
+                          label: const Text('Accepter'),
                         ),
-                      );
-                    },
-                    icon: const Icon(Icons.check_circle_outline),
-                    label: const Text('Accepter'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () async {
-                      await store.rejectRequestForCurrentProvider(latest.id);
-                    },
-                    icon: const Icon(Icons.close),
-                    label: const Text('Rejeter'),
-                  ),
-                ),
-              ],
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            await store
+                                .rejectRequestForCurrentProvider(latest.id);
+                          },
+                          icon: const Icon(Icons.close),
+                          label: const Text('Rejeter'),
+                        ),
+                      ),
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () async {
+                          await store.acceptRequest(latest.id);
+                          if (!mounted) return;
+                          if (!context.mounted) return;
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => ProviderTrackingPage(
+                                store: store,
+                                requestId: latest.id,
+                              ),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.check_circle_outline),
+                        label: const Text('Accepter'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          await store
+                              .rejectRequestForCurrentProvider(latest.id);
+                        },
+                        icon: const Icon(Icons.close),
+                        label: const Text('Rejeter'),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 8),
             SizedBox(
@@ -386,6 +431,10 @@ class _ProviderActiveCard extends StatelessWidget {
 
   String _buttonLabel(RequestStatus status) {
     switch (status) {
+      case RequestStatus.accepted:
+        return 'Passer en route';
+      case RequestStatus.onTheWay:
+        return 'Confirmer arrivee';
       case RequestStatus.arrived:
         return 'Commencer service';
       case RequestStatus.inService:
@@ -396,7 +445,9 @@ class _ProviderActiveCard extends StatelessWidget {
   }
 
   bool _canAdvance(RequestStatus status) {
-    return status == RequestStatus.arrived ||
+    return status == RequestStatus.accepted ||
+        status == RequestStatus.onTheWay ||
+        status == RequestStatus.arrived ||
         status == RequestStatus.inService;
   }
 
@@ -426,7 +477,7 @@ class _ProviderActiveCard extends StatelessWidget {
                 width: 46,
                 height: 46,
                 decoration: BoxDecoration(
-                  color: latest.status.color.withOpacity(0.12),
+                  color: latest.status.color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(
@@ -477,8 +528,7 @@ class _ProviderActiveCard extends StatelessWidget {
               _MiniBadge(label: latest.urgency),
               if (latest.estimatedDistanceKm != null)
                 _MiniBadge(
-                  label:
-                      '${latest.estimatedDistanceKm!.toStringAsFixed(1)} km',
+                  label: '${latest.estimatedDistanceKm!.toStringAsFixed(1)} km',
                 ),
               if (latest.estimatedDurationMinutes != null)
                 _MiniBadge(
@@ -500,37 +550,79 @@ class _ProviderActiveCard extends StatelessWidget {
           if (latest.destination.isNotEmpty)
             InfoRow(title: 'Destination', value: latest.destination),
           const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => ProviderTrackingPage(
-                          store: store,
-                          requestId: latest.id,
-                        ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 560;
+              if (compact) {
+                return Column(
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => ProviderTrackingPage(
+                                store: store,
+                                requestId: latest.id,
+                              ),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.map_outlined),
+                        label: const Text('Ouvrir le suivi'),
                       ),
-                    );
-                  },
-                  icon: const Icon(Icons.map_outlined),
-                  label: const Text('Ouvrir le suivi'),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: _canAdvance(latest.status)
-                      ? () async {
-                          await store.advanceMission(latest.id);
-                        }
-                      : null,
-                  icon: const Icon(Icons.flag_outlined),
-                  label: Text(_buttonLabel(latest.status)),
-                ),
-              ),
-            ],
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: _canAdvance(latest.status)
+                            ? () async {
+                                await store.advanceMission(latest.id);
+                              }
+                            : null,
+                        icon: const Icon(Icons.flag_outlined),
+                        label: Text(_buttonLabel(latest.status)),
+                      ),
+                    ),
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => ProviderTrackingPage(
+                              store: store,
+                              requestId: latest.id,
+                            ),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.map_outlined),
+                      label: const Text('Ouvrir le suivi'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: _canAdvance(latest.status)
+                          ? () async {
+                              await store.advanceMission(latest.id);
+                            }
+                          : null,
+                      icon: const Icon(Icons.flag_outlined),
+                      label: Text(_buttonLabel(latest.status)),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ],
       ),

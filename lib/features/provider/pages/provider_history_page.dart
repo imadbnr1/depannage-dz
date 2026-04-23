@@ -16,7 +16,14 @@ class ProviderHistoryPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final providerId = store.selectedProvider.id;
+    final providerId = store.currentProviderUid;
+    if (providerId == null) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
     final history = store.requests
         .where((r) => r.providerUid == providerId)
         .where((r) =>

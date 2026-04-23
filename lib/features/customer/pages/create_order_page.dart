@@ -4,7 +4,7 @@ import 'package:latlong2/latlong.dart';
 import '../../../models/service_type.dart';
 import '../../../state/app_store.dart';
 import 'pick_destination_page.dart';
-import 'request_preview_page.dart';
+import 'customer_tracking_page.dart';
 
 class CreateOrderPage extends StatefulWidget {
   const CreateOrderPage({
@@ -134,7 +134,7 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
     setState(() => _isSubmitting = true);
 
     try {
-      await widget.store.createRequest(
+      final requestId = await widget.store.createRequest(
         service: widget.service,
         customerPosition: _pickupPoint!,
         pickupLabel: _pickupController.text.trim(),
@@ -150,16 +150,13 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
         photoHint: '',
       );
 
-      final latest =
-          widget.store.requests.isNotEmpty ? widget.store.requests.first : null;
-
-      if (!mounted || latest == null) return;
+      if (!mounted) return;
 
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => RequestPreviewPage(
+          builder: (_) => CustomerTrackingPage(
             store: widget.store,
-            requestId: latest.id,
+            requestId: requestId,
           ),
         ),
       );
@@ -177,7 +174,7 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
     }
   }
 
-  Widget _ReadOnlyPicker({
+  Widget _buildReadOnlyPicker({
     required String label,
     required TextEditingController controller,
     required VoidCallback onTap,
@@ -239,14 +236,14 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
                 ),
                 child: Column(
                   children: [
-                    _ReadOnlyPicker(
+                    _buildReadOnlyPicker(
                       label: 'Depart',
                       controller: _pickupController,
                       onTap: _pickPickup,
                       hint: 'Choisir le point de depart',
                     ),
                     const SizedBox(height: 14),
-                    _ReadOnlyPicker(
+                    _buildReadOnlyPicker(
                       label: 'Destination',
                       controller: _destinationController,
                       onTap: _pickDestination,
@@ -275,29 +272,69 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _EstimateBox(
-                            title: 'Distance',
-                            value: '${_estimatedDistanceKm.toStringAsFixed(1)} km',
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _EstimateBox(
-                            title: 'ETA',
-                            value: '$_estimatedEtaMinutes min',
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _EstimateBox(
-                            title: 'Prix',
-                            value: '${_estimatedPrice.toStringAsFixed(0)} DA',
-                          ),
-                        ),
-                      ],
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final compact = constraints.maxWidth < 420;
+
+                        if (compact) {
+                          return Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: [
+                              SizedBox(
+                                width: (constraints.maxWidth - 10) / 2,
+                                child: _EstimateBox(
+                                  title: 'Distance',
+                                  value:
+                                      '${_estimatedDistanceKm.toStringAsFixed(1)} km',
+                                ),
+                              ),
+                              SizedBox(
+                                width: (constraints.maxWidth - 10) / 2,
+                                child: _EstimateBox(
+                                  title: 'ETA',
+                                  value: '$_estimatedEtaMinutes min',
+                                ),
+                              ),
+                              SizedBox(
+                                width: constraints.maxWidth,
+                                child: _EstimateBox(
+                                  title: 'Prix',
+                                  value:
+                                      '${_estimatedPrice.toStringAsFixed(0)} DA',
+                                ),
+                              ),
+                            ],
+                          );
+                        }
+
+                        return Row(
+                          children: [
+                            Expanded(
+                              child: _EstimateBox(
+                                title: 'Distance',
+                                value:
+                                    '${_estimatedDistanceKm.toStringAsFixed(1)} km',
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: _EstimateBox(
+                                title: 'ETA',
+                                value: '$_estimatedEtaMinutes min',
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: _EstimateBox(
+                                title: 'Prix',
+                                value:
+                                    '${_estimatedPrice.toStringAsFixed(0)} DA',
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ],
                 ),

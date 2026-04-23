@@ -17,9 +17,11 @@ class AppUser {
   final String createdAtIso;
   final bool isApproved;
 
-  bool get isCustomer => role == 'customer';
-  bool get isProvider => role == 'provider';
-  bool get isAdmin => role == 'admin';
+  String get normalizedRole => role.trim().toLowerCase();
+
+  bool get isCustomer => normalizedRole == 'customer';
+  bool get isProvider => normalizedRole == 'provider';
+  bool get isAdmin => normalizedRole == 'admin';
 
   Map<String, dynamic> toMap() {
     return {
@@ -27,7 +29,7 @@ class AppUser {
       'fullName': fullName,
       'email': email,
       'phone': phone,
-      'role': role,
+      'role': normalizedRole,
       'createdAtIso': createdAtIso,
       'isApproved': isApproved,
     };
