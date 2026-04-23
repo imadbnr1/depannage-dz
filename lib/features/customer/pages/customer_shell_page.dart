@@ -10,6 +10,7 @@ import '../../shared/pages/chat_page.dart';
 import 'customer_history_page.dart';
 import 'customer_home_page.dart';
 import 'customer_profile_page.dart';
+import 'customer_rate_provider_page.dart';
 import 'customer_requests_page.dart';
 import 'customer_support_page.dart';
 
@@ -27,6 +28,7 @@ class CustomerShellPage extends StatefulWidget {
 
 class _CustomerShellPageState extends State<CustomerShellPage> {
   int _index = 0;
+  String? _lastRatingHandled;
   String? _lastFcmSignature;
   final Map<String, StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>>
       _chatSubscriptions = {};
@@ -40,6 +42,10 @@ class _CustomerShellPageState extends State<CustomerShellPage> {
     FcmService.payloadNotifier.addListener(_onFcmPayload);
     widget.store.setAdminNotificationDeliveryReady(_index == 0);
     _syncChatListeners();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _checkRatingRequired();
+    });
   }
 
   @override
@@ -60,8 +66,41 @@ class _CustomerShellPageState extends State<CustomerShellPage> {
       _index = widget.store.customerTab;
     }
     widget.store.setAdminNotificationDeliveryReady(_index == 0);
+    _checkRatingRequired();
     _syncChatListeners();
     setState(() {});
+  }
+
+  void _checkRatingRequired() {
+    final customerUid = FirebaseAuth.instance.currentUser?.uid;
+    if (customerUid == null) return;
+
+    final pending = widget.store.requests.where((request) {
+      return request.customerUid == customerUid && request.canClientRate;
+    }).toList();
+
+    if (pending.isEmpty) {
+      _lastRatingHandled = null;
+      return;
+    }
+
+    final request = pending.first;
+    if (_lastRatingHandled == request.id) return;
+    _lastRatingHandled = request.id;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => CustomerRateProviderPage(
+            store: widget.store,
+            requestId: request.id,
+            forceMode: true,
+          ),
+        ),
+      );
+    });
   }
 
   void _syncChatListeners() {

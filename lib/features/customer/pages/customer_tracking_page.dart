@@ -295,15 +295,7 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
       '&travelmode=driving&dir_action=navigate',
     );
 
-    final wazeUri = Uri.parse(
-      'https://waze.com/ul?ll=${destination.latitude},${destination.longitude}&navigate=yes',
-    );
-
-    if (await canLaunchUrl(wazeUri)) {
-      await launchUrl(wazeUri, mode: LaunchMode.externalApplication);
-    } else {
-      await launchUrl(googleUri, mode: LaunchMode.externalApplication);
-    }
+    await launchUrl(googleUri, mode: LaunchMode.externalApplication);
   }
 
   @override
