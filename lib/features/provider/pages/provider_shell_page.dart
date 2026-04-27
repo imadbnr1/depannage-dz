@@ -8,6 +8,7 @@ import 'package:latlong2/latlong.dart';
 import '../../../core/services/alert_service.dart';
 import '../../../core/services/fcm_service.dart';
 import '../../../models/app_request.dart';
+import '../../../models/service_type.dart';
 import '../../../state/app_store.dart';
 import '../../shared/pages/chat_page.dart';
 import 'provider_dashboard_page.dart';
@@ -433,11 +434,16 @@ class _MissionOfferDialogState extends State<_MissionOfferDialog> {
   late int _secondsLeft;
   Timer? _timer;
   bool _actionTaken = false;
+  bool _entered = false;
 
   @override
   void initState() {
     super.initState();
     _secondsLeft = widget.store.offerSecondsRemaining(widget.requestId) ?? 0;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() => _entered = true);
+    });
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) async {
       final latest = widget.store.findRequest(widget.requestId);
       final providerId = widget.store.currentProviderUid;
@@ -520,248 +526,211 @@ class _MissionOfferDialogState extends State<_MissionOfferDialog> {
             providerPosition,
             customerPosition,
           );
-    final urgencyTone = _urgencyTone(request.urgency);
-    final estimatedPrice = request.estimatedPrice;
-    final netEarning = estimatedPrice == null
-        ? null
-        : estimatedPrice -
-            widget.store.estimateCommissionAmount(estimatedPrice);
+    final approachDurationMinutes = request.providerApproachDurationMinutes ??
+        (distanceKm == null
+            ? null
+            : widget.store.estimateApproachDurationMinutes(distanceKm));
+    final approachFee = request.providerApproachFee ??
+        (distanceKm == null
+            ? null
+            : widget.store.estimateProviderApproachFee(distanceKm));
+    final missionPrice = (request.estimatedPrice ?? 0) +
+        ((approachFee ?? 0) > 0 ? approachFee! : 0);
+    final countdownProgress = (_secondsLeft / 20).clamp(0.0, 1.0);
 
     return PopScope(
       canPop: false,
-      child: AlertDialog(
-        insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+      child: AnimatedSlide(
+        duration: const Duration(milliseconds: 380),
+        curve: Curves.easeOutCubic,
+        offset: _entered ? Offset.zero : const Offset(0, 0.08),
+        child: AnimatedScale(
+          duration: const Duration(milliseconds: 380),
+          curve: Curves.easeOutBack,
+          scale: _entered ? 1 : 0.92,
+          child: AlertDialog(
+            insetPadding:
+                const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFDBEAFE),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: const Icon(
-                      Icons.local_shipping_rounded,
-                      color: Color(0xFF1D4ED8),
-                    ),
+                  Row(
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFDBEAFE),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Icon(
+                          Icons.local_shipping_rounded,
+                          color: Color(0xFF1D4ED8),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Nouvelle mission',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 20,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text(
-                      'Nouvelle mission',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 20,
+                  const SizedBox(height: 14),
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEEF2FF),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        'Temps restant: ${_secondsLeft}s',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF4338CA),
+                        ),
                       ),
                     ),
                   ),
+                  const SizedBox(height: 10),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(999),
+                    child: TweenAnimationBuilder<double>(
+                      key: ValueKey(_secondsLeft),
+                      tween: Tween<double>(
+                        begin: countdownProgress,
+                        end: countdownProgress,
+                      ),
+                      duration: const Duration(milliseconds: 320),
+                      builder: (context, value, _) {
+                        return LinearProgressIndicator(
+                          value: value,
+                          minHeight: 6,
+                          backgroundColor: const Color(0xFFE5E7EB),
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            Color(0xFF4338CA),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      if (distanceKm != null)
+                        _OfferBadge(
+                          icon: Icons.near_me_outlined,
+                          label:
+                              'Vers client ${distanceKm.toStringAsFixed(1)} km',
+                        ),
+                      if (approachDurationMinutes != null)
+                        _OfferBadge(
+                          icon: Icons.timer_outlined,
+                          label: 'Client ~$approachDurationMinutes min',
+                        ),
+                      if (request.estimatedDurationMinutes != null)
+                        _OfferBadge(
+                          icon: Icons.route_outlined,
+                          label:
+                              'Mission ${request.estimatedDurationMinutes} min',
+                        ),
+                      if (request.estimatedPrice != null)
+                        _OfferBadge(
+                          icon: Icons.payments_rounded,
+                          label: 'Prix ${missionPrice.toStringAsFixed(0)} DA',
+                        ),
+                      if (approachFee != null && approachFee > 0)
+                        _OfferBadge(
+                          icon: Icons.add_road_outlined,
+                          label: 'Frais ${approachFee.toStringAsFixed(0)} DA',
+                        ),
+                      _OfferBadge(
+                        icon: Icons.handyman_rounded,
+                        label: request.service.label,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _InfoLine(label: 'Pick up', value: request.pickupLabel),
+                  _InfoLine(
+                    label: 'Vehicule',
+                    value:
+                        '${request.vehicleType}${request.brandModel.trim().isEmpty ? '' : ' · ${request.brandModel}'}',
+                  ),
+                  if (request.destination.isNotEmpty)
+                    _InfoLine(label: 'Destination', value: request.destination),
+                  if (approachDurationMinutes != null)
+                    _InfoLine(
+                      label: 'Temps vers client',
+                      value: '$approachDurationMinutes min',
+                    ),
+                  if (request.estimatedDurationMinutes != null)
+                    _InfoLine(
+                      label: 'Temps mission',
+                      value: '${request.estimatedDurationMinutes} min',
+                    ),
+                  if (request.estimatedPrice != null)
+                    _InfoLine(
+                      label: 'Prix mission',
+                      value: '${missionPrice.toStringAsFixed(0)} DA',
+                    ),
+                  if (approachFee != null && approachFee > 0)
+                    _InfoLine(
+                      label: 'Frais acces',
+                      value: '${approachFee.toStringAsFixed(0)} DA',
+                    ),
                 ],
               ),
-              const SizedBox(height: 14),
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEEF2FF),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    'Temps restant: ${_secondsLeft}s',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF4338CA),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Container(
+            ),
+            actions: [
+              SizedBox(
                 width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8F5EF),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
-                ),
-                child: Row(
+                child: Column(
                   children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFF5DB),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Icon(
-                        Icons.location_on_rounded,
-                        color: Color(0xFFDC2626),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: _accept,
+                        icon: const Icon(Icons.check_circle_outline),
+                        label: const Text('Accepter'),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Intervention a proximite',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            request.pickupLabel,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: Colors.black54),
-                          ),
-                        ],
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _reject,
+                        icon: const Icon(Icons.close),
+                        label: const Text('Rejeter'),
                       ),
+                    ),
+                    const SizedBox(height: 6),
+                    TextButton(
+                      onPressed: _later,
+                      child: const Text('Voir plus tard'),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 14),
-              Text(
-                request.customerName,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 17,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _OfferBadge(
-                    icon: Icons.directions_car_filled_rounded,
-                    label: request.brandModel.trim().isNotEmpty
-                        ? request.brandModel
-                        : request.vehicleType,
-                  ),
-                  if (distanceKm != null)
-                    _OfferBadge(
-                      icon: Icons.near_me_outlined,
-                      label: '${distanceKm.toStringAsFixed(1)} km',
-                    ),
-                  if (request.estimatedPrice != null)
-                    _OfferBadge(
-                      icon: Icons.payments_rounded,
-                      label: '${request.estimatedPrice!.toStringAsFixed(0)} DA',
-                    ),
-                  if (netEarning != null)
-                    _OfferBadge(
-                      icon: Icons.savings_outlined,
-                      label: 'Net ${netEarning.toStringAsFixed(0)} DA',
-                    ),
-                  _OfferBadge(
-                    icon: Icons.handyman_rounded,
-                    label: request.service.toString().split('.').last,
-                  ),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                    decoration: BoxDecoration(
-                      color: urgencyTone.background,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      request.urgency,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        color: urgencyTone.foreground,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              _InfoLine(label: 'Telephone', value: request.customerPhone),
-              _InfoLine(
-                label: 'Vehicule',
-                value:
-                    '${request.vehicleType}${request.brandModel.trim().isEmpty ? '' : ' · ${request.brandModel}'}',
-              ),
-              _InfoLine(label: 'Depart', value: request.pickupLabel),
-              if (request.destination.isNotEmpty)
-                _InfoLine(label: 'Destination', value: request.destination),
-              if (request.estimatedPrice != null)
-                _InfoLine(
-                  label: 'Prix estime',
-                  value: '${request.estimatedPrice!.toStringAsFixed(0)} DA',
-                ),
-              if (netEarning != null)
-                _InfoLine(
-                  label: 'Gain net',
-                  value: '${netEarning.toStringAsFixed(0)} DA',
-                ),
             ],
           ),
         ),
-        actions: [
-          SizedBox(
-            width: double.infinity,
-            child: Column(
-              children: [
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: _accept,
-                    icon: const Icon(Icons.check_circle_outline),
-                    label: const Text('Accepter'),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: _reject,
-                    icon: const Icon(Icons.close),
-                    label: const Text('Rejeter'),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                TextButton(
-                  onPressed: _later,
-                  child: const Text('Voir plus tard'),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
-    );
-  }
-
-  _UrgencyTone _urgencyTone(String urgency) {
-    final lower = urgency.toLowerCase();
-    if (lower.contains('urgent')) {
-      return const _UrgencyTone(
-        background: Color(0xFFFEF3C7),
-        foreground: Color(0xFFB45309),
-      );
-    }
-    if (lower.contains('crit')) {
-      return const _UrgencyTone(
-        background: Color(0xFFFEE2E2),
-        foreground: Color(0xFFB91C1C),
-      );
-    }
-    return const _UrgencyTone(
-      background: Color(0xFFECFDF5),
-      foreground: Color(0xFF166534),
     );
   }
 }
@@ -798,16 +767,6 @@ class _OfferBadge extends StatelessWidget {
       ),
     );
   }
-}
-
-class _UrgencyTone {
-  const _UrgencyTone({
-    required this.background,
-    required this.foreground,
-  });
-
-  final Color background;
-  final Color foreground;
 }
 
 class _InfoLine extends StatelessWidget {

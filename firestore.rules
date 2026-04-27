@@ -26,6 +26,49 @@ service cloud.firestore {
       return request.auth.uid == uid;
     }
 
+    function isPublicRole(role) {
+      return role == 'customer' || role == 'provider';
+    }
+
+    function isValidSelfUserCreate(userId) {
+      return isOwner(userId) &&
+        request.resource.data.uid == userId &&
+        isPublicRole(request.resource.data.role) &&
+        request.resource.data.email is string &&
+        request.resource.data.fullName is string &&
+        request.resource.data.phone is string &&
+        request.resource.data.isBlocked != true &&
+        (
+          (request.resource.data.role == 'customer' &&
+            request.resource.data.isApproved == true) ||
+          (request.resource.data.role == 'provider' &&
+            request.resource.data.isApproved == false)
+        );
+    }
+
+    function isSafeSelfUserUpdate(userId) {
+      return isOwner(userId) &&
+        request.resource.data.uid == resource.data.uid &&
+        request.resource.data.email == resource.data.email &&
+        request.resource.data.role == resource.data.role &&
+        request.resource.data.isApproved == resource.data.isApproved &&
+        request.resource.data.isBlocked == resource.data.isBlocked;
+    }
+
+    function isValidSelfProviderCreate(providerId) {
+      return isOwner(providerId) &&
+        request.resource.data.uid == providerId &&
+        request.resource.data.isApproved == false &&
+        request.resource.data.isBlocked != true;
+    }
+
+    function isSafeSelfProviderUpdate(providerId) {
+      return isOwner(providerId) &&
+        request.resource.data.uid == resource.data.uid &&
+        request.resource.data.isApproved == resource.data.isApproved &&
+        request.resource.data.isBlocked == resource.data.isBlocked;
+    }
+
     function requestDoc(id) {
       return get(/databases/$(database)/documents/requests/$(id));
     }
@@ -50,16 +93,16 @@ service cloud.firestore {
     // USERS
     match /users/{userId} {
       allow read: if isSignedIn() && (isOwner(userId) || isAdmin());
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow create: if isSignedIn() && (isValidSelfUserCreate(userId) || isAdmin());
+      allow update: if isSignedIn() && (isSafeSelfUserUpdate(userId) || isAdmin());
       allow delete: if isAdmin();
     }
 
     // PROVIDERS
     match /providers/{providerId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && (isOwner(providerId) || isAdmin());
-      allow update: if isSignedIn() && (isOwner(providerId) || isAdmin());
+      allow create: if isSignedIn() && (isValidSelfProviderCreate(providerId) || isAdmin());
+      allow update: if isSignedIn() && (isSafeSelfProviderUpdate(providerId) || isAdmin());
       allow delete: if isAdmin();
     }
 

@@ -10,6 +10,7 @@ import '../../../models/route_snapshot.dart';
 import '../../../state/app_store.dart';
 import '../../../widgets/info_row.dart';
 import '../../../widgets/map_pin.dart';
+import '../../../widgets/role_map_marker.dart';
 import 'provider_tracking_page.dart';
 
 class ProviderMissionDetailsPage extends StatefulWidget {
@@ -73,18 +74,18 @@ class _ProviderMissionDetailsPageState
 
   List<LatLng> _safeRoutePoints({
     required LatLng providerPosition,
-    required LatLng customerPosition,
+    required LatLng targetPosition,
     required List<LatLng> routePoints,
   }) {
     final safeProvider =
-        _isValidPoint(providerPosition) ? providerPosition : customerPosition;
-    final safeCustomer =
-        _isValidPoint(customerPosition) ? customerPosition : providerPosition;
+        _isValidPoint(providerPosition) ? providerPosition : targetPosition;
+    final safeTarget =
+        _isValidPoint(targetPosition) ? targetPosition : providerPosition;
 
     final cleaned = _sanitizePoints(routePoints);
     if (cleaned.length >= 2) return cleaned;
 
-    return [safeProvider, safeCustomer];
+    return [safeProvider, safeTarget];
   }
 
   void _fitRoute(List<LatLng> rawPoints) {
@@ -189,17 +190,28 @@ class _ProviderMissionDetailsPageState
         provider?.position ??
         const LatLng(36.7538, 3.0588);
     final customerPosition = request.customerPosition;
+    final routeTarget = (request.status == RequestStatus.arrived ||
+                request.status == RequestStatus.inService ||
+                request.status == RequestStatus.completed) &&
+            request.destinationPosition != null
+        ? request.destinationPosition!
+        : customerPosition;
+    final routeTargetLabel = request.status == RequestStatus.arrived ||
+            request.status == RequestStatus.inService ||
+            request.status == RequestStatus.completed
+        ? request.destination
+        : request.pickupLabel;
 
     return FutureBuilder<RouteSnapshot>(
       future: RouteService().buildDrivingRoute(
         origin: providerPosition,
-        destination: customerPosition,
+        destination: routeTarget,
       ),
       builder: (context, routeSnapshot) {
         final fallbackDistance = const Distance().as(
           LengthUnit.Kilometer,
           providerPosition,
-          customerPosition,
+          routeTarget,
         );
 
         final route = routeSnapshot.data ??
@@ -213,13 +225,12 @@ class _ProviderMissionDetailsPageState
 
         final safeRoutePoints = _safeRoutePoints(
           providerPosition: providerPosition,
-          customerPosition: customerPosition,
+          targetPosition: routeTarget,
           routePoints: route.points,
         );
 
-        final initialCenter = _isValidPoint(providerPosition)
-            ? providerPosition
-            : customerPosition;
+        final initialCenter =
+            _isValidPoint(providerPosition) ? providerPosition : routeTarget;
 
         final canAct = request.status != RequestStatus.completed &&
             request.status != RequestStatus.cancelled;
@@ -256,22 +267,28 @@ class _ProviderMissionDetailsPageState
                     markers: [
                       Marker(
                         point: providerPosition,
-                        width: 74,
-                        height: 74,
+                        width: 144,
+                        height: 142,
                         child: const MapPin(
                           label: 'Provider',
                           icon: Icons.local_shipping,
                           color: Colors.blue,
+                          markerType: RoleMapMarkerType.provider,
                         ),
                       ),
                       Marker(
-                        point: customerPosition,
-                        width: 70,
-                        height: 70,
-                        child: const MapPin(
-                          label: 'Client',
+                        point: routeTarget,
+                        width: 144,
+                        height: 142,
+                        child: MapPin(
+                          label: request.status == RequestStatus.arrived ||
+                                  request.status == RequestStatus.inService ||
+                                  request.status == RequestStatus.completed
+                              ? 'Destination'
+                              : 'Client',
                           icon: Icons.place,
                           color: Colors.red,
+                          markerType: RoleMapMarkerType.customer,
                         ),
                       ),
                     ],
@@ -425,6 +442,11 @@ class _ProviderMissionDetailsPageState
                                   ? '${request.estimatedPrice!.toStringAsFixed(0)} DA'
                                   : request.service.priceLabel,
                             ),
+                            if ((request.providerApproachFee ?? 0) > 0)
+                              _MiniStat(
+                                label:
+                                    'Frais ${request.providerApproachFee!.toStringAsFixed(0)} DA',
+                              ),
                           ],
                         ),
                         const SizedBox(height: 14),
@@ -532,7 +554,7 @@ class _ProviderMissionDetailsPageState
                                     '${request.vehicleType} · ${request.brandModel}',
                               ),
                               InfoRow(
-                                title: 'Position',
+                                title: 'Pick up',
                                 value:
                                     '${request.pickupLabel}\n${request.pickupSubtitle}',
                               ),
@@ -553,6 +575,10 @@ class _ProviderMissionDetailsPageState
                                   title: 'Destination',
                                   value: request.destination,
                                 ),
+                              InfoRow(
+                                title: 'Cible actuelle',
+                                value: routeTargetLabel,
+                              ),
                               if (request.photoHint.isNotEmpty)
                                 InfoRow(
                                   title: 'Detail visuel',
@@ -667,7 +693,7 @@ class _ProviderMissionDetailsPageState
                                       onPressed: () {
                                         LauncherService().openGoogleMaps(
                                           origin: providerPosition,
-                                          destination: customerPosition,
+                                          destination: routeTarget,
                                         );
                                       },
                                       icon: const Icon(
@@ -696,7 +722,7 @@ class _ProviderMissionDetailsPageState
                                     onPressed: () {
                                       LauncherService().openGoogleMaps(
                                         origin: providerPosition,
-                                        destination: customerPosition,
+                                        destination: routeTarget,
                                       );
                                     },
                                     icon: const Icon(Icons.navigation_outlined),

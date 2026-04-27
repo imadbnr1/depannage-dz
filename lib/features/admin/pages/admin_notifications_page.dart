@@ -6,6 +6,8 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/services/admin_audit_service.dart';
+
 class AdminNotificationsPage extends StatefulWidget {
   const AdminNotificationsPage({super.key});
 
@@ -14,6 +16,7 @@ class AdminNotificationsPage extends StatefulWidget {
 }
 
 class _AdminNotificationsPageState extends State<AdminNotificationsPage> {
+  final AdminAuditService _auditService = AdminAuditService();
   final _titleController = TextEditingController();
   final _bodyController = TextEditingController();
   final _historySearchController = TextEditingController();
@@ -74,7 +77,8 @@ class _AdminNotificationsPageState extends State<AdminNotificationsPage> {
 
     setState(() => _sending = true);
 
-    await FirebaseFirestore.instance.collection('app_notifications').add({
+    final docRef =
+        await FirebaseFirestore.instance.collection('app_notifications').add({
       'title': title,
       'body': body,
       'imageUrl': imageUrl,
@@ -88,6 +92,19 @@ class _AdminNotificationsPageState extends State<AdminNotificationsPage> {
       'isActive': true,
       'createdAtIso': DateTime.now().toIso8601String(),
     });
+
+    await _auditService.logAction(
+      action: 'send_notification',
+      targetCollection: 'app_notifications',
+      targetId: docRef.id,
+      summary: 'Notification admin envoyee',
+      metadata: {
+        'title': title,
+        'targetRole': _targetRole,
+        'type': _notificationType,
+        'popupMode': _popupMode,
+      },
+    );
 
     if (!mounted) return;
 
@@ -114,7 +131,20 @@ class _AdminNotificationsPageState extends State<AdminNotificationsPage> {
         .doc(docId)
         .set({
       'isActive': value,
+      'updatedAtIso': DateTime.now().toIso8601String(),
     }, SetOptions(merge: true));
+
+    await _auditService.logAction(
+      action: value ? 'activate_notification' : 'deactivate_notification',
+      targetCollection: 'app_notifications',
+      targetId: docId,
+      summary: value
+          ? 'Notification admin reactivee'
+          : 'Notification admin desactivee',
+      metadata: {
+        'isActive': value,
+      },
+    );
   }
 
   Future<void> _pickImage() async {

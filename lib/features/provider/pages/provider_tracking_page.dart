@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -6,8 +7,10 @@ import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/services/routing_service.dart';
+import '../../../models/app_request.dart';
 import '../../../models/request_status.dart';
 import '../../../state/app_store.dart';
+import '../../../widgets/role_map_marker.dart';
 import '../../shared/pages/chat_page.dart';
 
 class ProviderTrackingPage extends StatefulWidget {
@@ -30,6 +33,8 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
 
   StreamSubscription? _trackingSub;
   Timer? _routeTimer;
+  Timer? _simulationTimer;
+  Timer? _providerAnimationTimer;
 
   List<LatLng> _routePoints = [];
   bool _loadingRoute = false;
@@ -37,7 +42,19 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
   double? _routeDurationSeconds;
   double? _routeProgress;
   LatLng? _lastRouteStart;
+  LatLng? _lastRouteTarget;
+  RequestStatus? _lastRouteStatus;
   bool _didAutoFitRoute = false;
+  double? _lastProviderHeadingRadians;
+  LatLng? _renderedProviderPosition;
+  LatLng? _previousProviderPosition;
+  LatLng? _lastTargetPosition;
+  bool _devToolsVisible = false;
+  bool _simulationRunning = false;
+  String _simulationMode = 'Approche client';
+  int _simulationIndex = 0;
+  int _devTapCount = 0;
+  DateTime? _lastDevTapAt;
 
   @override
   void initState() {
@@ -46,11 +63,19 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
 
     _trackingSub = widget.store.watchTracking(widget.requestId).listen((_) {
       if (!mounted) return;
+      final request = widget.store.findRequest(widget.requestId);
+      if (request != null) {
+        _syncAnimatedProviderPosition(request);
+      }
       _scheduleRouteUpdate();
       setState(() {});
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      final request = widget.store.findRequest(widget.requestId);
+      if (request != null) {
+        _syncAnimatedProviderPosition(request, immediate: true);
+      }
       _scheduleRouteUpdate();
     });
   }
@@ -60,17 +85,286 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
     widget.store.removeListener(_handleStoreChanged);
     _trackingSub?.cancel();
     _routeTimer?.cancel();
+    _simulationTimer?.cancel();
+    _providerAnimationTimer?.cancel();
     super.dispose();
   }
 
   void _handleStoreChanged() {
     if (!mounted) return;
+    final request = widget.store.findRequest(widget.requestId);
+    if (request != null) {
+      _syncAnimatedProviderPosition(request);
+    }
     setState(() {});
+  }
+
+  void _syncAnimatedProviderPosition(
+    AppRequest request, {
+    bool immediate = false,
+  }) {
+    final tracking = widget.store.trackingFor(widget.requestId);
+    final targetPosition = tracking?.providerPosition ??
+        widget.store.providerCurrentPosition ??
+        request.providerPosition;
+
+    if (targetPosition == null) return;
+
+    // Update previous position for heading calculation
+    if (_lastTargetPosition != null && 
+        (_lastTargetPosition!.latitude != targetPosition.latitude || 
+         _lastTargetPosition!.longitude != targetPosition.longitude)) {
+      _previousProviderPosition = _lastTargetPosition;
+    }
+    _lastTargetPosition = targetPosition;
+
+    final currentPosition = _renderedProviderPosition;
+    if (immediate || currentPosition == null) {
+      _providerAnimationTimer?.cancel();
+      _renderedProviderPosition = targetPosition;
+      return;
+    }
+
+    final distanceMeters = const Distance().as(
+      LengthUnit.Meter,
+      currentPosition,
+      targetPosition,
+    );
+
+    if (distanceMeters < 2) {
+      _providerAnimationTimer?.cancel();
+      _renderedProviderPosition = targetPosition;
+      return;
+    }
+
+    final startedAt = DateTime.now();
+    final headingDelta = _upcomingHeadingDeltaRadians(
+      from: currentPosition,
+      to: targetPosition,
+    );
+    final duration = Duration(
+          milliseconds: distanceMeters < 20
+              ? 650
+              : distanceMeters < 60
+                  ? 900
+                  : 1200,
+        ) +
+        Duration(
+          milliseconds: headingDelta > 1.0
+              ? 320
+              : headingDelta > 0.55
+                  ? 180
+                  : 0,
+        );
+    final animationCurve = headingDelta > 0.9
+        ? Curves.easeInOutCubic
+        : headingDelta > 0.45
+            ? Curves.easeInOut
+            : Curves.linearToEaseOut;
+
+    _providerAnimationTimer?.cancel();
+    _providerAnimationTimer = Timer.periodic(
+      const Duration(milliseconds: 16),
+      (timer) {
+        if (!mounted) {
+          timer.cancel();
+          return;
+        }
+
+        final elapsed = DateTime.now().difference(startedAt);
+        final t = (elapsed.inMilliseconds / duration.inMilliseconds).clamp(
+          0.0,
+          1.0,
+        );
+        final easedT = animationCurve.transform(t);
+
+        setState(() {
+          _renderedProviderPosition = _lerpLatLng(
+            currentPosition,
+            targetPosition,
+            easedT,
+          );
+        });
+
+        if (t >= 1) {
+          timer.cancel();
+        }
+      },
+    );
+  }
+
+  LatLng _lerpLatLng(LatLng from, LatLng to, double t) {
+    return LatLng(
+      from.latitude + ((to.latitude - from.latitude) * t),
+      from.longitude + ((to.longitude - from.longitude) * t),
+    );
+  }
+
+  double _upcomingHeadingDeltaRadians({
+    required LatLng from,
+    required LatLng to,
+  }) {
+    final currentHeading = _lastProviderHeadingRadians;
+    final travelHeading = _bearingRadians(from, to) + (math.pi / 2);
+    if (currentHeading == null) return 0;
+    return _normalizeAngleRadians(travelHeading - currentHeading).abs();
   }
 
   void _scheduleRouteUpdate() {
     _routeTimer?.cancel();
     _routeTimer = Timer(const Duration(seconds: 3), _loadRoute);
+  }
+
+  void _handleHiddenDevTap() {
+    final now = DateTime.now();
+    final lastTapAt = _lastDevTapAt;
+    if (lastTapAt == null ||
+        now.difference(lastTapAt) > const Duration(seconds: 2)) {
+      _devTapCount = 0;
+    }
+
+    _lastDevTapAt = now;
+    _devTapCount += 1;
+
+    if (_devTapCount < 6) return;
+
+    _devTapCount = 0;
+    _lastDevTapAt = null;
+    if (!mounted) return;
+
+    setState(() {
+      _devToolsVisible = !_devToolsVisible;
+    });
+  }
+
+  Future<void> _toggleSimulation() async {
+    if (_simulationRunning) {
+      _simulationTimer?.cancel();
+      if (!mounted) return;
+      setState(() => _simulationRunning = false);
+      return;
+    }
+
+    if (_routePoints.length < 2) {
+      await _loadRoute();
+    }
+    if (_routePoints.length < 2 || !mounted) return;
+
+    final request = widget.store.findRequest(widget.requestId);
+    if (request == null) return;
+
+    if (_simulationIndex <= 0 || _simulationIndex >= _routePoints.length) {
+      _simulationIndex = 0;
+      await widget.store.devSetProviderTrackingPosition(
+        request.id,
+        _routePoints.first,
+      );
+    }
+
+    _simulationTimer?.cancel();
+    setState(() => _simulationRunning = true);
+
+    _simulationTimer = Timer.periodic(const Duration(milliseconds: 850), (
+      timer,
+    ) async {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
+      final currentRequest = widget.store.findRequest(widget.requestId);
+      if (currentRequest == null || _routePoints.length < 2) {
+        timer.cancel();
+        if (mounted) {
+          setState(() => _simulationRunning = false);
+        }
+        return;
+      }
+
+      _simulationIndex += 1;
+      if (_simulationIndex >= _routePoints.length) {
+        _simulationIndex = _routePoints.length - 1;
+        await widget.store.devSetProviderTrackingPosition(
+          currentRequest.id,
+          _routePoints[_simulationIndex],
+        );
+        timer.cancel();
+        if (mounted) {
+          setState(() => _simulationRunning = false);
+        }
+        return;
+      }
+
+      await widget.store.devSetProviderTrackingPosition(
+        currentRequest.id,
+        _routePoints[_simulationIndex],
+      );
+    });
+  }
+
+  Future<void> _simulateTowToDestination() async {
+    final request = widget.store.findRequest(widget.requestId);
+    if (request == null) return;
+
+    _simulationTimer?.cancel();
+    if (mounted) {
+      setState(() {
+        _simulationRunning = false;
+        _simulationMode = 'Vers destination';
+      });
+    }
+
+    if (request.status == RequestStatus.accepted) {
+      await widget.store.advanceMission(request.id);
+    }
+
+    final afterAccepted = widget.store.findRequest(widget.requestId);
+    if (afterAccepted == null) return;
+    if (afterAccepted.status == RequestStatus.onTheWay) {
+      await widget.store.advanceMission(afterAccepted.id);
+    }
+
+    final arrivedRequest = widget.store.findRequest(widget.requestId);
+    if (arrivedRequest == null) return;
+
+    await widget.store.devSetProviderTrackingPosition(
+      arrivedRequest.id,
+      arrivedRequest.customerPosition,
+    );
+
+    if (arrivedRequest.status == RequestStatus.arrived) {
+      await widget.store.advanceMission(arrivedRequest.id);
+    }
+
+    _simulationIndex = 0;
+    _lastRouteStart = null;
+    _lastRouteTarget = null;
+    _lastRouteStatus = null;
+    await _loadRoute();
+    await _toggleSimulation();
+  }
+
+  Future<void> _resetSimulation() async {
+    _simulationTimer?.cancel();
+    final request = widget.store.findRequest(widget.requestId);
+    if (request == null) return;
+
+    if (_routePoints.length < 2) {
+      await _loadRoute();
+    }
+    if (_routePoints.isEmpty) return;
+
+    _simulationIndex = 0;
+    await widget.store.devSetProviderTrackingPosition(
+      request.id,
+      _routePoints.first,
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _simulationRunning = false;
+      _simulationMode = 'Approche client';
+    });
   }
 
   Future<void> _loadRoute() async {
@@ -83,10 +377,24 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
         request.providerPosition;
     final customerPosition =
         tracking?.customerPosition ?? request.customerPosition;
+    final routeTarget = _routeTarget(request, customerPosition);
 
     if (providerPosition == null) return;
 
-    if (_lastRouteStart != null) {
+    final stageChanged = _lastRouteStatus != request.status ||
+        _lastRouteTarget == null ||
+        const Distance().as(
+              LengthUnit.Meter,
+              _lastRouteTarget!,
+              routeTarget,
+            ) >
+            12;
+
+    if (stageChanged) {
+      _didAutoFitRoute = false;
+    }
+
+    if (!stageChanged && _lastRouteStart != null) {
       final movedMeters = const Distance().as(
         LengthUnit.Meter,
         _lastRouteStart!,
@@ -99,6 +407,8 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
     }
 
     _lastRouteStart = providerPosition;
+    _lastRouteTarget = routeTarget;
+    _lastRouteStatus = request.status;
 
     if (!mounted) return;
     setState(() => _loadingRoute = true);
@@ -106,22 +416,21 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
     try {
       final route = await _routingService.getRoute(
         providerPosition,
-        customerPosition,
+        routeTarget,
       );
 
       if (!mounted) return;
 
       if (route == null || route.points.isEmpty) {
         setState(() {
-          _routePoints = [providerPosition, customerPosition];
+          _routePoints = [providerPosition, routeTarget];
           _routeDistanceMeters = null;
           _routeDurationSeconds = null;
           _routeProgress = null;
         });
       } else {
         final estimatedTotalMeters =
-            (request.estimatedDistanceKm ?? (route.distanceMeters / 1000)) *
-                1000;
+            _estimatedTotalMetersForStage(request, route);
         final progress = estimatedTotalMeters <= 0
             ? null
             : ((estimatedTotalMeters - route.distanceMeters) /
@@ -136,23 +445,47 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
         });
       }
 
-      _fitRoute(providerPosition, customerPosition);
+      _fitRoute(providerPosition, routeTarget);
     } catch (_) {
       if (!mounted) return;
 
       setState(() {
-        _routePoints = [providerPosition, customerPosition];
+        _routePoints = [providerPosition, routeTarget];
         _routeDistanceMeters = null;
         _routeDurationSeconds = null;
         _routeProgress = null;
       });
 
-      _fitRoute(providerPosition, customerPosition);
+      _fitRoute(providerPosition, routeTarget);
     } finally {
       if (mounted) {
         setState(() => _loadingRoute = false);
       }
     }
+  }
+
+  LatLng _routeTarget(AppRequest request, LatLng customerPosition) {
+    final destinationPosition = request.destinationPosition;
+    final towingStage = request.status == RequestStatus.arrived ||
+        request.status == RequestStatus.inService ||
+        request.status == RequestStatus.completed;
+    return towingStage && destinationPosition != null
+        ? destinationPosition
+        : customerPosition;
+  }
+
+  double _estimatedTotalMetersForStage(AppRequest request, RouteData route) {
+    if (request.status == RequestStatus.arrived ||
+        request.status == RequestStatus.inService ||
+        request.status == RequestStatus.completed) {
+      return (request.estimatedDistanceKm ?? (route.distanceMeters / 1000)) *
+          1000;
+    }
+
+    return ((request.providerApproachDistanceKm ?? 0) > 0
+            ? request.providerApproachDistanceKm!
+            : (route.distanceMeters / 1000)) *
+        1000;
   }
 
   void _fitRoute(LatLng a, LatLng b) {
@@ -172,6 +505,174 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
     _fitRoute(a, b);
   }
 
+  double? _providerHeadingRadians({
+    required LatLng providerPosition,
+    required LatLng customerPosition,
+  }) {
+    final rawHeading = _rawProviderHeadingRadians(
+          providerPosition: providerPosition,
+          customerPosition: customerPosition,
+        ) ??
+        _lastProviderHeadingRadians;
+
+    if (rawHeading == null) return null;
+
+    final smoothedHeading = _smoothHeadingRadians(rawHeading);
+    _lastProviderHeadingRadians = smoothedHeading;
+    return smoothedHeading;
+  }
+
+  double? _rawProviderHeadingRadians({
+    required LatLng providerPosition,
+    required LatLng customerPosition,
+  }) {
+    // Use movement direction if available
+    if (_previousProviderPosition != null) {
+      final distance = const Distance().as(
+        LengthUnit.Meter,
+        _previousProviderPosition!,
+        providerPosition,
+      );
+      if (distance > 5) { // Only if moved significantly
+        return _bearingRadians(_previousProviderPosition!, providerPosition) + (math.pi / 2);
+      }
+    }
+
+    if (_routePoints.length >= 2) {
+      var bestIndex = 0;
+      var bestScore = double.infinity;
+
+      for (var i = 0; i < _routePoints.length - 1; i++) {
+        final current = _routePoints[i];
+        final next = _routePoints[i + 1];
+        final segmentDistance = _distanceToSegmentMeters(
+          point: providerPosition,
+          start: current,
+          end: next,
+        );
+        final nextPointDistance = const Distance().as(
+          LengthUnit.Meter,
+          providerPosition,
+          next,
+        );
+        final score = segmentDistance + (nextPointDistance * 0.08);
+        if (score < bestScore) {
+          bestScore = score;
+          bestIndex = i;
+        }
+      }
+
+      final segmentStart = _routePoints[bestIndex];
+      final lookAheadPoint = _lookAheadPoint(bestIndex);
+      if (segmentStart.latitude != lookAheadPoint.latitude ||
+          segmentStart.longitude != lookAheadPoint.longitude) {
+        return _bearingRadians(segmentStart, lookAheadPoint) + (math.pi / 2);
+      }
+    }
+
+    return _bearingRadians(providerPosition, customerPosition) + (math.pi / 2);
+  }
+
+  LatLng _lookAheadPoint(int startIndex) {
+    var accumulatedMeters = 0.0;
+
+    for (var i = startIndex; i < _routePoints.length - 1; i++) {
+      final current = _routePoints[i];
+      final next = _routePoints[i + 1];
+      accumulatedMeters += const Distance().as(
+        LengthUnit.Meter,
+        current,
+        next,
+      );
+
+      if (accumulatedMeters >= 35 || i - startIndex >= 2) {
+        return next;
+      }
+    }
+
+    return _routePoints.last;
+  }
+
+  double _distanceToSegmentMeters({
+    required LatLng point,
+    required LatLng start,
+    required LatLng end,
+  }) {
+    final pointX = point.longitude;
+    final pointY = point.latitude;
+    final startX = start.longitude;
+    final startY = start.latitude;
+    final endX = end.longitude;
+    final endY = end.latitude;
+    final deltaX = endX - startX;
+    final deltaY = endY - startY;
+    final lengthSquared = (deltaX * deltaX) + (deltaY * deltaY);
+
+    if (lengthSquared == 0) {
+      return const Distance().as(LengthUnit.Meter, point, start);
+    }
+
+    final projection =
+        (((pointX - startX) * deltaX) + ((pointY - startY) * deltaY)) /
+            lengthSquared;
+    final t = projection.clamp(0.0, 1.0);
+    final projected = LatLng(
+      startY + (deltaY * t),
+      startX + (deltaX * t),
+    );
+
+    return const Distance().as(LengthUnit.Meter, point, projected);
+  }
+
+  double _smoothHeadingRadians(double nextHeading) {
+    final previousHeading = _lastProviderHeadingRadians;
+    if (previousHeading == null) return nextHeading;
+
+    final delta = _normalizeAngleRadians(nextHeading - previousHeading);
+    final absDelta = delta.abs();
+    final maxTurnStep = absDelta > 1.0
+        ? 0.14
+        : absDelta > 0.55
+            ? 0.2
+            : 0.3;
+    final limitedDelta = delta.clamp(-maxTurnStep, maxTurnStep);
+    final blendFactor = absDelta > 1.0
+        ? 0.16
+        : absDelta > 0.55
+            ? 0.22
+            : absDelta > 0.18
+                ? 0.3
+                : 0.42;
+    return previousHeading + (limitedDelta * blendFactor);
+  }
+
+  double _normalizeAngleRadians(double angle) {
+    var normalized = angle;
+    while (normalized > math.pi) {
+      normalized -= math.pi * 2;
+    }
+    while (normalized < -math.pi) {
+      normalized += math.pi * 2;
+    }
+    return normalized;
+  }
+
+  double _bearingRadians(LatLng from, LatLng to) {
+    final lat1 = _degreesToRadians(from.latitude);
+    final lon1 = _degreesToRadians(from.longitude);
+    final lat2 = _degreesToRadians(to.latitude);
+    final lon2 = _degreesToRadians(to.longitude);
+    final dLon = lon2 - lon1;
+
+    final y = math.sin(dLon) * math.cos(lat2);
+    final x = math.cos(lat1) * math.sin(lat2) -
+        math.sin(lat1) * math.cos(lat2) * math.cos(dLon);
+
+    return math.atan2(y, x);
+  }
+
+  double _degreesToRadians(double degrees) => degrees * math.pi / 180;
+
   String _statusLabel(RequestStatus status) {
     switch (status) {
       case RequestStatus.searching:
@@ -181,9 +682,9 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
       case RequestStatus.onTheWay:
         return 'En route';
       case RequestStatus.arrived:
-        return 'Arrive';
+        return 'Arrive chez le client';
       case RequestStatus.inService:
-        return 'Service en cours';
+        return 'Vers destination';
       case RequestStatus.completed:
         return 'Mission terminee';
       case RequestStatus.cancelled:
@@ -234,7 +735,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
       case RequestStatus.onTheWay:
         return 'Confirmer arrivee';
       case RequestStatus.arrived:
-        return 'Commencer service';
+        return 'Demarrer mission';
       case RequestStatus.inService:
         return 'Terminer mission';
       default:
@@ -254,6 +755,24 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
     await launchUrl(uri);
   }
 
+  String _routeStageTitle(AppRequest request) {
+    if (request.status == RequestStatus.arrived ||
+        request.status == RequestStatus.inService ||
+        request.status == RequestStatus.completed) {
+      return 'Destination';
+    }
+    return 'Client';
+  }
+
+  String _routeStageValue(AppRequest request) {
+    if (request.status == RequestStatus.arrived ||
+        request.status == RequestStatus.inService ||
+        request.status == RequestStatus.completed) {
+      return request.destination;
+    }
+    return request.pickupLabel;
+  }
+
   @override
   Widget build(BuildContext context) {
     final request = widget.store.findRequest(widget.requestId);
@@ -268,33 +787,84 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
     final tracking = widget.store.trackingFor(widget.requestId);
     final customerPosition =
         tracking?.customerPosition ?? request.customerPosition;
-    final providerPosition = tracking?.providerPosition ??
+    final actualProviderPosition = tracking?.providerPosition ??
         widget.store.providerCurrentPosition ??
         request.providerPosition;
+    final providerPosition =
+        _renderedProviderPosition ?? actualProviderPosition;
+    final routeTarget = _routeTarget(request, customerPosition);
+    final destinationStage = request.status == RequestStatus.arrived ||
+        request.status == RequestStatus.inService ||
+        request.status == RequestStatus.completed;
+    final providerAtPickup = providerPosition != null &&
+        const Distance().as(
+              LengthUnit.Meter,
+              providerPosition,
+              customerPosition,
+            ) <=
+            18;
+    final customerMarkerOffset =
+        providerAtPickup ? const Offset(-32, -14) : Offset.zero;
+    final providerMarkerOffset =
+        providerAtPickup ? const Offset(32, 10) : Offset.zero;
+    final providerHeadingRadians = providerPosition == null
+        ? null
+        : _providerHeadingRadians(
+            providerPosition: providerPosition,
+            customerPosition: routeTarget,
+          );
 
-    final markers = <Marker>[
-      Marker(
-        point: customerPosition,
-        width: 110,
-        height: 80,
-        child: const _PinnedMarker(
-          label: 'Client',
-          icon: Icons.person_pin_circle_rounded,
-          color: Colors.red,
+    final markers = <Marker>[];
+
+    if (!destinationStage) {
+      markers.add(
+        Marker(
+          point: customerPosition,
+          width: 192,
+          height: 160,
+          child: _PinnedMarker(
+            label: destinationStage ? 'Pick up' : 'Client',
+            type: RoleMapMarkerType.customer,
+            icon: Icons.person_pin_circle_rounded,
+            color: Colors.red,
+            compactLabel: true,
+            offset: customerMarkerOffset,
+          ),
         ),
-      ),
-    ];
+      );
+    }
+
+    if (destinationStage && request.destinationPosition != null) {
+      markers.add(
+        Marker(
+          point: request.destinationPosition!,
+          width: 192,
+          height: 160,
+          child: const _PinnedMarker(
+            label: 'Destination',
+            type: RoleMapMarkerType.destination,
+            icon: Icons.place,
+            color: Colors.red,
+            compactLabel: true,
+          ),
+        ),
+      );
+    }
 
     if (providerPosition != null) {
       markers.add(
         Marker(
           point: providerPosition,
-          width: 120,
-          height: 80,
-          child: const _PinnedMarker(
+          width: 192,
+          height: 160,
+          child: _PinnedMarker(
             label: 'DEPANNAGE',
+            type: RoleMapMarkerType.provider,
             icon: Icons.car_repair_rounded,
-            color: Color(0xFFF59E0B),
+            color: const Color(0xFFF59E0B),
+            rotationRadians: providerHeadingRadians,
+            compactLabel: true,
+            offset: providerMarkerOffset,
           ),
         ),
       );
@@ -342,10 +912,13 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: _TopTrackingBanner(
-                    title: request.customerName,
-                    status: _statusLabel(request.status),
-                    color: _statusColor(request.status),
+                  child: GestureDetector(
+                    onTap: _handleHiddenDevTap,
+                    child: _TopTrackingBanner(
+                      title: request.customerName,
+                      status: _statusLabel(request.status),
+                      color: _statusColor(request.status),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -353,12 +926,23 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
                   icon: Icons.my_location_outlined,
                   onTap: providerPosition == null
                       ? null
-                      : () =>
-                          _recenterRoute(providerPosition, customerPosition),
+                      : () => _recenterRoute(providerPosition, routeTarget),
                 ),
               ],
             ),
           ),
+          if (_devToolsVisible)
+            Positioned(
+              top: topInset + 84,
+              right: 12,
+              child: _DevSimulationCard(
+                running: _simulationRunning,
+                simulationMode: _simulationMode,
+                onStartPause: _toggleSimulation,
+                onTowSimulation: _simulateTowToDestination,
+                onReset: _resetSimulation,
+              ),
+            ),
           Positioned(
             left: 12,
             right: 12,
@@ -404,7 +988,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
                   const SizedBox(height: 8),
                   _SummaryInlineRow(
                     icon: Icons.place_rounded,
-                    title: 'Depart',
+                    title: 'Pick up',
                     value: request.pickupLabel,
                   ),
                   const SizedBox(height: 6),
@@ -415,10 +999,25 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
                   ),
                   const SizedBox(height: 6),
                   _SummaryInlineRow(
+                    icon: Icons.route_rounded,
+                    title: _routeStageTitle(request),
+                    value: _routeStageValue(request),
+                  ),
+                  const SizedBox(height: 6),
+                  _SummaryInlineRow(
                     icon: Icons.phone_outlined,
                     title: 'Client',
                     value: request.customerPhone,
                   ),
+                  if ((request.providerApproachFee ?? 0) > 0) ...[
+                    const SizedBox(height: 6),
+                    _SummaryInlineRow(
+                      icon: Icons.payments_outlined,
+                      title: 'Frais acces',
+                      value:
+                          '${request.providerApproachFee!.toStringAsFixed(0)} DA',
+                    ),
+                  ],
                   if (_loadingRoute)
                     const Padding(
                       padding: EdgeInsets.only(top: 6),
@@ -479,69 +1078,126 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
 class _PinnedMarker extends StatelessWidget {
   const _PinnedMarker({
     required this.label,
+    required this.type,
     required this.icon,
     required this.color,
+    this.rotationRadians,
+    this.compactLabel = false,
+    this.offset = Offset.zero,
   });
 
   final String label;
+  final RoleMapMarkerType type;
   final IconData icon;
   final Color color;
+  final double? rotationRadians;
+  final bool compactLabel;
+  final Offset offset;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 7,
+    return Transform.translate(
+      offset: offset,
+      child: RoleMapMarker(
+        label: label,
+        type: type,
+        fallbackIcon: icon,
+        color: color,
+        size: 80,
+        rotationRadians: rotationRadians,
+        compactLabel: compactLabel,
+      ),
+    );
+  }
+}
+
+class _DevSimulationCard extends StatelessWidget {
+  const _DevSimulationCard({
+    required this.running,
+    required this.simulationMode,
+    required this.onStartPause,
+    required this.onTowSimulation,
+    required this.onReset,
+  });
+
+  final bool running;
+  final String simulationMode;
+  final Future<void> Function() onStartPause;
+  final Future<void> Function() onTowSimulation;
+  final Future<void> Function() onReset;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 220,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.96),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 18,
+            offset: Offset(0, 8),
           ),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(999),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black12,
-                blurRadius: 8,
-              ),
-            ],
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Dev Simulation',
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+            ),
           ),
-          child: Text(
-            label,
+          const SizedBox(height: 4),
+          const Text(
+            'Tap banner 6 times to hide',
+            style: TextStyle(
+              color: Colors.black54,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Mode: $simulationMode',
             style: const TextStyle(
+              color: Colors.black87,
+              fontSize: 12,
               fontWeight: FontWeight.w700,
             ),
           ),
-        ),
-        const SizedBox(height: 4),
-        Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              colors: [
-                color.withValues(alpha: 0.88),
-                color,
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: onStartPause,
+              icon: Icon(running ? Icons.pause : Icons.play_arrow),
+              label: Text(running ? 'Pause simulation' : 'Start simulation'),
             ),
-            boxShadow: [
-              BoxShadow(
-                color: color.withValues(alpha: 0.35),
-                blurRadius: 14,
-                offset: const Offset(0, 8),
-              ),
-            ],
           ),
-          child: Icon(
-            icon,
-            color: Colors.white,
-            size: 24,
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: onTowSimulation,
+              icon: const Icon(Icons.alt_route),
+              label: const Text('Simuler vers destination'),
+            ),
           ),
-        ),
-      ],
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: onReset,
+              icon: const Icon(Icons.restart_alt),
+              label: const Text('Reset to route start'),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -25,8 +25,6 @@ class FcmService {
   static Future<void> init() async {
     final messaging = FirebaseMessaging.instance;
 
-    await messaging.requestPermission();
-
     if (!kIsWeb) {
       const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
       const initSettings = InitializationSettings(android: androidInit);

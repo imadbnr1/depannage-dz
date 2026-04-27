@@ -22,6 +22,7 @@ class AppRequest {
     required this.issueDescription,
     required this.urgency,
     required this.destination,
+    this.destinationPosition,
     required this.photoHint,
     required this.status,
     this.providerUid,
@@ -37,6 +38,9 @@ class AppRequest {
     this.estimatedDistanceKm,
     this.estimatedDurationMinutes,
     this.estimatedPrice,
+    this.providerApproachDistanceKm,
+    this.providerApproachDurationMinutes,
+    this.providerApproachFee,
     this.clientRatingForProvider,
     this.clientReviewForProvider,
     this.providerRatingForClient,
@@ -67,6 +71,7 @@ class AppRequest {
   final String urgency;
 
   final String destination;
+  final LatLng? destinationPosition;
   final String photoHint;
 
   final RequestStatus status;
@@ -86,6 +91,9 @@ class AppRequest {
   final double? estimatedDistanceKm;
   final int? estimatedDurationMinutes;
   final double? estimatedPrice;
+  final double? providerApproachDistanceKm;
+  final int? providerApproachDurationMinutes;
+  final double? providerApproachFee;
 
   final double? clientRatingForProvider;
   final String? clientReviewForProvider;
@@ -98,16 +106,26 @@ class AppRequest {
 
   final DateTime? completedAt;
 
+  bool get hasClientRating =>
+      isClientRated ||
+      clientRatingForProvider != null ||
+      ((clientReviewForProvider ?? '').trim().isNotEmpty);
+
+  bool get hasProviderRating =>
+      isProviderRated ||
+      providerRatingForClient != null ||
+      ((providerReviewForClient ?? '').trim().isNotEmpty);
+
   bool get hasEstimatedTrip =>
       estimatedDistanceKm != null ||
       estimatedDurationMinutes != null ||
       estimatedPrice != null;
 
   bool get canClientRate =>
-      status == RequestStatus.completed && !isClientRated;
+      status == RequestStatus.completed && !hasClientRating;
 
   bool get canProviderRate =>
-      status == RequestStatus.completed && !isProviderRated;
+      status == RequestStatus.completed && !hasProviderRating;
 
   AppRequest copyWith({
     String? id,
@@ -126,6 +144,7 @@ class AppRequest {
     String? issueDescription,
     String? urgency,
     String? destination,
+    Object? destinationPosition = _sentinel,
     String? photoHint,
     RequestStatus? status,
     Object? providerUid = _sentinel,
@@ -141,6 +160,9 @@ class AppRequest {
     Object? estimatedDistanceKm = _sentinel,
     Object? estimatedDurationMinutes = _sentinel,
     Object? estimatedPrice = _sentinel,
+    Object? providerApproachDistanceKm = _sentinel,
+    Object? providerApproachDurationMinutes = _sentinel,
+    Object? providerApproachFee = _sentinel,
     Object? clientRatingForProvider = _sentinel,
     Object? clientReviewForProvider = _sentinel,
     Object? providerRatingForClient = _sentinel,
@@ -166,6 +188,9 @@ class AppRequest {
       issueDescription: issueDescription ?? this.issueDescription,
       urgency: urgency ?? this.urgency,
       destination: destination ?? this.destination,
+      destinationPosition: destinationPosition == _sentinel
+          ? this.destinationPosition
+          : destinationPosition as LatLng?,
       photoHint: photoHint ?? this.photoHint,
       status: status ?? this.status,
       providerUid:
@@ -203,6 +228,16 @@ class AppRequest {
       estimatedPrice: estimatedPrice == _sentinel
           ? this.estimatedPrice
           : estimatedPrice as double?,
+      providerApproachDistanceKm: providerApproachDistanceKm == _sentinel
+          ? this.providerApproachDistanceKm
+          : providerApproachDistanceKm as double?,
+      providerApproachDurationMinutes:
+          providerApproachDurationMinutes == _sentinel
+              ? this.providerApproachDurationMinutes
+              : providerApproachDurationMinutes as int?,
+      providerApproachFee: providerApproachFee == _sentinel
+          ? this.providerApproachFee
+          : providerApproachFee as double?,
       clientRatingForProvider: clientRatingForProvider == _sentinel
           ? this.clientRatingForProvider
           : clientRatingForProvider as double?,
@@ -244,6 +279,12 @@ class AppRequest {
       'issueDescription': issueDescription,
       'urgency': urgency,
       'destination': destination,
+      'destinationPosition': destinationPosition == null
+          ? null
+          : {
+              'lat': destinationPosition!.latitude,
+              'lng': destinationPosition!.longitude,
+            },
       'photoHint': photoHint,
       'status': status.name,
       'providerUid': providerUid,
@@ -264,6 +305,9 @@ class AppRequest {
       'estimatedDistanceKm': estimatedDistanceKm,
       'estimatedDurationMinutes': estimatedDurationMinutes,
       'estimatedPrice': estimatedPrice,
+      'providerApproachDistanceKm': providerApproachDistanceKm,
+      'providerApproachDurationMinutes': providerApproachDurationMinutes,
+      'providerApproachFee': providerApproachFee,
       'clientRatingForProvider': clientRatingForProvider,
       'clientReviewForProvider': clientReviewForProvider,
       'providerRatingForClient': providerRatingForClient,
@@ -298,6 +342,17 @@ class AppRequest {
       return null;
     }
 
+    bool? parseBool(dynamic value) {
+      if (value is bool) return value;
+      if (value is num) return value != 0;
+      if (value is String) {
+        final normalized = value.trim().toLowerCase();
+        if (normalized == 'true' || normalized == '1') return true;
+        if (normalized == 'false' || normalized == '0') return false;
+      }
+      return null;
+    }
+
     DateTime? parseDateNullable(dynamic value) {
       if (value is Timestamp) return value.toDate();
       if (value is String && value.isNotEmpty) {
@@ -305,6 +360,33 @@ class AppRequest {
       }
       return null;
     }
+
+    LatLng? parseLatLngFromLabel(String? value) {
+      final text = (value ?? '').trim();
+      if (text.isEmpty) return null;
+
+      final match = RegExp(r'\((-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\)')
+          .firstMatch(text);
+      if (match == null) return null;
+
+      final lat = double.tryParse(match.group(1) ?? '');
+      final lng = double.tryParse(match.group(2) ?? '');
+      if (lat == null || lng == null) return null;
+      return LatLng(lat, lng);
+    }
+
+    final clientRatingForProvider = parseDouble(map['clientRatingForProvider']);
+    final clientReviewForProvider = map['clientReviewForProvider']?.toString();
+    final providerRatingForClient = parseDouble(map['providerRatingForClient']);
+    final providerReviewForClient = map['providerReviewForClient']?.toString();
+    final normalizedIsClientRated =
+        (parseBool(map['isClientRated']) ?? false) ||
+            clientRatingForProvider != null ||
+            ((clientReviewForProvider ?? '').trim().isNotEmpty);
+    final normalizedIsProviderRated =
+        (parseBool(map['isProviderRated']) ?? false) ||
+            providerRatingForClient != null ||
+            ((providerReviewForClient ?? '').trim().isNotEmpty);
 
     final serviceRaw = (map['service'] ?? '').toString().toLowerCase();
     final service = ServiceType.values.firstWhere(
@@ -335,6 +417,9 @@ class AppRequest {
       issueDescription: (map['issueDescription'] ?? '').toString(),
       urgency: (map['urgency'] ?? '').toString(),
       destination: (map['destination'] ?? '').toString(),
+      destinationPosition: map['destinationPosition'] == null
+          ? parseLatLngFromLabel((map['destination'] ?? '').toString())
+          : parseLatLng(map['destinationPosition']),
       photoHint: (map['photoHint'] ?? '').toString(),
       status: status,
       providerUid: map['providerUid']?.toString(),
@@ -355,12 +440,17 @@ class AppRequest {
       estimatedDistanceKm: parseDouble(map['estimatedDistanceKm']),
       estimatedDurationMinutes: parseInt(map['estimatedDurationMinutes']),
       estimatedPrice: parseDouble(map['estimatedPrice']),
-      clientRatingForProvider: parseDouble(map['clientRatingForProvider']),
-      clientReviewForProvider: map['clientReviewForProvider']?.toString(),
-      providerRatingForClient: parseDouble(map['providerRatingForClient']),
-      providerReviewForClient: map['providerReviewForClient']?.toString(),
-      isClientRated: map['isClientRated'] == true,
-      isProviderRated: map['isProviderRated'] == true,
+      providerApproachDistanceKm:
+          parseDouble(map['providerApproachDistanceKm']),
+      providerApproachDurationMinutes:
+          parseInt(map['providerApproachDurationMinutes']),
+      providerApproachFee: parseDouble(map['providerApproachFee']),
+      clientRatingForProvider: clientRatingForProvider,
+      clientReviewForProvider: clientReviewForProvider,
+      providerRatingForClient: providerRatingForClient,
+      providerReviewForClient: providerReviewForClient,
+      isClientRated: normalizedIsClientRated,
+      isProviderRated: normalizedIsProviderRated,
       completedAt: parseDateNullable(map['completedAt']),
     );
   }

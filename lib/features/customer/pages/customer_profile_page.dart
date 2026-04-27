@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../core/services/app_feedback.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../widgets/app_loading_view.dart';
+import '../../../widgets/language_selector.dart';
 
 class CustomerProfilePage extends StatefulWidget {
   const CustomerProfilePage({super.key});
@@ -195,6 +196,11 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
             ),
           ),
           const SizedBox(height: 16),
+          const Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: LanguageSelector(),
+          ),
+          const SizedBox(height: 16),
           Form(
             key: _formKey,
             child: Container(
@@ -285,8 +291,8 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.logout),
-                      label:
-                          Text(_signingOut ? 'Deconnexion...' : 'Se deconnecter'),
+                      label: Text(
+                          _signingOut ? 'Deconnexion...' : 'Se deconnecter'),
                     ),
                   ),
                 ],

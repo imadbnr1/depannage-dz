@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -22,7 +23,10 @@ class LocationService {
     required String errorMessage,
   }) async {
     try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      final serviceEnabled = kIsWeb
+          ? true
+          : await Geolocator.isLocationServiceEnabled();
+
       if (!serviceEnabled) {
         return AppLocationResult(
           position: fallback,
@@ -54,6 +58,7 @@ class LocationService {
       }
 
       final gps = await Geolocator.getCurrentPosition(
+        // ignore: deprecated_member_use
         desiredAccuracy: LocationAccuracy.best,
       );
 

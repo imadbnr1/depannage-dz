@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../../../widgets/language_selector.dart';
+
 class ProviderProfilePage extends StatefulWidget {
   const ProviderProfilePage({super.key});
 
@@ -215,6 +217,11 @@ class _ProviderProfilePageState extends State<ProviderProfilePage> {
                   ),
                 ],
               ),
+            ),
+            const SizedBox(height: 16),
+            const Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: LanguageSelector(),
             ),
             const SizedBox(height: 16),
             Form(

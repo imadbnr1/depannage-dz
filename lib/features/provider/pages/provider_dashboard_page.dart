@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'provider_earnings_page.dart';
 
 import '../../../core/services/auth_service.dart';
 import '../../../models/request_status.dart';
 import '../../../state/app_store.dart';
 import '../../../widgets/map_pin.dart';
+import 'provider_earnings_page.dart';
 
 class ProviderDashboardPage extends StatefulWidget {
   const ProviderDashboardPage({
@@ -176,8 +176,7 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
                   Switch(
                     value: provider.isOnline,
                     onChanged: (value) async {
-                      await store.updateProviderOnlineStatus(
-                          provider.id, value);
+                      await store.updateProviderOnlineStatus(provider.id, value);
                     },
                   ),
                 ],

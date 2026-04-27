@@ -6,8 +6,10 @@ import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../core/services/geocoding_service.dart';
 import '../core/services/in_app_notification_service.dart';
 import '../core/services/location_service.dart';
+import '../core/services/place_search_service.dart';
 import '../models/app_request.dart';
 import '../models/app_role.dart';
 import '../models/provider_agent.dart';
@@ -22,10 +24,12 @@ class AppStore extends ChangeNotifier {
     required this.trackingRepository,
     LocationService? locationService,
     InAppNotificationService? notificationService,
+    GeocodingService? geocodingService,
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
   })  : locationService = locationService ?? LocationService(),
         notificationService = notificationService ?? InAppNotificationService(),
+        geocodingService = geocodingService ?? GeocodingService(),
         firestore = firestore ?? FirebaseFirestore.instance,
         auth = auth ?? FirebaseAuth.instance;
 
@@ -33,6 +37,8 @@ class AppStore extends ChangeNotifier {
   final TrackingRepository trackingRepository;
   final LocationService locationService;
   final InAppNotificationService notificationService;
+  final GeocodingService geocodingService;
+  final PlaceSearchService placeSearchService = PlaceSearchService();
   final FirebaseFirestore firestore;
   final FirebaseAuth auth;
 
@@ -559,6 +565,8 @@ class AppStore extends ChangeNotifier {
 
     await firestore.collection('providers').doc(effectiveProviderId).set({
       'isOnline': isOnline,
+      'updatedAtIso': DateTime.now().toIso8601String(),
+      'availabilityUpdatedAtIso': DateTime.now().toIso8601String(),
     }, SetOptions(merge: true));
 
     final index = providers.indexWhere((p) => p.id == effectiveProviderId);
@@ -575,6 +583,8 @@ class AppStore extends ChangeNotifier {
   Future<void> updateProviderBusyStatus(String providerId, bool isBusy) async {
     await firestore.collection('providers').doc(providerId).set({
       'isBusy': isBusy,
+      'updatedAtIso': DateTime.now().toIso8601String(),
+      'busyStatusUpdatedAtIso': DateTime.now().toIso8601String(),
     }, SetOptions(merge: true));
   }
 
@@ -587,6 +597,8 @@ class AppStore extends ChangeNotifier {
         'lat': position.latitude,
         'lng': position.longitude,
       },
+      'updatedAtIso': DateTime.now().toIso8601String(),
+      'positionUpdatedAtIso': DateTime.now().toIso8601String(),
     }, SetOptions(merge: true));
 
     if (selectedProviderId == providerId) {
@@ -610,7 +622,9 @@ class AppStore extends ChangeNotifier {
       return;
     }
 
-    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    final serviceEnabled = kIsWeb
+        ? true
+        : await Geolocator.isLocationServiceEnabled().catchError((_) => false);
     if (!serviceEnabled) {
       debugPrint('Location services are disabled');
       return;
@@ -692,9 +706,24 @@ class AppStore extends ChangeNotifier {
 
           if (distanceMeters <= 50 &&
               updatedRequest.status == RequestStatus.onTheWay) {
-            final arrivedRequest = updatedRequest.copyWith(
+            var arrivedRequest = updatedRequest.copyWith(
               status: RequestStatus.arrived,
             );
+
+            // Auto-geocode destination if not set
+            if (arrivedRequest.destinationPosition == null &&
+                arrivedRequest.destination.trim().isNotEmpty) {
+              try {
+                final places = await geocodingService.searchPlaces(arrivedRequest.destination);
+                if (places.isNotEmpty) {
+                  arrivedRequest = arrivedRequest.copyWith(
+                    destinationPosition: places.first.position,
+                  );
+                }
+              } catch (e) {
+                debugPrint('Failed to geocode destination: $e');
+              }
+            }
 
             await requestRepository.updateRequest(requestId, arrivedRequest);
 
@@ -766,6 +795,35 @@ class AppStore extends ChangeNotifier {
 
   Stream<TrackingSnapshot?> watchTracking(String requestId) {
     return trackingRepository.watchTracking(requestId);
+  }
+
+  Future<void> devSetProviderTrackingPosition(
+    String requestId,
+    LatLng providerPosition,
+  ) async {
+    final request = findRequest(requestId);
+    if (request == null) return;
+
+    await trackingRepository.setTracking(
+      TrackingSnapshot(
+        requestId: requestId,
+        customerPosition: request.customerPosition,
+        providerPosition: providerPosition,
+      ),
+    );
+
+    await requestRepository.updateRequest(
+      requestId,
+      request.copyWith(providerPosition: providerPosition),
+    );
+
+    final providerUid = request.providerUid;
+    if (providerUid != null && providerUid.trim().isNotEmpty) {
+      await updateProviderPosition(providerUid, providerPosition);
+    } else {
+      providerCurrentPosition = providerPosition;
+      notifyListeners();
+    }
   }
 
   Future<void> requestCustomerLocation() async {
@@ -916,6 +974,11 @@ class AppStore extends ChangeNotifier {
     return minutes.clamp(8, 180);
   }
 
+  int estimateApproachDurationMinutes(double distanceKm) {
+    final minutes = ((distanceKm / 38) * 60).round();
+    return minutes.clamp(4, 180);
+  }
+
   double estimatePrice({
     required ServiceType service,
     required double distanceKm,
@@ -953,6 +1016,12 @@ class AppStore extends ChangeNotifier {
         hasDestination ? distanceKm * perKm : distanceKm * (perKm * 0.4);
     final total = base + tripPart + urgencyFee;
     return double.parse(total.toStringAsFixed(0));
+  }
+
+  double estimateProviderApproachFee(double distanceKm) {
+    if (distanceKm <= 3) return 0;
+    final fee = 300 + ((distanceKm - 3) * 28);
+    return double.parse(fee.toStringAsFixed(0));
   }
 
   double estimateCommissionAmount(double requestPrice) {
@@ -1044,6 +1113,10 @@ class AppStore extends ChangeNotifier {
     }
 
     final profile = await _readCurrentUserProfile();
+    final resolvedPickupLabel = await _resolvePickupLabel(
+      pickupLabel: pickupLabel,
+      customerPosition: customerPosition,
+    );
 
     final cleanedDestination = destination.trim();
     if (cleanedDestination.isEmpty) {
@@ -1074,7 +1147,7 @@ class AppStore extends ChangeNotifier {
       service: service,
       customerName: (profile['fullName'] ?? '').toString(),
       customerPhone: (profile['phone'] ?? '').toString(),
-      pickupLabel: pickupLabel,
+      pickupLabel: resolvedPickupLabel,
       pickupSubtitle: pickupSubtitle,
       customerPosition: customerPosition,
       vehicleType: vehicleType,
@@ -1084,6 +1157,7 @@ class AppStore extends ChangeNotifier {
       issueDescription: issueDescription,
       urgency: urgency,
       destination: cleanedDestination,
+      destinationPosition: destinationPosition,
       photoHint: photoHint,
       status: RequestStatus.searching,
       offeredProviderUid: null,
@@ -1113,6 +1187,32 @@ class AppStore extends ChangeNotifier {
     return request.id;
   }
 
+  Future<String> _resolvePickupLabel({
+    required String pickupLabel,
+    required LatLng customerPosition,
+  }) async {
+    final cleaned = pickupLabel.trim();
+    final generic = cleaned.isEmpty ||
+        cleaned.toLowerCase() == 'ma position actuelle' ||
+        cleaned.toLowerCase().contains('destination carte');
+
+    if (!generic) return cleaned;
+
+    try {
+      final nearestNamed =
+          await placeSearchService.reverseLookupNearestNamedPlace(
+        customerPosition,
+      );
+      if (nearestNamed != null && nearestNamed.trim().isNotEmpty) {
+        return nearestNamed.trim();
+      }
+    } catch (_) {}
+
+    return cleaned.isNotEmpty
+        ? cleaned
+        : 'Position proche (${customerPosition.latitude.toStringAsFixed(5)}, ${customerPosition.longitude.toStringAsFixed(5)})';
+  }
+
   Future<void> acceptRequest(String requestId) async {
     final current = findRequest(requestId);
     if (current == null) return;
@@ -1138,6 +1238,13 @@ class AppStore extends ChangeNotifier {
     _dispatchTimers.remove(requestId);
 
     final providerStart = provider.position;
+    final approachDistanceKm = estimateDistanceKm(
+      from: providerStart,
+      to: current.customerPosition,
+    );
+    final approachDurationMinutes =
+        estimateApproachDurationMinutes(approachDistanceKm);
+    final approachFee = estimateProviderApproachFee(approachDistanceKm);
 
     final accepted = await requestRepository.acceptOfferedRequest(
       requestId: requestId,
@@ -1160,6 +1267,31 @@ class AppStore extends ChangeNotifier {
     }
 
     await updateProviderBusyStatus(provider.id, true);
+
+    final acceptedRequest = current.copyWith(
+      status: RequestStatus.accepted,
+      providerUid: provider.id,
+      providerName: provider.name,
+      providerPhone: provider.phone,
+      providerVehicle: provider.vehicleType,
+      providerPlate: provider.plate,
+      providerPosition: providerStart,
+      offeredProviderUid: null,
+      offeredAt: null,
+      offerExpiresAt: null,
+      providerApproachDistanceKm: approachDistanceKm,
+      providerApproachDurationMinutes: approachDurationMinutes,
+      providerApproachFee: approachFee,
+      estimatedPrice: (current.estimatedPrice ?? 0) + approachFee,
+    );
+    await requestRepository.updateRequest(requestId, acceptedRequest);
+    await _stampRequestMetadata(
+      requestId,
+      {
+        'acceptedAtIso': DateTime.now().toIso8601String(),
+        'statusChangedAtIso': DateTime.now().toIso8601String(),
+      },
+    );
 
     await trackingRepository.setTracking(
       TrackingSnapshot(
@@ -1251,6 +1383,13 @@ class AppStore extends ChangeNotifier {
           requestId,
           current.copyWith(status: RequestStatus.onTheWay),
         );
+        await _stampRequestMetadata(
+          requestId,
+          {
+            'onTheWayAtIso': DateTime.now().toIso8601String(),
+            'statusChangedAtIso': DateTime.now().toIso8601String(),
+          },
+        );
         _pushLifecycleNotification(
           title: 'Mission en route',
           body: '${current.providerName ?? 'Le provider'} est en route',
@@ -1264,6 +1403,13 @@ class AppStore extends ChangeNotifier {
           requestId,
           current.copyWith(status: RequestStatus.arrived),
         );
+        await _stampRequestMetadata(
+          requestId,
+          {
+            'arrivedAtIso': DateTime.now().toIso8601String(),
+            'statusChangedAtIso': DateTime.now().toIso8601String(),
+          },
+        );
         _pushLifecycleNotification(
           title: 'Provider arrive',
           body: '${current.providerName ?? 'Le provider'} est arrive',
@@ -1275,6 +1421,13 @@ class AppStore extends ChangeNotifier {
         await requestRepository.updateRequest(
           requestId,
           current.copyWith(status: RequestStatus.inService),
+        );
+        await _stampRequestMetadata(
+          requestId,
+          {
+            'inServiceAtIso': DateTime.now().toIso8601String(),
+            'statusChangedAtIso': DateTime.now().toIso8601String(),
+          },
         );
         _pushLifecycleNotification(
           title: 'Service commence',
@@ -1291,6 +1444,13 @@ class AppStore extends ChangeNotifier {
             status: RequestStatus.completed,
             completedAt: DateTime.now(),
           ),
+        );
+        await _stampRequestMetadata(
+          requestId,
+          {
+            'completedAtIso': DateTime.now().toIso8601String(),
+            'statusChangedAtIso': DateTime.now().toIso8601String(),
+          },
         );
 
         lastCompletedRequestId = requestId;
@@ -1342,6 +1502,13 @@ class AppStore extends ChangeNotifier {
         offerExpiresAt: null,
       ),
     );
+    await _stampRequestMetadata(
+      requestId,
+      {
+        'cancelledAtIso': DateTime.now().toIso8601String(),
+        'statusChangedAtIso': DateTime.now().toIso8601String(),
+      },
+    );
 
     await trackingRepository.clearTracking(requestId);
 
@@ -1373,6 +1540,12 @@ class AppStore extends ChangeNotifier {
         clientReviewForProvider: review.trim().isEmpty ? null : review.trim(),
         isClientRated: true,
       ),
+    );
+    await _stampRequestMetadata(
+      requestId,
+      {
+        'clientRatedAtIso': DateTime.now().toIso8601String(),
+      },
     );
 
     final provider = findProviderById(current.providerUid ?? '');
@@ -1411,6 +1584,12 @@ class AppStore extends ChangeNotifier {
         isProviderRated: true,
       ),
     );
+    await _stampRequestMetadata(
+      requestId,
+      {
+        'providerRatedAtIso': DateTime.now().toIso8601String(),
+      },
+    );
 
     _pushLifecycleNotification(
       title: 'Evaluation client envoyee',
@@ -1418,6 +1597,16 @@ class AppStore extends ChangeNotifier {
       type: 'provider_rating',
     );
     notifyListeners();
+  }
+
+  Future<void> _stampRequestMetadata(
+    String requestId,
+    Map<String, dynamic> data,
+  ) async {
+    await firestore.collection('requests').doc(requestId).set({
+      ...data,
+      'updatedAtIso': DateTime.now().toIso8601String(),
+    }, SetOptions(merge: true));
   }
 
   @override

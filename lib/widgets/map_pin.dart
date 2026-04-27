@@ -1,19 +1,35 @@
 import 'package:flutter/material.dart';
 
+import 'role_map_marker.dart';
+
 class MapPin extends StatelessWidget {
   const MapPin({
     super.key,
     required this.label,
     required this.icon,
     required this.color,
+    this.markerType,
+    this.assetPath,
   });
 
   final String label;
   final IconData icon;
   final Color color;
+  final RoleMapMarkerType? markerType;
+  final String? assetPath;
 
   @override
   Widget build(BuildContext context) {
+    if (markerType != null) {
+      return RoleMapMarker(
+        label: label,
+        type: markerType!,
+        fallbackIcon: icon,
+        color: color,
+        assetPath: assetPath,
+      );
+    }
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [

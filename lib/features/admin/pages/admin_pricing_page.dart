@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/services/admin_audit_service.dart';
+
 class AdminPricingPage extends StatefulWidget {
   const AdminPricingPage({super.key});
 
@@ -10,6 +12,7 @@ class AdminPricingPage extends StatefulWidget {
 
 class _AdminPricingPageState extends State<AdminPricingPage> {
   final _formKey = GlobalKey<FormState>();
+  final AdminAuditService _auditService = AdminAuditService();
 
   final _basePriceController = TextEditingController();
   final _pricePerKmController = TextEditingController();
@@ -69,6 +72,19 @@ class _AdminPricingPageState extends State<AdminPricingPage> {
       'commissionPercent': double.parse(_commissionController.text.trim()),
       'updatedAt': DateTime.now().toIso8601String(),
     });
+
+    await _auditService.logAction(
+      action: 'update_pricing',
+      targetCollection: 'app_config',
+      targetId: 'pricing',
+      summary: 'Configuration tarifaire mise a jour',
+      metadata: {
+        'basePrice': _basePriceController.text.trim(),
+        'pricePerKm': _pricePerKmController.text.trim(),
+        'urgentFee': _urgentFeeController.text.trim(),
+        'commissionPercent': _commissionController.text.trim(),
+      },
+    );
 
     if (!mounted) return;
 

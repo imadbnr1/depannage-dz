@@ -27,6 +27,8 @@ class AuthService {
   Future<void> signInWithEmailPassword({
     required String identifier,
     required String password,
+    bool allowAdmin = false,
+    bool adminOnly = false,
   }) async {
     try {
       final email = await _resolveEmailForLogin(identifier.trim());
@@ -37,15 +39,38 @@ class AuthService {
 
       final user = _auth.currentUser;
       if (user != null) {
+        final userDoc =
+            await _firestore.collection('users').doc(user.uid).get();
+        if (!userDoc.exists) {
+          await _auth.signOut();
+          throw Exception('Profil utilisateur introuvable dans Firestore.');
+        }
+        final userData = userDoc.data() ?? <String, dynamic>{};
+        final role = (userData['role'] ?? '').toString().trim().toLowerCase();
+
+        if (adminOnly && role != 'admin') {
+          await _auth.signOut();
+          throw Exception('Cette entree est reservee a l administration.');
+        }
+
+        if (!allowAdmin && role == 'admin') {
+          await _auth.signOut();
+          throw Exception(
+            'Les admins doivent utiliser la connexion securisee admin.',
+          );
+        }
+
+        if (userData['isBlocked'] == true) {
+          await _auth.signOut();
+          throw Exception('Ce compte a ete bloque par l administration.');
+        }
+
         final token = await _readFcmTokenSafely();
         await _firestore.collection('users').doc(user.uid).set({
           'fcmToken': token,
+          'lastLoginAtIso': DateTime.now().toIso8601String(),
         }, SetOptions(merge: true));
 
-        final userDoc =
-            await _firestore.collection('users').doc(user.uid).get();
-        final userData = userDoc.data() ?? <String, dynamic>{};
-        final role = (userData['role'] ?? '').toString().trim().toLowerCase();
         if (role == 'provider' && userData['isApproved'] == true) {
           await _firestore.collection('providers').doc(user.uid).set({
             'uid': user.uid,
@@ -71,6 +96,10 @@ class AuthService {
         default:
           throw Exception(e.message ?? 'Connexion impossible.');
       }
+    } on FirebaseException catch (e) {
+      throw Exception(_firebaseAccessMessage(e));
+    } on Exception {
+      rethrow;
     } catch (_) {
       throw Exception('Connexion impossible.');
     }
@@ -112,6 +141,7 @@ class AuthService {
         'role': role,
         'isApproved': role == 'provider' ? false : true,
         'createdAtIso': DateTime.now().toIso8601String(),
+        'updatedAtIso': DateTime.now().toIso8601String(),
         'fcmToken': token,
         if (vehicleImageUrl != null) 'providerVehicleImageUrl': vehicleImageUrl,
       });
@@ -131,6 +161,8 @@ class AuthService {
           'rating': 5.0,
           'ratingCount': 0,
           'missionsCompleted': 0,
+          'createdAtIso': DateTime.now().toIso8601String(),
+          'updatedAtIso': DateTime.now().toIso8601String(),
           'position': {
             'lat': 36.7538,
             'lng': 3.0588,
@@ -149,8 +181,46 @@ class AuthService {
         default:
           throw Exception(e.message ?? 'Inscription impossible.');
       }
+    } on FirebaseException catch (e) {
+      throw Exception(_firebaseAccessMessage(e));
     } catch (_) {
       throw Exception('Inscription impossible.');
+    }
+  }
+
+  Future<void> sendPasswordResetEmail({
+    required String email,
+  }) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email.trim());
+    } on FirebaseAuthException catch (e) {
+      switch (e.code) {
+        case 'invalid-email':
+          throw Exception('Email invalide.');
+        case 'user-not-found':
+          throw Exception('Aucun compte trouve avec cet email.');
+        case 'too-many-requests':
+          throw Exception('Trop de tentatives. Reessayez plus tard.');
+        default:
+          throw Exception(
+            e.message ?? 'Impossible d envoyer le lien de reinitialisation.',
+          );
+      }
+    } catch (_) {
+      throw Exception('Impossible d envoyer le lien de reinitialisation.');
+    }
+  }
+
+  String _firebaseAccessMessage(FirebaseException e) {
+    switch (e.code) {
+      case 'permission-denied':
+        return 'Acces refuse par les regles de securite. Contactez l administrateur.';
+      case 'unavailable':
+        return 'Connexion internet indisponible. Verifiez le reseau puis reessayez.';
+      case 'deadline-exceeded':
+        return 'Connexion trop lente. Reessayez dans quelques instants.';
+      default:
+        return e.message ?? 'Operation Firebase impossible.';
     }
   }
 

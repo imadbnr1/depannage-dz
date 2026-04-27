@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../models/support_config.dart';
+import '../../shared/pages/legal_page.dart';
 
 class CustomerSupportPage extends StatelessWidget {
   const CustomerSupportPage({super.key});
@@ -38,6 +39,14 @@ class CustomerSupportPage extends StatelessWidget {
     await launchUrl(Uri.parse('mailto:$cleaned'));
   }
 
+  void _openLegal(BuildContext context, LegalDocument document) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => LegalPage(document: document),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<SupportConfig>(
@@ -59,9 +68,14 @@ class CustomerSupportPage extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  gradient: const LinearGradient(
+                    colors: [
+                      Color(0xFFFFFCF8),
+                      Color(0xFFF7F0E5),
+                    ],
+                  ),
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                  border: Border.all(color: const Color(0xFFE8E1D5)),
                 ),
                 child: const Column(
                   children: [
@@ -80,7 +94,7 @@ class CustomerSupportPage extends StatelessWidget {
                     ),
                     SizedBox(height: 8),
                     Text(
-                      'Besoin d aide ? Contactez notre equipe.',
+                      'Besoin d aide ? Contactez notre equipe via le canal le plus rapide pour vous.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.black54),
                     ),
@@ -92,12 +106,15 @@ class CustomerSupportPage extends StatelessWidget {
                 icon: Icons.call_outlined,
                 title: 'Telephone',
                 value: config.phone.isEmpty ? 'Non renseigne' : config.phone,
-                onTap: config.phone.isEmpty ? null : () => _openPhone(config.phone),
+                onTap: config.phone.isEmpty
+                    ? null
+                    : () => _openPhone(config.phone),
               ),
               _SupportTile(
                 icon: Icons.message_outlined,
                 title: 'WhatsApp',
-                value: config.whatsapp.isEmpty ? 'Non renseigne' : config.whatsapp,
+                value:
+                    config.whatsapp.isEmpty ? 'Non renseigne' : config.whatsapp,
                 onTap: config.whatsapp.isEmpty
                     ? null
                     : () => _openWhatsapp(config.whatsapp),
@@ -106,17 +123,32 @@ class CustomerSupportPage extends StatelessWidget {
                 icon: Icons.email_outlined,
                 title: 'Email',
                 value: config.email.isEmpty ? 'Non renseigne' : config.email,
-                onTap: config.email.isEmpty ? null : () => _openEmail(config.email),
+                onTap: config.email.isEmpty
+                    ? null
+                    : () => _openEmail(config.email),
               ),
               _SupportTile(
                 icon: Icons.location_on_outlined,
                 title: 'Adresse',
-                value: config.address.isEmpty ? 'Non renseignee' : config.address,
+                value:
+                    config.address.isEmpty ? 'Non renseignee' : config.address,
               ),
               _SupportTile(
                 icon: Icons.schedule_outlined,
                 title: 'Horaires',
                 value: config.hours.isEmpty ? 'Non renseignes' : config.hours,
+              ),
+              _SupportTile(
+                icon: Icons.privacy_tip_outlined,
+                title: 'Confidentialite',
+                value: 'Donnees, GPS et notifications',
+                onTap: () => _openLegal(context, LegalDocument.privacy),
+              ),
+              _SupportTile(
+                icon: Icons.description_outlined,
+                title: 'Conditions',
+                value: 'Regles d utilisation du service',
+                onTap: () => _openLegal(context, LegalDocument.terms),
               ),
             ],
           ),
@@ -144,7 +176,7 @@ class _SupportTile extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.white.withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: const Color(0xFFE5E7EB)),
       ),

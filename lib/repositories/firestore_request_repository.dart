@@ -34,13 +34,22 @@ class FirestoreRequestRepository implements RequestRepository {
 
   @override
   Future<void> addRequest(AppRequest request) async {
-    await _requests.doc(request.id).set(request.toMap());
+    await _requests.doc(request.id).set({
+      ...request.toMap(),
+      'createdAtIso': request.createdAt.toIso8601String(),
+      'updatedAt': FieldValue.serverTimestamp(),
+      'updatedAtIso': DateTime.now().toIso8601String(),
+    });
   }
 
   @override
   Future<void> updateRequest(String requestId, AppRequest request) async {
     await _requests.doc(requestId).set(
-          request.toMap(),
+          {
+            ...request.toMap(),
+            'updatedAt': FieldValue.serverTimestamp(),
+            'updatedAtIso': DateTime.now().toIso8601String(),
+          },
           SetOptions(merge: true),
         );
   }
@@ -49,6 +58,8 @@ class FirestoreRequestRepository implements RequestRepository {
   Future<void> updateStatus(String requestId, RequestStatus status) async {
     await _requests.doc(requestId).set({
       'status': status.name,
+      'updatedAt': FieldValue.serverTimestamp(),
+      'updatedAtIso': DateTime.now().toIso8601String(),
       if (status == RequestStatus.completed)
         'completedAt': DateTime.now().toIso8601String(),
     }, SetOptions(merge: true));
@@ -82,6 +93,8 @@ class FirestoreRequestRepository implements RequestRepository {
         'offeredProviderUid': providerUid,
         'offeredAt': offeredAt.toIso8601String(),
         'offerExpiresAt': offerExpiresAt.toIso8601String(),
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedAtIso': DateTime.now().toIso8601String(),
       }, SetOptions(merge: true));
       return true;
     });
@@ -115,6 +128,8 @@ class FirestoreRequestRepository implements RequestRepository {
         'offeredAt': null,
         'offerExpiresAt': null,
         'rejectedProviderUids': rejected,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedAtIso': DateTime.now().toIso8601String(),
       }, SetOptions(merge: true));
       return true;
     });
@@ -159,6 +174,8 @@ class FirestoreRequestRepository implements RequestRepository {
         'offeredAt': null,
         'offerExpiresAt': null,
         'acceptedAt': DateTime.now().toIso8601String(),
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedAtIso': DateTime.now().toIso8601String(),
       }, SetOptions(merge: true));
       return true;
     });

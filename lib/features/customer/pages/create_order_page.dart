@@ -25,6 +25,8 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
 
   final _pickupController = TextEditingController();
   final _destinationController = TextEditingController();
+  final _vehicleTypeController = TextEditingController();
+  final _brandModelController = TextEditingController();
 
   bool _isSubmitting = false;
 
@@ -69,6 +71,8 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
   void dispose() {
     _pickupController.dispose();
     _destinationController.dispose();
+    _vehicleTypeController.dispose();
+    _brandModelController.dispose();
     super.dispose();
   }
 
@@ -92,6 +96,18 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
   }
 
   Future<void> _pickDestination() async {
+    if (_vehicleTypeController.text.trim().isEmpty ||
+        _brandModelController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Renseignez d abord le type de vehicule et le modele de la voiture.',
+          ),
+        ),
+      );
+      return;
+    }
+
     final result = await Navigator.of(context).push<Map<String, dynamic>>(
       MaterialPageRoute(
         builder: (_) => PickDestinationPage(
@@ -139,8 +155,8 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
         customerPosition: _pickupPoint!,
         pickupLabel: _pickupController.text.trim(),
         pickupSubtitle: 'Point de depart',
-        vehicleType: 'Vehicule',
-        brandModel: 'Non precise',
+        vehicleType: _vehicleTypeController.text.trim(),
+        brandModel: _brandModelController.text.trim(),
         payment: 'Especes',
         landmark: '',
         issueDescription: 'Demande rapide',
@@ -215,6 +231,43 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
     );
   }
 
+  Widget _buildTextField({
+    required String label,
+    required TextEditingController controller,
+    required String hint,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: controller,
+          validator: (value) {
+            if ((value ?? '').trim().isEmpty) {
+              return 'Champ obligatoire';
+            }
+            return null;
+          },
+          decoration: InputDecoration(
+            hintText: hint,
+            filled: true,
+            fillColor: const Color(0xFFF8FAFC),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(18),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -241,6 +294,18 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
                       controller: _pickupController,
                       onTap: _pickPickup,
                       hint: 'Choisir le point de depart',
+                    ),
+                    const SizedBox(height: 14),
+                    _buildTextField(
+                      label: 'Type de vehicule',
+                      controller: _vehicleTypeController,
+                      hint: 'Ex: Berline, SUV, Utilitaire',
+                    ),
+                    const SizedBox(height: 14),
+                    _buildTextField(
+                      label: 'Modele / marque',
+                      controller: _brandModelController,
+                      hint: 'Ex: Clio 4, i10, Symbol',
                     ),
                     const SizedBox(height: 14),
                     _buildReadOnlyPicker(

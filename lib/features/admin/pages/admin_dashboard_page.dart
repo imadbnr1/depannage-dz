@@ -2,6 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/services/auth_service.dart';
+import '../../../core/services/admin_audit_service.dart';
+import '../../../widgets/language_selector.dart';
+import 'admin_activity_log_page.dart';
 import 'admin_analytics_page.dart';
 import 'admin_notifications_page.dart';
 import 'admin_pricing_page.dart';
@@ -38,6 +41,12 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       selectedIcon: Icons.local_shipping,
     ),
     _AdminDestination(
+      label: 'Clients',
+      title: 'Customer Ops',
+      icon: Icons.people_outline_rounded,
+      selectedIcon: Icons.people_rounded,
+    ),
+    _AdminDestination(
       label: 'Tarifs',
       title: 'Pricing Lab',
       icon: Icons.tune_outlined,
@@ -61,6 +70,12 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       icon: Icons.support_agent_outlined,
       selectedIcon: Icons.support_agent,
     ),
+    _AdminDestination(
+      label: 'Logs',
+      title: 'Activity Log',
+      icon: Icons.fact_check_outlined,
+      selectedIcon: Icons.fact_check,
+    ),
   ];
 
   @override
@@ -69,17 +84,19 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       _AdminOverviewPage(onNavigate: _onSelect),
       const AdminRequestsPage(),
       const _AdminProvidersPage(),
+      const _AdminCustomersPage(),
       const AdminPricingPage(),
       const AdminAnalyticsPage(),
       const AdminNotificationsPage(),
       const AdminSupportConfigPage(),
+      const AdminActivityLogPage(),
     ];
 
     final theme = Theme.of(context);
     final current = _destinations[_index];
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FB),
+      backgroundColor: const Color(0xFFF4EFE6),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -89,149 +106,162 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
               children: [
                 if (wide) _AdminSidebar(index: _index, onSelect: _onSelect),
                 Expanded(
-                  child: Column(
-                    children: [
-                      Container(
-                        margin: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [
-                              Color(0xFF0F172A),
-                              Color(0xFF1E293B),
-                              Color(0xFF1D4ED8),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(30),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color(0x220F172A),
-                              blurRadius: 24,
-                              offset: Offset(0, 14),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Wrap(
-                              spacing: 14,
-                              runSpacing: 14,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              children: [
-                                Container(
-                                  width: 52,
-                                  height: 52,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(18),
-                                  ),
-                                  child: Icon(
-                                    current.selectedIcon,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: wide
-                                      ? (constraints.maxWidth - 520).clamp(
-                                          280.0,
-                                          700.0,
-                                        )
-                                      : (constraints.maxWidth - 80).clamp(
-                                          220.0,
-                                          700.0,
-                                        ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        current.title,
-                                        style: theme.textTheme.headlineSmall
-                                            ?.copyWith(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w900,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        'Pilotage en temps reel, operations plus rapides, controles admin renforces.',
-                                        style: theme.textTheme.bodyMedium
-                                            ?.copyWith(
-                                          color: Colors.white70,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                FilledButton.icon(
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: const Color(0xFFF8FAFC),
-                                    foregroundColor: const Color(0xFF0F172A),
-                                  ),
-                                  onPressed: () async {
-                                    await AuthService().signOut();
-                                  },
-                                  icon: const Icon(Icons.logout),
-                                  label: const Text('Deconnexion'),
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1380),
+                      child: Column(
+                        children: [
+                          Container(
+                            width: double.infinity,
+                            margin: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [
+                                  Color(0xFF0F172A),
+                                  Color(0xFF1E293B),
+                                  Color(0xFF1D4ED8),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(30),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x220F172A),
+                                  blurRadius: 24,
+                                  offset: Offset(0, 14),
                                 ),
                               ],
                             ),
-                            if (!wide) ...[
-                              const SizedBox(height: 16),
-                              SizedBox(
-                                height: 50,
-                                child: ListView.separated(
-                                  scrollDirection: Axis.horizontal,
-                                  itemCount: _destinations.length,
-                                  separatorBuilder: (_, __) =>
-                                      const SizedBox(width: 10),
-                                  itemBuilder: (context, index) {
-                                    final item = _destinations[index];
-                                    final selected = index == _index;
-                                    return ChoiceChip(
-                                      label: Text(item.label),
-                                      selected: selected,
-                                      onSelected: (_) => _onSelect(index),
-                                      avatar: Icon(
-                                        selected
-                                            ? item.selectedIcon
-                                            : item.icon,
-                                        size: 18,
-                                        color: selected
-                                            ? const Color(0xFF0F172A)
-                                            : Colors.white,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Wrap(
+                                  spacing: 14,
+                                  runSpacing: 14,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    Container(
+                                      width: 52,
+                                      height: 52,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white
+                                            .withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(18),
                                       ),
-                                      labelStyle: TextStyle(
-                                        color: selected
-                                            ? const Color(0xFF0F172A)
-                                            : Colors.white,
-                                        fontWeight: FontWeight.w800,
+                                      child: Icon(
+                                        current.selectedIcon,
+                                        color: Colors.white,
                                       ),
-                                      backgroundColor:
-                                          Colors.white.withValues(alpha: 0.08),
-                                      selectedColor: const Color(0xFFF8FAFC),
-                                      side: BorderSide(
-                                        color:
-                                            Colors.white.withValues(alpha: 0.1),
+                                    ),
+                                    SizedBox(
+                                      width: wide
+                                          ? 620
+                                          : (constraints.maxWidth - 110).clamp(
+                                              220.0,
+                                              620.0,
+                                            ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            current.title,
+                                            style: theme.textTheme.headlineSmall
+                                                ?.copyWith(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Pilotage en temps reel, operations plus rapides, controles admin renforces.',
+                                            style: theme.textTheme.bodyMedium
+                                                ?.copyWith(
+                                              color: Colors.white70,
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                    );
-                                  },
+                                    ),
+                                    FilledButton.icon(
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor:
+                                            const Color(0xFFF8FAFC),
+                                        foregroundColor:
+                                            const Color(0xFF0F172A),
+                                      ),
+                                      onPressed: () async {
+                                        await AuthService().signOut();
+                                      },
+                                      icon: const Icon(Icons.logout),
+                                      label: const Text('Deconnexion'),
+                                    ),
+                                    const LanguageSelector(
+                                      compact: true,
+                                      backgroundColor: Color(0xFFF8FAFC),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                            ],
-                          ],
-                        ),
+                                if (!wide) ...[
+                                  const SizedBox(height: 16),
+                                  SizedBox(
+                                    height: 50,
+                                    child: ListView.separated(
+                                      scrollDirection: Axis.horizontal,
+                                      itemCount: _destinations.length,
+                                      separatorBuilder: (_, __) =>
+                                          const SizedBox(width: 10),
+                                      itemBuilder: (context, index) {
+                                        final item = _destinations[index];
+                                        final selected = index == _index;
+                                        return ChoiceChip(
+                                          label: Text(item.label),
+                                          selected: selected,
+                                          onSelected: (_) => _onSelect(index),
+                                          avatar: Icon(
+                                            selected
+                                                ? item.selectedIcon
+                                                : item.icon,
+                                            size: 18,
+                                            color: selected
+                                                ? const Color(0xFF0F172A)
+                                                : Colors.white,
+                                          ),
+                                          labelStyle: TextStyle(
+                                            color: selected
+                                                ? const Color(0xFF0F172A)
+                                                : Colors.white,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                          backgroundColor: Colors.white
+                                              .withValues(alpha: 0.08),
+                                          selectedColor:
+                                              const Color(0xFFF8FAFC),
+                                          side: BorderSide(
+                                            color: Colors.white
+                                                .withValues(alpha: 0.1),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            child: Container(
+                              width: double.infinity,
+                              margin: const EdgeInsets.all(20),
+                              child: pages[_index],
+                            ),
+                          ),
+                        ],
                       ),
-                      Expanded(
-                        child: Container(
-                          margin: const EdgeInsets.all(20),
-                          child: pages[_index],
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ],
@@ -268,6 +298,76 @@ class _AdminOverviewPage extends StatelessWidget {
   });
 
   final ValueChanged<int> onNavigate;
+
+  double _toDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  DateTime? _toDate(dynamic value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is String && value.trim().isNotEmpty) {
+      return DateTime.tryParse(value);
+    }
+    return null;
+  }
+
+  String _statusLabel(String status) {
+    switch (status) {
+      case 'accepted':
+        return 'Acceptee';
+      case 'onTheWay':
+        return 'En route';
+      case 'arrived':
+        return 'Arrivee';
+      case 'inService':
+        return 'En service';
+      case 'completed':
+        return 'Terminee';
+      case 'cancelled':
+        return 'Annulee';
+      default:
+        return 'Recherche';
+    }
+  }
+
+  Color _statusColor(String status) {
+    switch (status) {
+      case 'accepted':
+        return const Color(0xFF2563EB);
+      case 'onTheWay':
+        return const Color(0xFFEA580C);
+      case 'arrived':
+        return const Color(0xFFD97706);
+      case 'inService':
+        return const Color(0xFF0E8D7B);
+      case 'completed':
+        return const Color(0xFF16A34A);
+      case 'cancelled':
+        return const Color(0xFFDC2626);
+      default:
+        return const Color(0xFF64748B);
+    }
+  }
+
+  String _formatMoney(double value) => '${value.toStringAsFixed(0)} DA';
+
+  String _formatWhen(DateTime? value) {
+    if (value == null) return '--';
+    final local = value.toLocal();
+    final now = DateTime.now();
+    final sameDay = local.year == now.year &&
+        local.month == now.month &&
+        local.day == now.day;
+    final hh = local.hour.toString().padLeft(2, '0');
+    final mm = local.minute.toString().padLeft(2, '0');
+    if (sameDay) {
+      return 'Aujourd hui $hh:$mm';
+    }
+    final dd = local.day.toString().padLeft(2, '0');
+    final mo = local.month.toString().padLeft(2, '0');
+    return '$dd/$mo $hh:$mm';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -338,6 +438,11 @@ class _AdminOverviewPage extends StatelessWidget {
                 final approvedProviders = providers
                     .where((d) => d.data()['isApproved'] == true)
                     .length;
+                final pendingProviders = providers.where((d) {
+                  final data = d.data();
+                  return data['isApproved'] != true &&
+                      data['isBlocked'] != true;
+                }).toList();
                 final blockedProviders = providers
                     .where((d) => d.data()['isBlocked'] == true)
                     .length;
@@ -348,6 +453,34 @@ class _AdminOverviewPage extends StatelessWidget {
                 final providerUsers = users
                     .where((d) => (d.data()['role'] ?? '') == 'provider')
                     .length;
+                final freeProviders = onlineProviders - busyProviders < 0
+                    ? 0
+                    : onlineProviders - busyProviders;
+                final completedRevenue = requests
+                    .where((d) => (d.data()['status'] ?? '') == 'completed')
+                    .fold<double>(
+                      0,
+                      (total, doc) =>
+                          total + _toDouble(doc.data()['estimatedPrice']),
+                    );
+                final averageTicket =
+                    completed == 0 ? 0.0 : completedRevenue / completed;
+                final completionRate = requests.isEmpty
+                    ? 0.0
+                    : ((completed / requests.length) * 100).clamp(0, 100);
+                final recentRequests = [...requests]..sort((a, b) {
+                    final aDate = _toDate(a.data()['updatedAt']) ??
+                        _toDate(a.data()['createdAt']) ??
+                        DateTime.fromMillisecondsSinceEpoch(0);
+                    final bDate = _toDate(b.data()['updatedAt']) ??
+                        _toDate(b.data()['createdAt']) ??
+                        DateTime.fromMillisecondsSinceEpoch(0);
+                    return bDate.compareTo(aDate);
+                  });
+                final spotlightRequests =
+                    recentRequests.take(4).toList(growable: false);
+                final providerSpotlight =
+                    pendingProviders.take(3).toList(growable: false);
                 final screenWidth = MediaQuery.of(context).size.width;
                 final kpiColumns = screenWidth >= 1300
                     ? 4
@@ -374,6 +507,7 @@ class _AdminOverviewPage extends StatelessWidget {
                           subtitle: 'Missions sans provider',
                           accent: const Color(0xFFEA580C),
                           icon: Icons.radar_outlined,
+                          onTap: () => onNavigate(1),
                         ),
                         _KpiCard(
                           title: 'Actives',
@@ -381,6 +515,7 @@ class _AdminOverviewPage extends StatelessWidget {
                           subtitle: 'Suivis en direct',
                           accent: const Color(0xFF2563EB),
                           icon: Icons.route_outlined,
+                          onTap: () => onNavigate(1),
                         ),
                         _KpiCard(
                           title: 'Terminees',
@@ -388,6 +523,7 @@ class _AdminOverviewPage extends StatelessWidget {
                           subtitle: 'Missions bouclees',
                           accent: const Color(0xFF16A34A),
                           icon: Icons.verified_outlined,
+                          onTap: () => onNavigate(5),
                         ),
                         _KpiCard(
                           title: 'Urgentes',
@@ -395,6 +531,7 @@ class _AdminOverviewPage extends StatelessWidget {
                           subtitle: 'A surveiller maintenant',
                           accent: const Color(0xFFDC2626),
                           icon: Icons.priority_high_outlined,
+                          onTap: () => onNavigate(1),
                         ),
                         _KpiCard(
                           title: 'Providers ON',
@@ -402,6 +539,7 @@ class _AdminOverviewPage extends StatelessWidget {
                           subtitle: '$busyProviders occupes',
                           accent: const Color(0xFF0EA5E9),
                           icon: Icons.wifi_tethering_outlined,
+                          onTap: () => onNavigate(2),
                         ),
                         _KpiCard(
                           title: 'Approuves',
@@ -409,6 +547,7 @@ class _AdminOverviewPage extends StatelessWidget {
                           subtitle: '$blockedProviders bloques',
                           accent: const Color(0xFF7C3AED),
                           icon: Icons.verified_user_outlined,
+                          onTap: () => onNavigate(2),
                         ),
                         _KpiCard(
                           title: 'Clients',
@@ -416,6 +555,7 @@ class _AdminOverviewPage extends StatelessWidget {
                           subtitle: 'Base utilisateur',
                           accent: const Color(0xFF0891B2),
                           icon: Icons.people_alt_outlined,
+                          onTap: () => onNavigate(3),
                         ),
                         _KpiCard(
                           title: 'Providers',
@@ -423,6 +563,7 @@ class _AdminOverviewPage extends StatelessWidget {
                           subtitle: 'Comptes metier',
                           accent: const Color(0xFF4F46E5),
                           icon: Icons.engineering_outlined,
+                          onTap: () => onNavigate(2),
                         ),
                       ],
                     ),
@@ -448,8 +589,7 @@ class _AdminOverviewPage extends StatelessWidget {
                                 ),
                                 _InsightRow(
                                   label: 'Providers libres',
-                                  value:
-                                      '${onlineProviders - busyProviders < 0 ? 0 : onlineProviders - busyProviders}',
+                                  value: '$freeProviders',
                                 ),
                                 _InsightRow(
                                   label: 'Annulations',
@@ -458,6 +598,10 @@ class _AdminOverviewPage extends StatelessWidget {
                                 _InsightRow(
                                   label: 'Demandes critiques',
                                   value: '$urgent',
+                                ),
+                                _InsightRow(
+                                  label: 'Approval en attente',
+                                  value: '${pendingProviders.length}',
                                 ),
                               ],
                             ),
@@ -474,7 +618,7 @@ class _AdminOverviewPage extends StatelessWidget {
                                   title: 'Lancer une promo',
                                   subtitle:
                                       'Envoyer une offre live avec image et popup.',
-                                  onTap: () => onNavigate(5),
+                                  onTap: () => onNavigate(6),
                                 ),
                                 const SizedBox(height: 10),
                                 _QuickActionTile(
@@ -490,7 +634,15 @@ class _AdminOverviewPage extends StatelessWidget {
                                   title: 'Ajuster les prix',
                                   subtitle:
                                       'Reagir vite a la demande ou a la distance.',
-                                  onTap: () => onNavigate(3),
+                                  onTap: () => onNavigate(4),
+                                ),
+                                const SizedBox(height: 10),
+                                _QuickActionTile(
+                                  icon: Icons.support_agent_outlined,
+                                  title: 'Support & canaux',
+                                  subtitle:
+                                      'Mettre a jour l aide visible partout dans l app.',
+                                  onTap: () => onNavigate(7),
                                 ),
                               ],
                             ),
@@ -521,8 +673,7 @@ class _AdminOverviewPage extends StatelessWidget {
                                   ),
                                   _InsightRow(
                                     label: 'Providers libres',
-                                    value:
-                                        '${onlineProviders - busyProviders < 0 ? 0 : onlineProviders - busyProviders}',
+                                    value: '$freeProviders',
                                   ),
                                   _InsightRow(
                                     label: 'Annulations',
@@ -531,6 +682,10 @@ class _AdminOverviewPage extends StatelessWidget {
                                   _InsightRow(
                                     label: 'Demandes critiques',
                                     value: '$urgent',
+                                  ),
+                                  _InsightRow(
+                                    label: 'Approval en attente',
+                                    value: '${pendingProviders.length}',
                                   ),
                                 ],
                               ),
@@ -550,7 +705,7 @@ class _AdminOverviewPage extends StatelessWidget {
                                     title: 'Lancer une promo',
                                     subtitle:
                                         'Envoyer une offre live avec image et popup.',
-                                    onTap: () => onNavigate(5),
+                                    onTap: () => onNavigate(6),
                                   ),
                                   const SizedBox(height: 10),
                                   _QuickActionTile(
@@ -566,7 +721,15 @@ class _AdminOverviewPage extends StatelessWidget {
                                     title: 'Ajuster les prix',
                                     subtitle:
                                         'Reagir vite a la demande ou a la distance.',
-                                    onTap: () => onNavigate(3),
+                                    onTap: () => onNavigate(4),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  _QuickActionTile(
+                                    icon: Icons.support_agent_outlined,
+                                    title: 'Support & canaux',
+                                    subtitle:
+                                        'Mettre a jour l aide visible partout dans l app.',
+                                    onTap: () => onNavigate(7),
                                   ),
                                 ],
                               ),
@@ -574,6 +737,176 @@ class _AdminOverviewPage extends StatelessWidget {
                           ),
                         ],
                       ),
+                    const SizedBox(height: 18),
+                    LayoutBuilder(
+                      builder: (context, sectionConstraints) {
+                        final width = sectionConstraints.maxWidth;
+                        final columns = width >= 1180
+                            ? 3
+                            : width >= 760
+                                ? 2
+                                : 1;
+                        final itemWidth = columns == 1
+                            ? width
+                            : (width - ((columns - 1) * 14)) / columns;
+
+                        return Wrap(
+                          spacing: 14,
+                          runSpacing: 14,
+                          children: [
+                            SizedBox(
+                              width: itemWidth,
+                              child: _AdminPanel(
+                                title: 'Finance live',
+                                subtitle:
+                                    'Lecture directe du revenu missions et du rendement plateforme.',
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: _MiniStat(
+                                            label: 'Ticket moyen',
+                                            value: _formatMoney(averageTicket),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: _MiniStat(
+                                            label: 'CA termine',
+                                            value:
+                                                _formatMoney(completedRevenue),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    _InsightRow(
+                                      label: 'Taux completion',
+                                      value:
+                                          '${completionRate.toStringAsFixed(0)}%',
+                                    ),
+                                    _InsightRow(
+                                      label: 'Missions terminees',
+                                      value: '$completed',
+                                    ),
+                                    _InsightRow(
+                                      label: 'Missions annulees',
+                                      value: '$cancelled',
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            SizedBox(
+                              width: itemWidth,
+                              child: _AdminPanel(
+                                title: 'Provider control',
+                                subtitle:
+                                    'Surveillez les validations et les comptes a traiter en priorite.',
+                                child: providerSpotlight.isEmpty
+                                    ? Column(
+                                        children: [
+                                          const _EmptyStateLine(
+                                            title: 'Aucun provider en attente',
+                                            subtitle:
+                                                'Tous les comptes sont traites pour le moment.',
+                                          ),
+                                          const SizedBox(height: 12),
+                                          _QuickActionTile(
+                                            icon: Icons.local_shipping_outlined,
+                                            title: 'Ouvrir Provider Ops',
+                                            subtitle:
+                                                'Verifier les comptes, approvals et blocages.',
+                                            onTap: () => onNavigate(2),
+                                          ),
+                                        ],
+                                      )
+                                    : Column(
+                                        children: [
+                                          ...providerSpotlight
+                                              .map((providerDoc) {
+                                            final data = providerDoc.data();
+                                            return Padding(
+                                              padding: const EdgeInsets.only(
+                                                bottom: 10,
+                                              ),
+                                              child: _ProviderApprovalPreview(
+                                                name:
+                                                    (data['name'] ?? 'Provider')
+                                                        .toString(),
+                                                phone: (data['phone'] ?? '--')
+                                                    .toString(),
+                                                vehicle:
+                                                    '${data['vehicleType'] ?? '--'} · ${data['plate'] ?? '--'}',
+                                              ),
+                                            );
+                                          }),
+                                          _QuickActionTile(
+                                            icon: Icons.verified_user_outlined,
+                                            title:
+                                                'Traiter ${pendingProviders.length} approval(s)',
+                                            subtitle:
+                                                'Acceder directement au centre de verification.',
+                                            onTap: () => onNavigate(2),
+                                          ),
+                                        ],
+                                      ),
+                              ),
+                            ),
+                            SizedBox(
+                              width: itemWidth,
+                              child: _AdminPanel(
+                                title: 'Mission radar',
+                                subtitle:
+                                    'Les dernieres missions pour voir ce qui se passe maintenant.',
+                                child: spotlightRequests.isEmpty
+                                    ? const _EmptyStateLine(
+                                        title: 'Aucune mission recente',
+                                        subtitle:
+                                            'Les nouvelles missions apparaitront ici en direct.',
+                                      )
+                                    : Column(
+                                        children: spotlightRequests.map((doc) {
+                                          final data = doc.data();
+                                          final status =
+                                              (data['status'] ?? 'searching')
+                                                  .toString();
+                                          return Padding(
+                                            padding: const EdgeInsets.only(
+                                              bottom: 10,
+                                            ),
+                                            child: _MissionRadarTile(
+                                              title: (data['customerName'] ??
+                                                      'Client')
+                                                  .toString(),
+                                              pickup: (data['pickupLabel'] ??
+                                                      'Point de depart')
+                                                  .toString(),
+                                              destination:
+                                                  (data['destination'] ?? '--')
+                                                      .toString(),
+                                              when: _formatWhen(
+                                                _toDate(data['updatedAt']) ??
+                                                    _toDate(data['createdAt']),
+                                              ),
+                                              price: _formatMoney(
+                                                _toDouble(
+                                                  data['estimatedPrice'],
+                                                ),
+                                              ),
+                                              status: _statusLabel(status),
+                                              statusColor: _statusColor(status),
+                                            ),
+                                          );
+                                        }).toList(),
+                                      ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
                   ],
                 );
               },
@@ -594,6 +927,7 @@ class _AdminProvidersPage extends StatefulWidget {
 
 class _AdminProvidersPageState extends State<_AdminProvidersPage> {
   final TextEditingController _searchController = TextEditingController();
+  final AdminAuditService _auditService = AdminAuditService();
   String _filter = 'all';
 
   @override
@@ -604,27 +938,63 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
 
   Future<void> _setApproval(String uid, bool value) async {
     final firestore = FirebaseFirestore.instance;
+    final now = DateTime.now().toIso8601String();
 
     await firestore.collection('providers').doc(uid).set({
       'isApproved': value,
+      'updatedAtIso': now,
+      'approvalUpdatedAtIso': now,
+      if (value) 'approvedAtIso': now,
     }, SetOptions(merge: true));
 
     await firestore.collection('users').doc(uid).set({
       'isApproved': value,
+      'updatedAtIso': now,
+      'approvalUpdatedAtIso': now,
+      if (value) 'approvedAtIso': now,
     }, SetOptions(merge: true));
+
+    await _auditService.logAction(
+      action: value ? 'approve_provider' : 'revoke_provider_approval',
+      targetCollection: 'providers',
+      targetId: uid,
+      summary: value ? 'Approval provider active' : 'Approval provider retiree',
+      metadata: {
+        'isApproved': value,
+      },
+    );
   }
 
   Future<void> _setBlocked(String uid, bool value) async {
     final firestore = FirebaseFirestore.instance;
+    final now = DateTime.now().toIso8601String();
 
     await firestore.collection('providers').doc(uid).set({
       'isBlocked': value,
       if (value) 'isOnline': false,
+      'updatedAtIso': now,
+      'blockedUpdatedAtIso': now,
+      if (value) 'blockedAtIso': now,
+      if (!value) 'unblockedAtIso': now,
     }, SetOptions(merge: true));
 
     await firestore.collection('users').doc(uid).set({
       'isBlocked': value,
+      'updatedAtIso': now,
+      'blockedUpdatedAtIso': now,
+      if (value) 'blockedAtIso': now,
+      if (!value) 'unblockedAtIso': now,
     }, SetOptions(merge: true));
+
+    await _auditService.logAction(
+      action: value ? 'block_provider' : 'unblock_provider',
+      targetCollection: 'providers',
+      targetId: uid,
+      summary: value ? 'Provider bloque' : 'Provider debloque',
+      metadata: {
+        'isBlocked': value,
+      },
+    );
   }
 
   bool _matchesFilter(Map<String, dynamic> data) {
@@ -1004,6 +1374,291 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
   }
 }
 
+class _AdminCustomersPage extends StatefulWidget {
+  const _AdminCustomersPage();
+
+  @override
+  State<_AdminCustomersPage> createState() => _AdminCustomersPageState();
+}
+
+class _AdminCustomersPageState extends State<_AdminCustomersPage> {
+  final TextEditingController _searchController = TextEditingController();
+  final AdminAuditService _auditService = AdminAuditService();
+  String _filter = 'all';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _setBlocked(String uid, bool value) async {
+    final now = DateTime.now().toIso8601String();
+    await FirebaseFirestore.instance.collection('users').doc(uid).set({
+      'isBlocked': value,
+      'updatedAtIso': now,
+      'blockedUpdatedAtIso': now,
+      if (value) 'blockedAtIso': now,
+      if (!value) 'unblockedAtIso': now,
+    }, SetOptions(merge: true));
+
+    await _auditService.logAction(
+      action: value ? 'block_account' : 'unblock_account',
+      targetCollection: 'users',
+      targetId: uid,
+      summary: value ? 'Client bloque' : 'Client debloque',
+      metadata: {
+        'role': 'customer',
+        'isBlocked': value,
+      },
+    );
+  }
+
+  bool _matches(Map<String, dynamic> data) {
+    if ((data['role'] ?? '').toString() != 'customer') return false;
+    final blocked = data['isBlocked'] == true;
+    switch (_filter) {
+      case 'blocked':
+        if (!blocked) return false;
+        break;
+      case 'active':
+        if (blocked) return false;
+        break;
+    }
+
+    final q = _searchController.text.trim().toLowerCase();
+    if (q.isEmpty) return true;
+
+    return (data['fullName'] ?? '').toString().toLowerCase().contains(q) ||
+        (data['phone'] ?? '').toString().toLowerCase().contains(q) ||
+        (data['email'] ?? '').toString().toLowerCase().contains(q);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance.collection('users').snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return _AdminErrorPanel(
+            title: 'Customers indisponibles',
+            subtitle:
+                'La vue clients n a pas pu etre chargee. Verifiez les permissions admin et la connexion.',
+            details: snapshot.error.toString(),
+          );
+        }
+
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final docs = snapshot.data?.docs
+                .where((doc) => _matches(doc.data()))
+                .toList(growable: false) ??
+            [];
+        final allCustomers = snapshot.data?.docs
+                .where((doc) => (doc.data()['role'] ?? '') == 'customer')
+                .toList(growable: false) ??
+            [];
+        final blockedCount =
+            allCustomers.where((doc) => doc.data()['isBlocked'] == true).length;
+
+        return ListView(
+          children: [
+            _AdminPanel(
+              title: 'Customer Ops',
+              subtitle:
+                  'Gardez la main sur la base client, les blocages et les comptes sensibles.',
+              child: Column(
+                children: [
+                  TextField(
+                    controller: _searchController,
+                    onChanged: (_) => setState(() {}),
+                    decoration: const InputDecoration(
+                      hintText: 'Rechercher nom, telephone ou email...',
+                      prefixIcon: Icon(Icons.search),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _FilterChip(
+                        label: 'Tous',
+                        selected: _filter == 'all',
+                        onTap: () => setState(() => _filter = 'all'),
+                      ),
+                      _FilterChip(
+                        label: 'Actifs',
+                        selected: _filter == 'active',
+                        onTap: () => setState(() => _filter = 'active'),
+                      ),
+                      _FilterChip(
+                        label: 'Bloques',
+                        selected: _filter == 'blocked',
+                        onTap: () => setState(() => _filter = 'blocked'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _MiniStat(
+                          label: 'Clients',
+                          value: '${allCustomers.length}',
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _MiniStat(
+                          label: 'Bloques',
+                          value: '$blockedCount',
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            if (docs.isEmpty)
+              const _AdminPanel(
+                title: 'Aucun client',
+                subtitle:
+                    'Ajustez les filtres ou attendez de nouvelles inscriptions.',
+                child: SizedBox.shrink(),
+              ),
+            ...docs.map((doc) {
+              final data = doc.data();
+              final uid = doc.id;
+              final blocked = data['isBlocked'] == true;
+              return Container(
+                margin: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x0D0F172A),
+                      blurRadius: 18,
+                      offset: Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 24,
+                          backgroundColor: blocked
+                              ? const Color(0xFFFEE2E2)
+                              : const Color(0xFFDBEAFE),
+                          child: Text(
+                            ((data['fullName'] ?? 'CL')
+                                    .toString()
+                                    .trim()
+                                    .split(' ')
+                                    .where((part) => part.isNotEmpty)
+                                    .take(2)
+                                    .map((part) => part[0].toUpperCase())
+                                    .join())
+                                .padRight(2, 'C')
+                                .substring(0, 2),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                (data['fullName'] ?? 'Client').toString(),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 18,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                (data['email'] ?? '--').toString(),
+                                style: const TextStyle(color: Colors.black54),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Switch(
+                          value: !blocked,
+                          onChanged: (value) => _setBlocked(uid, !value),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _StatusPill(
+                          label: blocked ? 'Bloque' : 'Actif',
+                          background: blocked
+                              ? const Color(0xFFFECACA)
+                              : const Color(0xFFDCFCE7),
+                        ),
+                        _StatusPill(
+                          label: (data['phone'] ?? '--').toString(),
+                          background: const Color(0xFFF1F5F9),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    _InfoLine(
+                      title: 'UID',
+                      value: uid,
+                    ),
+                    _InfoLine(
+                      title: 'Cree',
+                      value: (data['createdAtIso'] ?? '--').toString(),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: blocked
+                              ? const Color(0xFF16A34A)
+                              : const Color(0xFFDC2626),
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: () => _setBlocked(uid, !blocked),
+                        icon: Icon(
+                          blocked
+                              ? Icons.lock_open_outlined
+                              : Icons.block_outlined,
+                        ),
+                        label: Text(
+                            blocked ? 'Debloquer client' : 'Bloquer client'),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        );
+      },
+    );
+  }
+}
+
 class _AdminSidebar extends StatelessWidget {
   const _AdminSidebar({
     required this.index,
@@ -1200,6 +1855,7 @@ class _KpiCard extends StatelessWidget {
     required this.subtitle,
     required this.accent,
     required this.icon,
+    this.onTap,
   });
 
   final String title;
@@ -1207,59 +1863,77 @@ class _KpiCard extends StatelessWidget {
   final String subtitle;
   final Color accent;
   final IconData icon;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0D0F172A),
-            blurRadius: 18,
-            offset: Offset(0, 10),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(26),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x0D0F172A),
+                blurRadius: 18,
+                offset: Offset(0, 10),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Icon(icon, color: accent),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Icon(icon, color: accent),
+                  ),
+                  const Spacer(),
+                  if (onTap != null)
+                    const Icon(
+                      Icons.arrow_forward_rounded,
+                      color: Color(0xFF94A3B8),
+                    ),
+                ],
+              ),
+              const Spacer(),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 28,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  color: Colors.black54,
+                  fontSize: 12,
+                ),
+              ),
+            ],
           ),
-          const Spacer(),
-          Text(
-            value,
-            style: const TextStyle(
-              fontWeight: FontWeight.w900,
-              fontSize: 28,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            title,
-            style: const TextStyle(
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            subtitle,
-            style: const TextStyle(
-              color: Colors.black54,
-              fontSize: 12,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1362,6 +2036,215 @@ class _QuickActionTile extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _EmptyStateLine extends StatelessWidget {
+  const _EmptyStateLine({
+    required this.title,
+    required this.subtitle,
+  });
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F3EA),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 15,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: const TextStyle(
+              color: Colors.black54,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProviderApprovalPreview extends StatelessWidget {
+  const _ProviderApprovalPreview({
+    required this.name,
+    required this.phone,
+    required this.vehicle,
+  });
+
+  final String name;
+  final String phone;
+  final String vehicle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFEDD5),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(
+              Icons.person_search_outlined,
+              color: Color(0xFFEA580C),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  phone,
+                  style: const TextStyle(color: Colors.black54),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  vehicle,
+                  style: const TextStyle(
+                    color: Color(0xFF334155),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MissionRadarTile extends StatelessWidget {
+  const _MissionRadarTile({
+    required this.title,
+    required this.pickup,
+    required this.destination,
+    required this.when,
+    required this.price,
+    required this.status,
+    required this.statusColor,
+  });
+
+  final String title;
+  final String pickup;
+  final String destination;
+  final String when;
+  final String price;
+  final String status;
+  final Color statusColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  status,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Pick up: $pickup',
+            style: const TextStyle(
+              color: Color(0xFF334155),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            'Destination: $destination',
+            style: const TextStyle(color: Colors.black54, height: 1.3),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  when,
+                  style: const TextStyle(
+                    color: Colors.black54,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Text(
+                price,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

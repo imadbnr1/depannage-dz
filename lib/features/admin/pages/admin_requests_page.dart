@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/services/admin_audit_service.dart';
+
 class AdminRequestsPage extends StatefulWidget {
   const AdminRequestsPage({super.key});
 
@@ -9,8 +11,11 @@ class AdminRequestsPage extends StatefulWidget {
 }
 
 class _AdminRequestsPageState extends State<AdminRequestsPage> {
+  final AdminAuditService _auditService = AdminAuditService();
   final TextEditingController _searchController = TextEditingController();
   String _statusFilter = 'all';
+  String _assignmentFilter = 'all';
+  String _sortMode = 'newest';
   bool _onlyUrgent = false;
 
   @override
@@ -71,8 +76,17 @@ class _AdminRequestsPageState extends State<AdminRequestsPage> {
   bool _matchesFilters(Map<String, dynamic> data) {
     final status = (data['status'] ?? 'searching').toString();
     final urgency = (data['urgency'] ?? '').toString().toLowerCase();
+    final providerName = (data['providerName'] ?? '').toString().trim();
 
     if (_statusFilter != 'all' && status != _statusFilter) {
+      return false;
+    }
+
+    if (_assignmentFilter == 'assigned' && providerName.isEmpty) {
+      return false;
+    }
+
+    if (_assignmentFilter == 'unassigned' && providerName.isNotEmpty) {
       return false;
     }
 
@@ -83,6 +97,26 @@ class _AdminRequestsPageState extends State<AdminRequestsPage> {
     }
 
     return _matchesSearch(data);
+  }
+
+  Future<void> _forceCancel(String requestId) async {
+    await FirebaseFirestore.instance.collection('requests').doc(requestId).set({
+      'status': 'cancelled',
+      'updatedAt': DateTime.now().toIso8601String(),
+      'updatedAtIso': DateTime.now().toIso8601String(),
+      'cancelledAtIso': DateTime.now().toIso8601String(),
+      'statusChangedAtIso': DateTime.now().toIso8601String(),
+    }, SetOptions(merge: true));
+
+    await _auditService.logAction(
+      action: 'force_cancel_request',
+      targetCollection: 'requests',
+      targetId: requestId,
+      summary: 'Mission annulee par l administration',
+      metadata: {
+        'status': 'cancelled',
+      },
+    );
   }
 
   @override
@@ -115,7 +149,25 @@ class _AdminRequestsPageState extends State<AdminRequestsPage> {
         final docs = snapshot.data?.docs ?? [];
         final filtered = docs
             .where((doc) => _matchesFilters(doc.data()))
-            .toList(growable: false);
+            .toList(growable: false)
+          ..sort((a, b) {
+            final aData = a.data();
+            final bData = b.data();
+            if (_sortMode == 'price_desc') {
+              final aPrice = (aData['estimatedPrice'] as num?)?.toDouble() ?? 0;
+              final bPrice = (bData['estimatedPrice'] as num?)?.toDouble() ?? 0;
+              return bPrice.compareTo(aPrice);
+            }
+            final aDate = DateTime.tryParse((aData['createdAt'] ?? '').toString()) ??
+                DateTime.tryParse((aData['updatedAt'] ?? '').toString()) ??
+                DateTime.fromMillisecondsSinceEpoch(0);
+            final bDate = DateTime.tryParse((bData['createdAt'] ?? '').toString()) ??
+                DateTime.tryParse((bData['updatedAt'] ?? '').toString()) ??
+                DateTime.fromMillisecondsSinceEpoch(0);
+            return _sortMode == 'oldest'
+                ? aDate.compareTo(bDate)
+                : bDate.compareTo(aDate);
+          });
 
         final activeCount = docs.where((doc) {
           final status = (doc.data()['status'] ?? '').toString();
@@ -130,6 +182,9 @@ class _AdminRequestsPageState extends State<AdminRequestsPage> {
         final urgentCount = docs.where((doc) {
           final urgency = (doc.data()['urgency'] ?? '').toString().toLowerCase();
           return urgency.contains('urgent') || urgency.contains('crit');
+        }).length;
+        final assignedCount = docs.where((doc) {
+          return (doc.data()['providerName'] ?? '').toString().trim().isNotEmpty;
         }).length;
 
         final compactStats = MediaQuery.of(context).size.width < 720;
@@ -200,6 +255,61 @@ class _AdminRequestsPageState extends State<AdminRequestsPage> {
                     ],
                   ),
                   const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _Chip(
+                        label: 'Toutes affectations',
+                        selected: _assignmentFilter == 'all',
+                        onTap: () => setState(() => _assignmentFilter = 'all'),
+                      ),
+                      _Chip(
+                        label: 'Affectees',
+                        selected: _assignmentFilter == 'assigned',
+                        onTap: () =>
+                            setState(() => _assignmentFilter = 'assigned'),
+                      ),
+                      _Chip(
+                        label: 'Sans provider',
+                        selected: _assignmentFilter == 'unassigned',
+                        onTap: () =>
+                            setState(() => _assignmentFilter = 'unassigned'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: _sortMode,
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'newest',
+                        child: Text('Plus recentes'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'oldest',
+                        child: Text('Plus anciennes'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'price_desc',
+                        child: Text('Prix le plus eleve'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(() => _sortMode = value);
+                    },
+                    decoration: InputDecoration(
+                      labelText: 'Tri',
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(18),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   if (compactStats)
                     Wrap(
                       spacing: 10,
@@ -226,6 +336,13 @@ class _AdminRequestsPageState extends State<AdminRequestsPage> {
                             value: '$urgentCount',
                           ),
                         ),
+                        SizedBox(
+                          width: 150,
+                          child: _MiniStat(
+                            label: 'Affectees',
+                            value: '$assignedCount',
+                          ),
+                        ),
                       ],
                     )
                   else
@@ -249,6 +366,13 @@ class _AdminRequestsPageState extends State<AdminRequestsPage> {
                           child: _MiniStat(
                             label: 'Urgentes',
                             value: '$urgentCount',
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _MiniStat(
+                            label: 'Affectees',
+                            value: '$assignedCount',
                           ),
                         ),
                       ],
@@ -385,6 +509,18 @@ class _AdminRequestsPageState extends State<AdminRequestsPage> {
                         title: 'Offre active',
                         value: (data['offeredProviderUid'] ?? '--').toString(),
                       ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => _forceCancel(doc.id),
+                            icon: const Icon(Icons.cancel_outlined),
+                            label: const Text('Forcer annulation'),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               );

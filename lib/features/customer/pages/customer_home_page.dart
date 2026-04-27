@@ -4,9 +4,9 @@ import 'package:latlong2/latlong.dart';
 
 import '../../../models/service_type.dart';
 import '../../../state/app_store.dart';
-import 'customer_tracking_page.dart';
 import '../../../widgets/map_pin.dart';
 import 'create_order_page.dart';
+import 'customer_tracking_page.dart';
 
 class CustomerHomePage extends StatefulWidget {
   const CustomerHomePage({
@@ -98,103 +98,97 @@ class _CustomerHomePageState extends State<CustomerHomePage> {
               ),
             ],
           ),
-         Positioned(
-  left: 0,
-  right: 0,
-  bottom: 0,
-  child: SafeArea(
-    top: false,
-    child: Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(28),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Color(0x1A000000),
-            blurRadius: 20,
-            offset: Offset(0, -4),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 🔘 drag indicator (premium look)
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(
-                color: Colors.black26,
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-          ),
-
-          const Text(
-            'Besoin d un service ?',
-            style: TextStyle(
-              fontWeight: FontWeight.w900,
-              fontSize: 22,
-            ),
-          ),
-
-          const SizedBox(height: 6),
-
-          Text(
-            store.customerLocationLoading
-                ? 'Localisation en cours...'
-                : (store.customerLocationMessage ??
-                    'Choisissez votre trajet rapidement.'),
-            style: const TextStyle(
-              color: Colors.black54,
-            ),
-          ),
-
-          const SizedBox(height: 14),
-
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: () {
-                if (activeRequest != null) {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => CustomerTrackingPage(
-                        store: store,
-                        requestId: activeRequest.id,
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: SafeArea(
+              top: false,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(
+                    top: Radius.circular(28),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color(0x1A000000),
+                      blurRadius: 20,
+                      offset: Offset(0, -4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.black26,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                     ),
-                  );
-                  return;
-                }
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => CreateOrderPage(
-                      store: store,
-                      service: ServiceType.values.first,
+                    const Text(
+                      'Besoin d un service ?',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 22,
+                      ),
                     ),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.route_outlined),
-              label: Text(
-                activeRequest != null
-                    ? 'Suivre ma mission actuelle'
-                    : 'Choisir destination',
+                    const SizedBox(height: 6),
+                    Text(
+                      store.customerLocationLoading
+                          ? 'Localisation en cours...'
+                          : (store.customerLocationMessage ??
+                              'Choisissez votre trajet rapidement.'),
+                      style: const TextStyle(
+                        color: Colors.black54,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () {
+                          if (activeRequest != null) {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => CustomerTrackingPage(
+                                  store: store,
+                                  requestId: activeRequest.id,
+                                ),
+                              ),
+                            );
+                            return;
+                          }
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => CreateOrderPage(
+                                store: store,
+                                service: ServiceType.values.first,
+                              ),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.route_outlined),
+                        label: Text(
+                          activeRequest != null
+                              ? 'Suivre ma mission actuelle'
+                              : 'Choisir destination',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-        ],
-      ),
-    ),
-  ),
-),
           Positioned(
             right: 16,
             bottom: 180,

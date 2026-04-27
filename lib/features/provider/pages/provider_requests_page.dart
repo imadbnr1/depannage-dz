@@ -51,6 +51,8 @@ class _ProviderRequestsPageState extends State<ProviderRequestsPage> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            const _RequestsHero(),
+            const SizedBox(height: 16),
             if (active.isEmpty)
               const SizedBox(
                 height: 280,
@@ -651,6 +653,76 @@ class _MiniBadge extends StatelessWidget {
           fontWeight: FontWeight.w700,
           fontSize: 12,
         ),
+      ),
+    );
+  }
+}
+
+class _RequestsHero extends StatelessWidget {
+  const _RequestsHero();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFFFFFCF8),
+            Color(0xFFF7F0E5),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: const Color(0xFFE8E1D5)),
+      ),
+      child: const Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _RequestsHeroIcon(),
+          SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Missions en cours',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 22,
+                  ),
+                ),
+                SizedBox(height: 6),
+                Text(
+                  'Pilotez vos missions actives et gardez un acces direct au suivi terrain.',
+                  style: TextStyle(
+                    color: Color(0xFF6B7280),
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RequestsHeroIcon extends StatelessWidget {
+  const _RequestsHeroIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: const Icon(
+        Icons.assignment_outlined,
+        color: Color(0xFFF59E0B),
       ),
     );
   }

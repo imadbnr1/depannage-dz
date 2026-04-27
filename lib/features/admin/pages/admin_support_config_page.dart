@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/services/admin_audit_service.dart';
 import '../../../core/services/app_feedback.dart';
 import '../../../models/support_config.dart';
 
@@ -12,6 +13,7 @@ class AdminSupportConfigPage extends StatefulWidget {
 }
 
 class _AdminSupportConfigPageState extends State<AdminSupportConfigPage> {
+  final AdminAuditService _auditService = AdminAuditService();
   final _phoneController = TextEditingController();
   final _whatsappController = TextEditingController();
   final _emailController = TextEditingController();
@@ -74,6 +76,14 @@ class _AdminSupportConfigPageState extends State<AdminSupportConfigPage> {
           .collection('app_config')
           .doc('support')
           .set(config.toMap(), SetOptions(merge: true));
+
+      await _auditService.logAction(
+        action: 'update_support_config',
+        targetCollection: 'app_config',
+        targetId: 'support',
+        summary: 'Configuration support mise a jour',
+        metadata: config.toMap(),
+      );
 
       if (!mounted) return;
       AppFeedback.showSuccess(context, 'Support mis a jour');
