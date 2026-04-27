@@ -55,6 +55,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
   int _simulationIndex = 0;
   int _devTapCount = 0;
   DateTime? _lastDevTapAt;
+  bool _followProvider = true;
 
   @override
   void initState() {
@@ -77,6 +78,12 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
         _syncAnimatedProviderPosition(request, immediate: true);
       }
       _scheduleRouteUpdate();
+    });
+
+    _mapController.mapEventStream.listen((event) {
+      if (event is MapEventMove && event.source != MapEventSource.mapController) {
+        setState(() => _followProvider = false);
+      }
     });
   }
 
@@ -138,31 +145,42 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
     }
 
     final startedAt = DateTime.now();
-    final headingDelta = _upcomingHeadingDeltaRadians(
-      from: currentPosition,
-      to: targetPosition,
-    );
-    final duration = Duration(
-          milliseconds: distanceMeters < 20
-              ? 650
-              : distanceMeters < 60
-                  ? 900
-                  : 1200,
-        ) +
-        Duration(
-          milliseconds: headingDelta > 1.0
-              ? 320
-              : headingDelta > 0.55
-                  ? 180
-                  : 0,
-        );
-    final animationCurve = headingDelta > 0.9
-        ? Curves.easeInOutCubic
-        : headingDelta > 0.45
-            ? Curves.easeInOut
-            : Curves.linearToEaseOut;
+    
+    // ✅ Smooth distance-based duration calculation
+    const minDurationMs = 400;
+    const maxDurationMs = 1600;
+    const idealSpeed = 80; // meters per second
+    final calculatedDuration = (distanceMeters / idealSpeed * 1000).round();
+    final durationMs = calculatedDuration.clamp(minDurationMs, maxDurationMs);
+    final duration = Duration(milliseconds: durationMs);
+    
+    // ✅ Consistent easeInOut curve for all movements
+    const animationCurve = Curves.easeInOutCubic;
 
     _providerAnimationTimer?.cancel();
+    // ✅ Find next route point to travel to
+    int nextRouteIndex = 0;
+    double minDistance = double.infinity;
+    for (var i = 0; i < _routePoints.length; i++) {
+      final distance = const Distance().as(
+        LengthUnit.Meter,
+        currentPosition,
+        _routePoints[i],
+      );
+      if (distance < minDistance) {
+        minDistance = distance;
+        nextRouteIndex = i;
+      }
+    }
+    if (nextRouteIndex < _routePoints.length - 1) {
+      nextRouteIndex += 1;
+    }
+    final nextRoutePoint = _routePoints[nextRouteIndex];
+
+    // ✅ Calculate correct bearing + π/2 offset for Flutter Map
+    final bearing = _bearingRadians(currentPosition, nextRoutePoint);
+    final markerRotation = bearing + (math.pi / 2); // 0° = East -> rotate 90° for North-facing icon
+
     _providerAnimationTimer = Timer.periodic(
       const Duration(milliseconds: 16),
       (timer) {
@@ -172,22 +190,36 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
         }
 
         final elapsed = DateTime.now().difference(startedAt);
-        final t = (elapsed.inMilliseconds / duration.inMilliseconds).clamp(
-          0.0,
-          1.0,
-        );
+        final t = (elapsed.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
         final easedT = animationCurve.transform(t);
 
+        final newPosition = _lerpLatLng(
+          currentPosition,
+          nextRoutePoint,
+          easedT,
+        );
+
         setState(() {
-          _renderedProviderPosition = _lerpLatLng(
-            currentPosition,
-            targetPosition,
-            easedT,
-          );
+          _renderedProviderPosition = newPosition;
+          _lastProviderHeadingRadians = markerRotation;
         });
+
+        if (_followProvider) {
+          _mapController.move(
+            newPosition,
+            _mapController.camera.zoom,
+            id: 'follow',
+          );
+        }
 
         if (t >= 1) {
           timer.cancel();
+          // ✅ Automatically continue to next route point
+          if (nextRouteIndex < _routePoints.length - 1) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) _syncAnimatedProviderPosition(request);
+            });
+          }
         }
       },
     );
@@ -264,7 +296,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
     _simulationTimer?.cancel();
     setState(() => _simulationRunning = true);
 
-    _simulationTimer = Timer.periodic(const Duration(milliseconds: 850), (
+    _simulationTimer = Timer.periodic(const Duration(milliseconds: 70), (
       timer,
     ) async {
       if (!mounted) {
@@ -301,6 +333,17 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
       );
     });
   }
+
+  Future<void> _startNavigation(LatLng destination) async {
+  final url = Uri.parse(
+    'https://www.google.com/maps/dir/?api=1'
+    '&destination=${destination.latitude},${destination.longitude}'
+    '&travelmode=driving'
+    '&dir_action=navigate',
+  );
+
+  await launchUrl(url, mode: LaunchMode.externalApplication);
+}
 
   Future<void> _simulateTowToDestination() async {
     final request = widget.store.findRequest(widget.requestId);
@@ -926,7 +969,10 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
                   icon: Icons.my_location_outlined,
                   onTap: providerPosition == null
                       ? null
-                      : () => _recenterRoute(providerPosition, routeTarget),
+                      : () {
+                          setState(() => _followProvider = true);
+                          _recenterRoute(providerPosition, routeTarget);
+                        },
                 ),
               ],
             ),
@@ -1030,41 +1076,53 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
                       ),
                     ),
                   const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      _BottomActionIconButton(
-                        icon: Icons.phone_outlined,
-                        onPressed: request.customerPhone.trim().isEmpty
-                            ? null
-                            : () => _callClient(request.customerPhone),
-                      ),
-                      const SizedBox(width: 8),
-                      _BottomActionIconButton(
-                        icon: Icons.chat_bubble_outline,
-                        onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => ChatPage(
-                                requestId: request.id,
-                                title: 'Chat client',
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: _canAdvance(request.status)
-                              ? () =>
-                                  widget.store.advanceMission(widget.requestId)
-                              : null,
-                          icon: const Icon(Icons.flag_outlined),
-                          label: Text(_actionLabel(request.status)),
-                        ),
-                      ),
-                    ],
-                  ),
+                  Column(
+  children: [
+    Row(
+      children: [
+        _BottomActionIconButton(
+          icon: Icons.phone_outlined,
+          onPressed: request.customerPhone.trim().isEmpty
+              ? null
+              : () => _callClient(request.customerPhone),
+        ),
+        const SizedBox(width: 8),
+        _BottomActionIconButton(
+          icon: Icons.chat_bubble_outline,
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ChatPage(
+                  requestId: request.id,
+                  title: 'Chat client',
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () => _startNavigation(routeTarget),
+            icon: const Icon(Icons.navigation_outlined),
+            label: const Text('Ouvrir Google Maps'),
+          ),
+        ),
+      ],
+    ),
+    const SizedBox(height: 8),
+    SizedBox(
+      width: double.infinity,
+      child: FilledButton.icon(
+        onPressed: _canAdvance(request.status)
+            ? () => widget.store.advanceMission(widget.requestId)
+            : null,
+        icon: const Icon(Icons.flag_outlined),
+        label: Text(_actionLabel(request.status)),
+      ),
+    ),
+  ],
+)
                 ],
               ),
             ),

@@ -49,6 +49,7 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
   LatLng? _renderedProviderPosition;
   LatLng? _previousProviderPosition;
   LatLng? _lastTargetPosition;
+  bool _followProvider = true;
 
   @override
   void initState() {
@@ -81,6 +82,12 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
       }
       _scheduleRouteUpdate();
       _fitWaitingProviders();
+    });
+
+    _mapController.mapEventStream.listen((event) {
+      if (event is MapEventMove && event.source != MapEventSource.mapController) {
+        setState(() => _followProvider = false);
+      }
     });
   }
 
@@ -142,29 +149,17 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
     }
 
     final startedAt = DateTime.now();
-    final headingDelta = _upcomingHeadingDeltaRadians(
-      from: currentPosition,
-      to: targetPosition,
-    );
-    final duration = Duration(
-          milliseconds: distanceMeters < 20
-              ? 650
-              : distanceMeters < 60
-                  ? 900
-                  : 1200,
-        ) +
-        Duration(
-          milliseconds: headingDelta > 1.0
-              ? 320
-              : headingDelta > 0.55
-                  ? 180
-                  : 0,
-        );
-    final animationCurve = headingDelta > 0.9
-        ? Curves.easeInOutCubic
-        : headingDelta > 0.45
-            ? Curves.easeInOut
-            : Curves.linearToEaseOut;
+    
+    // ✅ Smooth distance-based duration calculation
+    const minDurationMs = 400;
+    const maxDurationMs = 1600;
+    const idealSpeed = 80; // meters per second
+    final calculatedDuration = (distanceMeters / idealSpeed * 1000).round();
+    final durationMs = calculatedDuration.clamp(minDurationMs, maxDurationMs);
+    final duration = Duration(milliseconds: durationMs);
+    
+    // ✅ Consistent easeInOut curve for all movements
+    const animationCurve = Curves.easeInOutCubic;
 
     _providerAnimationTimer?.cancel();
     _providerAnimationTimer = Timer.periodic(
@@ -176,19 +171,26 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
         }
 
         final elapsed = DateTime.now().difference(startedAt);
-        final t = (elapsed.inMilliseconds / duration.inMilliseconds).clamp(
-          0.0,
-          1.0,
-        );
+        final t = (elapsed.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
         final easedT = animationCurve.transform(t);
 
+        final newPosition = _lerpLatLng(
+          currentPosition,
+          targetPosition,
+          easedT,
+        );
+
         setState(() {
-          _renderedProviderPosition = _lerpLatLng(
-            currentPosition,
-            targetPosition,
-            easedT,
-          );
+          _renderedProviderPosition = newPosition;
         });
+
+        if (_followProvider) {
+          _mapController.move(
+            newPosition,
+            _mapController.camera.zoom,
+            id: 'follow',
+          );
+        }
 
         if (t >= 1) {
           timer.cancel();
@@ -836,7 +838,10 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
                   icon: Icons.my_location_outlined,
                   onTap: providerPosition == null
                       ? null
-                      : () => _recenterRoute(providerPosition, routeTarget),
+                      : () {
+                          setState(() => _followProvider = true);
+                          _recenterRoute(providerPosition, routeTarget);
+                        },
                 ),
               ],
             ),
