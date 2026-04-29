@@ -73,6 +73,18 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
     return gross - commission;
   }
 
+  void _navigateToAvailableMissions() {
+    widget.store.setProviderTab(1);
+  }
+
+  void _navigateToActiveMissions() {
+    widget.store.setProviderTab(1);
+  }
+
+  void _navigateToProfile() {
+    widget.store.setProviderTab(3);
+  }
+
   Future<void> _centerProvider() async {
     await widget.store.requestProviderLocation();
 
@@ -256,23 +268,41 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
                       children: [
                         SizedBox(
                           width: (constraints.maxWidth - 10) / 2,
-                          child: _MiniStat(
-                            title: 'Disponibles',
-                            value: '${available.length}',
+                          child: InkWell(
+                            onTap: available.isNotEmpty
+                                ? _navigateToAvailableMissions
+                                : null,
+                            borderRadius: BorderRadius.circular(12),
+                            child: _MiniStat(
+                              title: 'Disponibles',
+                              value: '${available.length}',
+                              highlight: available.isNotEmpty,
+                            ),
                           ),
                         ),
                         SizedBox(
                           width: (constraints.maxWidth - 10) / 2,
-                          child: _MiniStat(
-                            title: 'Actives',
-                            value: '${active.length}',
+                          child: InkWell(
+                            onTap: active.isNotEmpty
+                                ? _navigateToActiveMissions
+                                : null,
+                            borderRadius: BorderRadius.circular(12),
+                            child: _MiniStat(
+                              title: 'Actives',
+                              value: '${active.length}',
+                              highlight: active.isNotEmpty,
+                            ),
                           ),
                         ),
                         SizedBox(
                           width: constraints.maxWidth,
-                          child: _MiniStat(
-                            title: 'Note',
-                            value: provider.rating.toStringAsFixed(1),
+                          child: InkWell(
+                            onTap: _navigateToProfile,
+                            borderRadius: BorderRadius.circular(12),
+                            child: _MiniStat(
+                              title: 'Note',
+                              value: provider.rating.toStringAsFixed(1),
+                            ),
                           ),
                         ),
                       ],
@@ -282,23 +312,41 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
                   return Row(
                     children: [
                       Expanded(
-                        child: _MiniStat(
-                          title: 'Disponibles',
-                          value: '${available.length}',
+                        child: InkWell(
+                          onTap: available.isNotEmpty
+                              ? _navigateToAvailableMissions
+                              : null,
+                          borderRadius: BorderRadius.circular(12),
+                          child: _MiniStat(
+                            title: 'Disponibles',
+                            value: '${available.length}',
+                            highlight: available.isNotEmpty,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: _MiniStat(
-                          title: 'Actives',
-                          value: '${active.length}',
+                        child: InkWell(
+                          onTap: active.isNotEmpty
+                              ? _navigateToActiveMissions
+                              : null,
+                          borderRadius: BorderRadius.circular(12),
+                          child: _MiniStat(
+                            title: 'Actives',
+                            value: '${active.length}',
+                            highlight: active.isNotEmpty,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: _MiniStat(
-                          title: 'Note',
-                          value: provider.rating.toStringAsFixed(1),
+                        child: InkWell(
+                          onTap: _navigateToProfile,
+                          borderRadius: BorderRadius.circular(12),
+                          child: _MiniStat(
+                            title: 'Note',
+                            value: provider.rating.toStringAsFixed(1),
+                          ),
                         ),
                       ),
                     ],
@@ -395,31 +443,46 @@ class _MiniStat extends StatelessWidget {
   const _MiniStat({
     required this.title,
     required this.value,
+    this.highlight = false,
   });
 
   final String title;
   final String value;
+  final bool highlight;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            color: Colors.black54,
-            fontSize: 11,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: highlight
+            ? const Color(0xFFF59E0B).withValues(alpha: 0.08)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              color: highlight
+                  ? const Color(0xFFF59E0B)
+                  : Colors.black54,
+              fontSize: 11,
+              fontWeight: highlight ? FontWeight.w700 : FontWeight.normal,
+            ),
           ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(
-            fontWeight: FontWeight.w900,
-            fontSize: 16,
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 16,
+              color: highlight ? const Color(0xFFF59E0B) : Colors.black,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
@@ -28,9 +29,20 @@ class RouteService {
         '?overview=full&geometries=geojson&steps=false',
       );
 
-      final response = await http.get(url);
+      // Use CORS proxy for web
+      final effectiveUrl = kIsWeb
+          ? 'https://api.allorigins.win/raw?url=${Uri.encodeComponent(url.toString())}'
+          : url.toString();
+
+      final response = await http.get(Uri.parse(effectiveUrl));
 
       if (response.statusCode != 200) {
+        return _fallback(safeOrigin, safeDestination);
+      }
+
+      // Check if response is JSON (not HTML error page)
+      final contentType = response.headers['content-type'] ?? '';
+      if (!contentType.contains('application/json') && !contentType.contains('application/geo+json')) {
         return _fallback(safeOrigin, safeDestination);
       }
 

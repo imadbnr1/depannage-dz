@@ -35,6 +35,7 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
   Timer? _routeTimer;
   Timer? _offerTimer;
   Timer? _providerAnimationTimer;
+  Timer? _rejectionAnimationTimer;
 
   List<LatLng> _routePoints = [];
   bool _loadingRoute = false;
@@ -50,6 +51,11 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
   LatLng? _previousProviderPosition;
   LatLng? _lastTargetPosition;
   bool _followProvider = true;
+  
+  // ✅ Track rejected provider for animation
+  String? _lastRejectedProviderId;
+  DateTime? _rejectionAnimationStartTime;
+  bool _showNoProvidersPopup = false;
 
   @override
   void initState() {
@@ -66,11 +72,36 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
       setState(() {});
     });
 
-    _offerTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+    _offerTimer = Timer.periodic(const Duration(seconds: 1), (_) async {
       if (!mounted) return;
       final request = widget.store.findRequest(widget.requestId);
+
       if (request?.status == RequestStatus.searching &&
           request?.offeredProviderUid != null) {
+
+        // ✅ When offer expires, automatically reject and dispatch to next provider
+        final remaining = widget.store.offerSecondsRemaining(request!.id);
+        if (remaining != null && remaining <= 0) {
+          final offeredUid = request.offeredProviderUid;
+          if (offeredUid != null) {
+            // ✅ Track rejected provider for animation
+            setState(() {
+              _lastRejectedProviderId = offeredUid;
+              _rejectionAnimationStartTime = DateTime.now();
+            });
+            await widget.store.rejectRequestForProvider(request.id, offeredUid, fromTimeout: true);
+            // ✅ Start rejection animation timer
+            _rejectionAnimationTimer = Timer(const Duration(milliseconds: 2000), () {
+              if (mounted) {
+                setState(() {
+                  _lastRejectedProviderId = null;
+                  _rejectionAnimationStartTime = null;
+                });
+              }
+            });
+          }
+        }
+
         setState(() {});
       }
     });
@@ -98,6 +129,7 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
     _routeTimer?.cancel();
     _offerTimer?.cancel();
     _providerAnimationTimer?.cancel();
+    _rejectionAnimationTimer?.cancel();
     super.dispose();
   }
 
@@ -106,6 +138,17 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
     final request = widget.store.findRequest(widget.requestId);
     if (request != null) {
       _syncAnimatedProviderPosition(request);
+      
+      // ✅ Check if no providers are available in the dispatch chain
+      final dispatchChain = widget.store.getDispatchChain(request.id);
+      final dispatchIndex = widget.store.getDispatchChainIndex(request.id) ?? 0;
+      final hasMoreProviders = dispatchChain != null && dispatchIndex < dispatchChain.length;
+      
+      if (!hasMoreProviders && request.status == RequestStatus.searching) {
+        setState(() {
+          _showNoProvidersPopup = true;
+        });
+      }
     }
     _fitWaitingProviders();
     setState(() {});
@@ -122,8 +165,8 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
     if (targetPosition == null) return;
 
     // Update previous position for heading calculation
-    if (_lastTargetPosition != null && 
-        (_lastTargetPosition!.latitude != targetPosition.latitude || 
+    if (_lastTargetPosition != null &&
+        (_lastTargetPosition!.latitude != targetPosition.latitude ||
          _lastTargetPosition!.longitude != targetPosition.longitude)) {
       _previousProviderPosition = _lastTargetPosition;
     }
@@ -148,17 +191,17 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
       return;
     }
 
+    // ✅ For customer view: smoothly animate marker to real GPS position
+    // This provides visual smoothness while still reflecting actual provider location
     final startedAt = DateTime.now();
-    
-    // ✅ Smooth distance-based duration calculation
+
     const minDurationMs = 400;
     const maxDurationMs = 1600;
     const idealSpeed = 80; // meters per second
     final calculatedDuration = (distanceMeters / idealSpeed * 1000).round();
     final durationMs = calculatedDuration.clamp(minDurationMs, maxDurationMs);
     final duration = Duration(milliseconds: durationMs);
-    
-    // ✅ Consistent easeInOut curve for all movements
+
     const animationCurve = Curves.easeInOutCubic;
 
     _providerAnimationTimer?.cancel();
@@ -206,15 +249,6 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
     );
   }
 
-  double _upcomingHeadingDeltaRadians({
-    required LatLng from,
-    required LatLng to,
-  }) {
-    final currentHeading = _lastProviderHeadingRadians;
-    final travelHeading = _bearingRadians(from, to) + (math.pi / 2);
-    if (currentHeading == null) return 0;
-    return _normalizeAngleRadians(travelHeading - currentHeading).abs();
-  }
 
   void _scheduleRouteUpdate() {
     _routeTimer?.cancel();
@@ -379,10 +413,6 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
     _didAutoFitRoute = true;
   }
 
-  void _recenterRoute(LatLng a, LatLng b) {
-    _didAutoFitRoute = false;
-    _fitRoute(a, b);
-  }
 
   double? _providerHeadingRadians({
     required LatLng providerPosition,
@@ -764,22 +794,53 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
       for (final provider in nearbyProviders) {
         if (!seenProviderIds.add(provider.id)) continue;
         final isTargeted = provider.id == offeredProviderId;
-        markers.add(
-          Marker(
-            point: provider.position,
-            width: 192,
-            height: 160,
-            child: _PinnedMarker(
-              label: isTargeted ? 'Mission' : 'Depanneuse',
-              type: RoleMapMarkerType.provider,
-              icon: Icons.car_repair_rounded,
-              color: isTargeted
-                  ? const Color(0xFFF59E0B)
-                  : const Color(0xFF6B7280),
-              compactLabel: true,
+        final isBeingOffered = widget.store.isProviderBeingOffered(provider.id, request.id);
+        final isRejected = provider.id == _lastRejectedProviderId;
+
+        if (isBeingOffered) {
+          // ✅ Animated marker for provider being notified
+          markers.add(
+            Marker(
+              point: provider.position,
+              width: 220,
+              height: 220,
+              child: const _AnimatedOfferMarker(
+                label: 'Mission',
+                color: Color(0xFFF59E0B),
+              ),
             ),
-          ),
-        );
+          );
+        } else if (isRejected) {
+          // ✅ Animated marker for rejected/timeout provider
+          markers.add(
+            Marker(
+              point: provider.position,
+              width: 220,
+              height: 220,
+              child: _AnimatedRejectionMarker(
+                label: 'Refuse',
+                startTime: _rejectionAnimationStartTime,
+              ),
+            ),
+          );
+        } else {
+          markers.add(
+            Marker(
+              point: provider.position,
+              width: 192,
+              height: 160,
+              child: _PinnedMarker(
+                label: isTargeted ? 'Mission' : 'Depanneuse',
+                type: RoleMapMarkerType.provider,
+                icon: Icons.car_repair_rounded,
+                color: isTargeted
+                    ? const Color(0xFFF59E0B)
+                    : const Color(0xFF6B7280),
+                compactLabel: true,
+              ),
+            ),
+          );
+        }
       }
     }
 
@@ -836,12 +897,26 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
                 const SizedBox(width: 10),
                 _MapGlassButton(
                   icon: Icons.my_location_outlined,
-                  onTap: providerPosition == null
-                      ? null
-                      : () {
-                          setState(() => _followProvider = true);
-                          _recenterRoute(providerPosition, routeTarget);
-                        },
+                  onTap: () async {
+                    // ✅ Center map on customer location
+                    final request = widget.store.findRequest(widget.requestId);
+                    if (request != null) {
+                      final customerPos = request.customerPosition;
+                      // Move camera to customer location with smooth animation
+                      _mapController.move(customerPos, 15);
+                      // ✅ Disable provider following to stay on customer location
+                      setState(() => _followProvider = false);
+                      return;
+                    }
+
+                    // Fallback: request fresh location if not available
+                    await widget.store.requestCustomerLocation();
+                    final updatedRequest = widget.store.findRequest(widget.requestId);
+                    if (updatedRequest != null) {
+                      _mapController.move(updatedRequest.customerPosition, 15);
+                      setState(() => _followProvider = false);
+                    }
+                  },
                 ),
               ],
             ),
@@ -969,6 +1044,31 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
               ),
             ),
           ),
+          if (_showNoProvidersPopup)
+            Positioned.fill(
+              child: IgnorePointer(
+                ignoring: false,
+                child: Stack(
+                  children: [
+                    Container(
+                      color: Colors.black54,
+                    ),
+                    Center(
+                      child: _NoProvidersPopup(
+                        onDismiss: () {
+                          setState(() => _showNoProvidersPopup = false);
+                        },
+                        onCancelMission: () async {
+                          await widget.store.cancelRequest(request.id);
+                          if (!context.mounted) return;
+                          Navigator.of(context).pop();
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -1275,6 +1375,373 @@ class _InfoBox extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ✅ Animated marker for provider being notified of a mission
+class _AnimatedOfferMarker extends StatefulWidget {
+  const _AnimatedOfferMarker({
+    required this.label,
+    required this.color,
+  });
+
+  final String label;
+  final Color color;
+
+  @override
+  State<_AnimatedOfferMarker> createState() => _AnimatedOfferMarkerState();
+}
+
+class _AnimatedOfferMarkerState extends State<_AnimatedOfferMarker>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scaleAnimation;
+  late final Animation<double> _opacityAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    )..repeat();
+
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.6).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+
+    _opacityAnimation = Tween<double>(begin: 0.8, end: 0.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            // ✅ Outer pulse ring
+            Transform.scale(
+              scale: _scaleAnimation.value,
+              child: Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: widget.color.withValues(alpha: _opacityAnimation.value),
+                  border: Border.all(
+                    color: widget.color.withValues(alpha: 0.4),
+                    width: 2,
+                  ),
+                ),
+              ),
+            ),
+            // ✅ Inner pulse ring
+            Transform.scale(
+              scale: _scaleAnimation.value * 0.7,
+              child: Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: widget.color.withValues(alpha: _opacityAnimation.value * 0.6),
+                ),
+              ),
+            ),
+            // ✅ Center marker
+            Container(
+              width: 70,
+              height: 70,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: widget.color,
+                  width: 3,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: widget.color.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: Icon(
+                Icons.car_repair_rounded,
+                color: widget.color,
+                size: 36,
+              ),
+            ),
+            // ✅ Label
+            Positioned(
+              bottom: -8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: widget.color, width: 2),
+                ),
+                child: Text(
+                  widget.label,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 11,
+                    color: widget.color,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// ✅ Animated marker for provider rejection/timeout
+class _AnimatedRejectionMarker extends StatefulWidget {
+  const _AnimatedRejectionMarker({
+    required this.label,
+    required this.startTime,
+  });
+
+  final String label;
+  final DateTime? startTime;
+
+  @override
+  State<_AnimatedRejectionMarker> createState() => _AnimatedRejectionMarkerState();
+}
+
+class _AnimatedRejectionMarkerState extends State<_AnimatedRejectionMarker>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scaleAnimation;
+  late final Animation<double> _opacityAnimation;
+  late final Animation<double> _rotationAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 2000),
+      vsync: this,
+    );
+
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.5).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+
+    _opacityAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+
+    _rotationAnimation = Tween<double>(begin: 0.0, end: math.pi).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+
+    _controller.forward();
+  }
+
+  @override
+  void didUpdateWidget(_AnimatedRejectionMarker oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.startTime != oldWidget.startTime) {
+      _controller.reset();
+      _controller.forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            // ✅ Outer fading ring
+            Transform.scale(
+              scale: _scaleAnimation.value * 1.8,
+              child: Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.red.withValues(alpha: _opacityAnimation.value * 0.6),
+                  border: Border.all(
+                    color: Colors.red,
+                    width: 3,
+                  ),
+                ),
+              ),
+            ),
+            // ✅ Inner X mark
+            Transform.rotate(
+              angle: _rotationAnimation.value,
+              child: Container(
+                width: 70,
+                height: 70,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.red,
+                    width: 3,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.red.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.close_rounded,
+                  color: Colors.red,
+                  size: 42,
+                ),
+              ),
+            ),
+            // ✅ Label
+            Positioned(
+              bottom: -8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.red, width: 2),
+                ),
+                child: Text(
+                  widget.label,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 11,
+                    color: Colors.red,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// ✅ Popup widget for "no providers available"
+class _NoProvidersPopup extends StatelessWidget {
+  const _NoProvidersPopup({
+    required this.onDismiss,
+    required this.onCancelMission,
+  });
+
+  final VoidCallback onDismiss;
+  final VoidCallback onCancelMission;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Material(
+        type: MaterialType.card,
+        borderRadius: BorderRadius.circular(20),
+        elevation: 8,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ✅ Icon with animation
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.error_outline_rounded,
+                  size: 42,
+                  color: Colors.orange.shade700,
+                ),
+              ),
+              const SizedBox(height: 20),
+              // ✅ Title
+              const Text(
+                'Aucun provider disponible',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 12),
+              // ✅ Body text
+              const Text(
+                'Tous les providers a proximite ont refuse ou n ont pas repondu a votre mission. '
+                'Il semble qu\'il n\'y ait plus de providers disponibles pour le moment.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 15,
+                  color: Colors.black54,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 24),
+              // ✅ Cancel button
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: onCancelMission,
+                  icon: const Icon(Icons.cancel_outlined),
+                  label: const Text('Annuler la mission'),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              // ✅ Dismiss button
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: onDismiss,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: const BorderSide(color: Colors.grey),
+                  ),
+                  child: const Text('Fermer'),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

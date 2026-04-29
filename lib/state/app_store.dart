@@ -88,6 +88,15 @@ class AppStore extends ChangeNotifier {
   final Map<String, StreamSubscription<Position>> _liveTrackingSubs = {};
   final Set<String> _dispatchFallbackInFlight = {};
 
+  // ✅ Automatic dispatch chain tracking
+  final Map<String, List<String>> _dispatchChains = {}; // requestId -> [providerIds in order]
+  final Map<String, int> _dispatchChainIndex = {}; // requestId -> current index in chain
+  final Map<String, String> _currentOfferedProviderIds = {}; // requestId -> currently offered providerId
+
+  // ✅ Helper methods for dispatch chain access
+  List<String>? getDispatchChain(String requestId) => _dispatchChains[requestId];
+  int? getDispatchChainIndex(String requestId) => _dispatchChainIndex[requestId];
+
   void bootstrap() {
     _requestsSub = requestRepository.watchRequests().listen((items) {
       _requests = items;
@@ -310,6 +319,7 @@ class AppStore extends ChangeNotifier {
     if (providerId == null) return const [];
     if (provider == null) return const [];
     if (!provider.isOnline) return const [];
+    if (provider.isBusy) return const []; // ✅ Busy providers can't see/accept new missions
 
     return _requests.where((r) {
       return r.status == RequestStatus.searching &&
@@ -363,6 +373,16 @@ class AppStore extends ChangeNotifier {
     final offeredUid = findRequest(requestId)?.offeredProviderUid;
     if (offeredUid == null) return null;
     return findProviderById(offeredUid)?.name;
+  }
+
+  // ✅ Get the current provider ID that the mission is being offered to (for animation)
+  String? getCurrentOfferedProviderId(String requestId) {
+    return _currentOfferedProviderIds[requestId];
+  }
+
+  // ✅ Check if a provider is currently being offered a specific request
+  bool isProviderBeingOffered(String providerId, String requestId) {
+    return _currentOfferedProviderIds[requestId] == providerId;
   }
 
   int? offerSecondsRemaining(String requestId) {
@@ -495,6 +515,7 @@ class AppStore extends ChangeNotifier {
     String requestId, {
     LatLng? customerPosition,
     Duration delay = Duration.zero,
+    bool useDispatchChain = true,
   }) async {
     if (_dispatchFallbackInFlight.contains(requestId)) return;
     _dispatchFallbackInFlight.add(requestId);
@@ -508,27 +529,80 @@ class AppStore extends ChangeNotifier {
       final currentStatus = latest?.status ?? RequestStatus.searching;
       final alreadyAssigned = latest != null &&
           (currentStatus != RequestStatus.searching ||
-              (latest.providerUid?.trim().isNotEmpty ?? false) ||
-              (latest.offeredProviderUid?.trim().isNotEmpty ?? false));
+              (latest.providerUid?.trim().isNotEmpty ?? false));
 
       if (alreadyAssigned) return;
 
       final targetPosition = latest?.customerPosition ?? customerPosition;
       if (targetPosition == null) return;
 
-      final nearest = findNearestAvailableProvider(
-        targetPosition,
-        requestId: requestId,
-      );
-      if (nearest == null) return;
+      // ✅ Build dispatch chain if not exists or if not using chain
+      if (!useDispatchChain || !_dispatchChains.containsKey(requestId)) {
+        final allProviders = eligibleProvidersSortedByDistance(
+          targetPosition,
+          requestId: requestId,
+        );
+        _dispatchChains[requestId] = allProviders.map((p) => p.id).toList();
+        _dispatchChainIndex[requestId] = 0;
+      }
+
+      // ✅ Find next available provider in chain
+      String? nextProviderId;
+      final chain = _dispatchChains[requestId] ?? [];
+      final startIndex = _dispatchChainIndex[requestId] ?? 0;
+
+      for (int i = startIndex; i < chain.length; i++) {
+        final providerId = chain[i];
+        final provider = findProviderById(providerId);
+        if (provider != null &&
+            provider.isOnline &&
+            !provider.isBusy &&
+            provider.isVerified) {
+          nextProviderId = providerId;
+          _dispatchChainIndex[requestId] = i;
+          break;
+        }
+      }
+
+      // ✅ No more providers in chain
+      if (nextProviderId == null) {
+        _dispatchChains.remove(requestId);
+        _dispatchChainIndex.remove(requestId);
+        _currentOfferedProviderIds.remove(requestId);
+        
+        // ✅ Notify customer that no providers are available
+        _pushLifecycleNotification(
+          title: 'Aucun provider disponible',
+          body: 'Aucun provider n est disponible pour le moment. Veuillez reessayer plus tard.',
+          type: 'no_providers_available',
+        );
+        return;
+      }
+
+      // ✅ Store current offered provider for animation tracking
+      _currentOfferedProviderIds[requestId] = nextProviderId;
 
       final now = DateTime.now();
-      await requestRepository.offerRequestToProvider(
+      final offerSuccess = await requestRepository.offerRequestToProvider(
         requestId: requestId,
-        providerUid: nearest.id,
+        providerUid: nextProviderId,
         offeredAt: now,
         offerExpiresAt: now.add(const Duration(seconds: 20)),
       );
+
+      if (offerSuccess) {
+        // ✅ Notify customer that mission was sent to a provider
+        final provider = findProviderById(nextProviderId);
+        if (provider != null) {
+          _pushLifecycleNotification(
+            title: 'Mission proposee',
+            body: 'Mission proposee a ${provider.name}',
+            type: 'mission_offered',
+          );
+        }
+      }
+
+      notifyListeners();
     } finally {
       _dispatchFallbackInFlight.remove(requestId);
     }
@@ -541,11 +615,18 @@ class AppStore extends ChangeNotifier {
     final latest = findRequest(requestId);
     if (latest == null || latest.status != RequestStatus.searching) return;
 
+    // ✅ Advance chain index to skip this provider
+    if (_dispatchChains.containsKey(requestId)) {
+      final currentIndex = _dispatchChainIndex[requestId] ?? 0;
+      _dispatchChainIndex[requestId] = currentIndex + 1;
+    }
+
     await requestRepository.rejectOfferedRequest(
       requestId: requestId,
       providerUid: providerUid,
     );
 
+    // ✅ Immediately try next provider in chain
     await _attemptFallbackDispatch(
       requestId,
       customerPosition: latest.customerPosition,
@@ -1234,6 +1315,18 @@ class AppStore extends ChangeNotifier {
     final provider = findProviderById(providerId);
     if (provider == null) return;
 
+    // ✅ Check if provider already has an active mission
+    final activeMissions = providerAssignedRequests;
+    if (activeMissions.isNotEmpty) {
+      _pushLifecycleNotification(
+        title: 'Mission indisponible',
+        body: 'Vous avez deja une mission en cours. Terminez-la avant d\'en accepter une nouvelle.',
+        type: 'provider_busy',
+      );
+      notifyListeners();
+      return;
+    }
+
     _dispatchTimers[requestId]?.cancel();
     _dispatchTimers.remove(requestId);
 
@@ -1330,10 +1423,10 @@ class AppStore extends ChangeNotifier {
       return;
     }
 
-    await _rejectRequestForProvider(requestId, providerId);
+    await rejectRequestForProvider(requestId, providerId);
   }
 
-  Future<void> _rejectRequestForProvider(
+  Future<void> rejectRequestForProvider(
     String requestId,
     String providerId, {
     bool fromTimeout = false,
@@ -1362,6 +1455,13 @@ class AppStore extends ChangeNotifier {
       return;
     }
 
+    // ✅ Advance dispatch chain to next provider
+    if (_dispatchChains.containsKey(requestId)) {
+      final currentIndex = _dispatchChainIndex[requestId] ?? 0;
+      _dispatchChainIndex[requestId] = currentIndex + 1;
+    }
+    _currentOfferedProviderIds.remove(requestId);
+
     _pushLifecycleNotification(
       title: fromTimeout ? 'Temps expire' : 'Mission retiree',
       body: fromTimeout
@@ -1369,6 +1469,15 @@ class AppStore extends ChangeNotifier {
           : 'La mission a ete retiree de votre liste.',
       type: fromTimeout ? 'timeout' : 'rejected',
     );
+
+    // ✅ Automatically dispatch to next provider in chain
+    if (current.status == RequestStatus.searching) {
+      unawaited(_attemptFallbackDispatch(
+        requestId,
+        customerPosition: current.customerPosition,
+        delay: const Duration(milliseconds: 500),
+      ));
+    }
 
     notifyListeners();
   }

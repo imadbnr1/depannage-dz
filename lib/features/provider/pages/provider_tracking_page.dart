@@ -118,8 +118,8 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
     if (targetPosition == null) return;
 
     // Update previous position for heading calculation
-    if (_lastTargetPosition != null && 
-        (_lastTargetPosition!.latitude != targetPosition.latitude || 
+    if (_lastTargetPosition != null &&
+        (_lastTargetPosition!.latitude != targetPosition.latitude ||
          _lastTargetPosition!.longitude != targetPosition.longitude)) {
       _previousProviderPosition = _lastTargetPosition;
     }
@@ -144,42 +144,45 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
       return;
     }
 
+    // ✅ ONLY animate for simulation mode - real tracking uses direct GPS position
+    if (!_simulationRunning) {
+      // For real tracking: instantly update to actual GPS position (no animation)
+      _providerAnimationTimer?.cancel();
+      _renderedProviderPosition = targetPosition;
+      
+      // Calculate heading from actual movement
+      final bearing = _bearingRadians(currentPosition, targetPosition);
+      final markerRotation = bearing + (math.pi / 2);
+      
+      setState(() {
+        _lastProviderHeadingRadians = markerRotation;
+      });
+      
+      if (_followProvider) {
+        _mapController.move(
+          targetPosition,
+          _mapController.camera.zoom,
+          id: 'follow',
+        );
+      }
+      return;
+    }
+
+    // ✅ For simulation only: follow green polyline route
     final startedAt = DateTime.now();
-    
-    // ✅ Smooth distance-based duration calculation
     const minDurationMs = 400;
     const maxDurationMs = 1600;
-    const idealSpeed = 80; // meters per second
+    const idealSpeed = 80;
     final calculatedDuration = (distanceMeters / idealSpeed * 1000).round();
     final durationMs = calculatedDuration.clamp(minDurationMs, maxDurationMs);
     final duration = Duration(milliseconds: durationMs);
-    
-    // ✅ Consistent easeInOut curve for all movements
     const animationCurve = Curves.easeInOutCubic;
 
     _providerAnimationTimer?.cancel();
-    // ✅ Find next route point to travel to
-    int nextRouteIndex = 0;
-    double minDistance = double.infinity;
-    for (var i = 0; i < _routePoints.length; i++) {
-      final distance = const Distance().as(
-        LengthUnit.Meter,
-        currentPosition,
-        _routePoints[i],
-      );
-      if (distance < minDistance) {
-        minDistance = distance;
-        nextRouteIndex = i;
-      }
-    }
-    if (nextRouteIndex < _routePoints.length - 1) {
-      nextRouteIndex += 1;
-    }
-    final nextRoutePoint = _routePoints[nextRouteIndex];
 
-    // ✅ Calculate correct bearing + π/2 offset for Flutter Map
-    final bearing = _bearingRadians(currentPosition, nextRoutePoint);
-    final markerRotation = bearing + (math.pi / 2); // 0° = East -> rotate 90° for North-facing icon
+    // ✅ Calculate correct bearing between actual positions
+    final bearing = _bearingRadians(currentPosition, targetPosition);
+    final markerRotation = bearing + (math.pi / 2);
 
     _providerAnimationTimer = Timer.periodic(
       const Duration(milliseconds: 16),
@@ -195,7 +198,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
 
         final newPosition = _lerpLatLng(
           currentPosition,
-          nextRoutePoint,
+          targetPosition,
           easedT,
         );
 
@@ -214,8 +217,9 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
 
         if (t >= 1) {
           timer.cancel();
-          // ✅ Automatically continue to next route point
-          if (nextRouteIndex < _routePoints.length - 1) {
+
+          // ✅ Continue only for simulation
+          if (_simulationRunning && _routePoints.isNotEmpty && _simulationIndex < _routePoints.length - 1) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) _syncAnimatedProviderPosition(request);
             });
@@ -232,15 +236,6 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
     );
   }
 
-  double _upcomingHeadingDeltaRadians({
-    required LatLng from,
-    required LatLng to,
-  }) {
-    final currentHeading = _lastProviderHeadingRadians;
-    final travelHeading = _bearingRadians(from, to) + (math.pi / 2);
-    if (currentHeading == null) return 0;
-    return _normalizeAngleRadians(travelHeading - currentHeading).abs();
-  }
 
   void _scheduleRouteUpdate() {
     _routeTimer?.cancel();
@@ -967,11 +962,11 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
                 const SizedBox(width: 10),
                 _MapGlassButton(
                   icon: Icons.my_location_outlined,
-                  onTap: providerPosition == null
+                  onTap: actualProviderPosition == null
                       ? null
                       : () {
                           setState(() => _followProvider = true);
-                          _recenterRoute(providerPosition, routeTarget);
+                          _recenterRoute(actualProviderPosition, routeTarget);
                         },
                 ),
               ],

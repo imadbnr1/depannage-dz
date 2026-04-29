@@ -33,12 +33,14 @@ class FcmService {
         onDidReceiveNotificationResponse: (details) {
           final raw = details.payload;
           if (raw == null || raw.isEmpty) return;
-          final decoded = jsonDecode(raw);
-          if (decoded is Map) {
-            payloadNotifier.value = decoded.map(
-              (key, value) => MapEntry(key.toString(), value.toString()),
-            );
-          }
+          try {
+            final decoded = jsonDecode(raw);
+            if (decoded is Map) {
+              payloadNotifier.value = decoded.map(
+                (key, value) => MapEntry(key.toString(), value.toString()),
+              );
+            }
+          } catch (_) {}
         },
       );
 
