@@ -178,14 +178,14 @@ class _PickDestinationPageState extends State<PickDestinationPage> {
 
   /// Get dynamic automotive-focused quick suggestions based on current location
   List<String> _getAutomotiveSuggestions() {
-    // Dynamic automotive suggestions based on user's region in Algeria
-    // These are common automotive/industrial areas that exist in most Algerian cities
+    // Generate dynamic suggestions based on user's actual location
+    // These will be searched via geocoding when clicked
     return [
       'Zone Industrielle',
-      'Zone Artisanale',
+      'Zone Artisanale', 
       'Route Nationale',
       'Centre Ville',
-      'Garage Central',
+      'Garage',
       'Station Service',
       'Cité Mechaniciens',
       'Marché Automobile',

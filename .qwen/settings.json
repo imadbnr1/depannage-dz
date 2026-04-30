@@ -9,7 +9,8 @@
       "Bash(rm *)",
       "Bash(dir *)",
       "Bash(powershell *)",
-      "Bash(type *)"
+      "Bash(type *)",
+      "Bash(firebase *)"
     ]
   },
   "$version": 3

@@ -1270,11 +1270,14 @@ class AppStore extends ChangeNotifier {
     );
 
     await requestRepository.addRequest(request);
+    
+    // ✅ Dispatch immediately - no delay!
+    // This ensures providers receive notification with full 20s offer duration
     unawaited(
       _attemptFallbackDispatch(
         request.id,
         customerPosition: customerPosition,
-        delay: const Duration(seconds: 2),
+        delay: Duration.zero, // No delay - dispatch immediately
       ),
     );
 

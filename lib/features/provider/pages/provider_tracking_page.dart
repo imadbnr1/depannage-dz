@@ -869,8 +869,8 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
       markers.add(
         Marker(
           point: customerPosition,
-          width: 80,
-          height: 80,
+          width: 50,
+          height: 50,
           child: _PinnedMarker(
             label: destinationStage ? 'Pick up' : 'Client',
             type: RoleMapMarkerType.customer,
@@ -1101,7 +1101,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
                           '${request.providerApproachFee!.toStringAsFixed(0)} DA',
                     ),
                   ],
-                  if (_loadingRoute)
+                  if (_loadingRoute && _routePoints.isEmpty)
                     const Padding(
                       padding: EdgeInsets.only(top: 6),
                       child: Text(

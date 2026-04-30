@@ -1009,7 +1009,7 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
                       ),
                     ],
                   ],
-                  if (_loadingRoute)
+                  if (_loadingRoute && _routePoints.isEmpty)
                     const Padding(
                       padding: EdgeInsets.only(top: 6),
                       child: Text(
