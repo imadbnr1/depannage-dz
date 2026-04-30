@@ -154,7 +154,7 @@ class _AdminAnalyticsPageState extends State<AdminAnalyticsPage> {
     required double completionRate,
   }) {
     final rows = <List<Object?>>[
-      ['Depaniny admin analytics report'],
+      ['DEPANINY admin analytics report'],
       ['Generated at', _formatDateTime(DateTime.now())],
       ['Period', window.rangeLabel(_formatDateTime)],
       const [],
@@ -231,7 +231,7 @@ class _AdminAnalyticsPageState extends State<AdminAnalyticsPage> {
     );
     final stamp = DateTime.now().toIso8601String().split('.').first;
     final fileName =
-        'depaniny_analytics_${_safeFilePart(window.label)}_${_safeFilePart(stamp)}.csv';
+        'DEPANINY_analytics_${_safeFilePart(window.label)}_${_safeFilePart(stamp)}.csv';
 
     await exportCsvFile(fileName: fileName, content: csv);
     if (!mounted) return;

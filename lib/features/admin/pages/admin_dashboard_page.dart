@@ -1707,7 +1707,7 @@ class _AdminSidebar extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Depaniny',
+                        'DEPANINY',
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w900,

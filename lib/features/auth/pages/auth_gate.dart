@@ -101,20 +101,37 @@ class _ProviderApprovalPendingScreenState
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted || _dialogShown) return;
       _dialogShown = true;
+      
+      // Show approval pending dialog
       await showDialog<void>(
         context: context,
+        barrierDismissible: false,
         builder: (context) {
-          return AlertDialog(
-            title: const Text('Validation provider'),
-            content: const Text(
-              'Votre compte a ete cree. Vous devez attendre la validation de l administration avant de recevoir des missions.',
-            ),
-            actions: [
-              FilledButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Compris'),
+          return PopScope(
+            canPop: false,
+            child: AlertDialog(
+              title: const Text('Validation en attente'),
+              content: const Text(
+                'Votre compte provider a ete cree avec succes. Vous devez attendre la validation de l administration avant de pouvoir acceder a l application.',
               ),
-            ],
+              actions: [
+                FilledButton(
+                  onPressed: () async {
+                    Navigator.of(context).pop();
+                    // Auto-logout and redirect to login page
+                    await widget.authService.signOut();
+                    // Navigate to login page and clear all routes
+                    if (context.mounted) {
+                      Navigator.of(context).pushNamedAndRemoveUntil(
+                        '/',
+                        (route) => false,
+                      );
+                    }
+                  },
+                  child: const Text('Compris'),
+                ),
+              ],
+            ),
           );
         },
       );
@@ -131,35 +148,78 @@ class _ProviderApprovalPendingScreenState
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Icon(
                 Icons.hourglass_top,
-                size: 56,
-                color: Colors.orange,
+                size: 64,
+                color: Color(0xFFF59E0B),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               const Text(
-                'Votre compte provider est en attente de validation par l admin.',
+                'Votre compte provider est en attente',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0F172A),
                 ),
               ),
               const SizedBox(height: 12),
               const Text(
-                'Vous recevrez les missions seulement apres approbation.',
+                'Validation de l administration requise',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.black54),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.black54,
+                  height: 1.4,
+                ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 32),
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8F5EF),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: const Color(0xFFE2D6C2),
+                  ),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: Color(0xFFF59E0B),
+                      size: 24,
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Vous recevrez une notification une fois votre compte approuve par l administration.',
+                        style: TextStyle(
+                          color: Colors.black87,
+                          fontSize: 13,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
               FilledButton.icon(
                 onPressed: () async {
                   await widget.authService.signOut();
+                  // Redirect to login
+                  if (context.mounted) {
+                    Navigator.of(context).pushNamedAndRemoveUntil(
+                      '/',
+                      (route) => false,
+                    );
+                  }
                 },
                 icon: const Icon(Icons.logout),
-                label: const Text('Se deconnecter'),
+                label: const Text('Retour a la connexion'),
               ),
             ],
           ),

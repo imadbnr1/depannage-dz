@@ -1,5 +1,5 @@
-name: depannage_dz_pro_structured
-description: Professional structured demo towing app with customer/provider flows and live tracking simulation.
+name: depaniny
+description: Professional structured towing app with customer/provider flows and live tracking simulation.
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -31,6 +31,7 @@ dependencies:
   audioplayers: ^6.1.0
   vibration: ^3.1.8
   shared_preferences: ^2.5.3
+  pinput: ^5.0.0
 
 dev_dependencies:
   flutter_test:

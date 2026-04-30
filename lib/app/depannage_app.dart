@@ -40,7 +40,7 @@ class _DepannageAppState extends State<DepannageApp> {
       builder: (_, __) {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
-          title: 'Depaniny',
+          title: 'DEPANINY',
           theme: ThemeData(
             useMaterial3: true,
             colorScheme: ColorScheme.fromSeed(
