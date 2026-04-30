@@ -1,4 +1,29 @@
 workflows:
+  android-workflow:
+    name: Android APK Build (Flutter)
+    max_build_duration: 30
+
+    environment:
+      flutter: stable
+
+    scripts:
+      - name: Get dependencies
+        script: |
+          flutter clean
+          flutter pub get
+
+      - name: Build Android APK
+        script: |
+          flutter build apk --release
+
+    artifacts:
+      - build/app/outputs/flutter-apk/*.apk
+
+    publishing:
+      email:
+        recipients:
+          - benrouaneimeed@gmail.com
+
   ios-workflow:
     name: iOS Build (Flutter)
     max_build_duration: 60
@@ -19,6 +44,31 @@ workflows:
 
     artifacts:
       - build/ios/ipa/*.ipa
+
+    publishing:
+      email:
+        recipients:
+          - benrouaneimeed@gmail.com
+
+  web-workflow:
+    name: Web Build (Flutter)
+    max_build_duration: 20
+
+    environment:
+      flutter: stable
+
+    scripts:
+      - name: Get dependencies
+        script: |
+          flutter clean
+          flutter pub get
+
+      - name: Build Web
+        script: |
+          flutter build web --release
+
+    artifacts:
+      - build/web/**
 
     publishing:
       email:

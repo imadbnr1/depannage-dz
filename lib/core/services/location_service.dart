@@ -131,7 +131,6 @@ class LocationService {
       
       return LatLng(gps.latitude, gps.longitude);
     } catch (e) {
-      print('Error getting position: $e');
       return _lastKnownPosition != null
           ? LatLng(_lastKnownPosition!.latitude, _lastKnownPosition!.longitude)
           : null;
@@ -150,7 +149,6 @@ class LocationService {
       return permission == LocationPermission.whileInUse ||
           permission == LocationPermission.always;
     } catch (e) {
-      print('Error requesting permission: $e');
       return false;
     }
   }

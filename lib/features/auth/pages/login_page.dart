@@ -141,10 +141,6 @@ class _LoginPageState extends State<LoginPage> {
       // Read OTP from SharedPreferences (most reliable)
       generatedOtp = _sharedPreferences?.getString('email_otp_code');
       
-      // Debug: print what we found
-      print('DEBUG: OTP from SharedPreferences = $generatedOtp');
-      print('DEBUG: SharedPreferences instance = $_sharedPreferences');
-      
       if (!mounted) return;
       
       // Show prominent OTP dialog
