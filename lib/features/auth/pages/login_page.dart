@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/i18n/app_localizations.dart';
 import '../../../core/services/app_feedback.dart';
@@ -27,6 +28,7 @@ class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _identifierController = TextEditingController();
   final _passwordController = TextEditingController();
+  SharedPreferences? _sharedPreferences;
 
   bool _loading = false;
   bool _obscure = true;
@@ -39,16 +41,28 @@ class _LoginPageState extends State<LoginPage> {
   bool _otpSent = false;
   String _emailOtpCode = '';
 
-  void _openAdminLogin() {
-    if (widget.adminOnly || _loading) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => LoginPage(
-          authService: widget.authService,
-          adminOnly: true,
+  @override
+  void initState() {
+    super.initState();
+    _initSharedPreferences();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          widget.adminOnly ||
+          !widget.launchSignupOnOpen ||
+          _didLaunchSignup) {
+        return;
+      }
+      _didLaunchSignup = true;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => SignupPage(authService: widget.authService),
         ),
-      ),
-    );
+      );
+    });
+  }
+
+  Future<void> _initSharedPreferences() async {
+    _sharedPreferences = await SharedPreferences.getInstance();
   }
 
   void _handleHiddenAdminTap() {
@@ -71,23 +85,16 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted ||
-          widget.adminOnly ||
-          !widget.launchSignupOnOpen ||
-          _didLaunchSignup) {
-        return;
-      }
-      _didLaunchSignup = true;
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => SignupPage(authService: widget.authService),
+  void _openAdminLogin() {
+    if (widget.adminOnly || _loading) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => LoginPage(
+          authService: widget.authService,
+          adminOnly: true,
         ),
-      );
-    });
+      ),
+    );
   }
 
   @override
@@ -110,9 +117,7 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _loading = true);
 
     try {
-      // In production, the OTP would be sent via email
-      // For debugging, we get it directly
-      final debugOtp = await widget.authService.getDebugEmailOTP(email);
+      String? generatedOtp;
       
       await widget.authService.sendEmailOTP(
         email: email,
@@ -122,15 +127,79 @@ class _LoginPageState extends State<LoginPage> {
             _loading = false;
             _otpSent = true;
           });
-          AppFeedback.showSuccess(
-            context,
-            'Code OTP envoye a $email${debugOtp != null ? ' (Code: $debugOtp)' : ''}',
-          );
         },
         onError: (error) {
           if (!mounted) return;
           setState(() => _loading = false);
           AppFeedback.showError(context, error);
+        },
+      );
+      
+      // Wait a bit for storage to complete
+      await Future.delayed(Duration(milliseconds: 200));
+      
+      // Read OTP from SharedPreferences (most reliable)
+      generatedOtp = _sharedPreferences?.getString('email_otp_code');
+      
+      // Debug: print what we found
+      print('DEBUG: OTP from SharedPreferences = $generatedOtp');
+      print('DEBUG: SharedPreferences instance = $_sharedPreferences');
+      
+      if (!mounted) return;
+      
+      // Show prominent OTP dialog
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.mark_email_read_outlined, color: Color(0xFFF59E0B)),
+                SizedBox(width: 12),
+                Text('Code OTP envoye'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Votre code de verification a 6 chiffres:'),
+                SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Color(0xFFFFF7E8),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Color(0xFFF59E0B), width: 2),
+                  ),
+                  child: Text(
+                    generatedOtp ?? 'NON DISPONIBLE',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFFF59E0B),
+                      letterSpacing: 8,
+                    ),
+                  ),
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'Copiez ce code et collez-le dans le champ ci-dessous.',
+                  style: TextStyle(color: Colors.black54, fontSize: 13),
+                ),
+              ],
+            ),
+            actions: [
+              FilledButton.icon(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                icon: Icon(Icons.check_circle),
+                label: Text('Compris'),
+              ),
+            ],
+          );
         },
       );
     } catch (e) {

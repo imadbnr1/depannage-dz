@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/services/app_feedback.dart';
 import '../../../core/services/auth_service.dart';
@@ -24,12 +25,13 @@ class _SignupPageState extends State<SignupPage>
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  SharedPreferences? _sharedPreferences;
 
   bool _loading = false;
   bool _obscure = true;
   bool _confirmObscure = true;
   String _role = 'customer';
-  
+
   // OTP verification state - using email OTP now
   bool _otpSent = false;
   String _emailOtpCode = '';
@@ -39,6 +41,7 @@ class _SignupPageState extends State<SignupPage>
   @override
   void initState() {
     super.initState();
+    _initSharedPreferences();
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
@@ -48,6 +51,10 @@ class _SignupPageState extends State<SignupPage>
       curve: Curves.easeInOut,
     );
     _animationController.forward();
+  }
+
+  Future<void> _initSharedPreferences() async {
+    _sharedPreferences = await SharedPreferences.getInstance();
   }
 
   @override
@@ -74,9 +81,7 @@ class _SignupPageState extends State<SignupPage>
     setState(() => _loading = true);
 
     try {
-      // In production, the OTP would be sent via email
-      // For debugging, we get it directly before calling sendEmailOTP
-      final debugOtp = await widget.authService.getDebugEmailOTP(email);
+      String? generatedOtp;
       
       await widget.authService.sendEmailOTP(
         email: email,
@@ -86,15 +91,75 @@ class _SignupPageState extends State<SignupPage>
             _loading = false;
             _otpSent = true;
           });
-          AppFeedback.showSuccess(
-            context,
-            'Code OTP envoye a $email${debugOtp != null ? ' (Code: $debugOtp)' : ''}',
-          );
         },
         onError: (error) {
           if (!mounted) return;
           setState(() => _loading = false);
           AppFeedback.showError(context, error);
+        },
+      );
+      
+      // Wait a bit for storage to complete
+      await Future.delayed(Duration(milliseconds: 200));
+      
+      // Read OTP from SharedPreferences (most reliable)
+      generatedOtp = _sharedPreferences?.getString('email_otp_code');
+      
+      if (!mounted) return;
+      
+      // Show prominent OTP dialog
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.mark_email_read_outlined, color: Color(0xFFF59E0B)),
+                SizedBox(width: 12),
+                Text('Code OTP envoye'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Votre code de verification a 6 chiffres:'),
+                SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Color(0xFFFFF7E8),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Color(0xFFF59E0B), width: 2),
+                  ),
+                  child: Text(
+                    generatedOtp ?? 'NON DISPONIBLE',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFFF59E0B),
+                      letterSpacing: 8,
+                    ),
+                  ),
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'Copiez ce code et collez-le dans le champ ci-dessous.',
+                  style: TextStyle(color: Colors.black54, fontSize: 13),
+                ),
+              ],
+            ),
+            actions: [
+              FilledButton.icon(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                icon: Icon(Icons.check_circle),
+                label: Text('Compris'),
+              ),
+            ],
+          );
         },
       );
     } catch (e) {

@@ -6,6 +6,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/services/realtime_tracking_service.dart';
 import '../../../core/services/route_service.dart';
 import '../../../models/app_request.dart';
 import '../../../models/request_status.dart';
@@ -31,6 +32,7 @@ class ProviderTrackingPage extends StatefulWidget {
 class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
   final MapController _mapController = MapController();
   final RouteService _routeService = RouteService();
+  RealtimeTrackingService? _trackingService;
 
   StreamSubscription? _trackingSub;
   Timer? _routeTimer;
@@ -62,6 +64,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
   @override
   void initState() {
     super.initState();
+    _initRealTimeTracking();
     widget.store.addListener(_handleStoreChanged);
 
     _trackingSub = widget.store.watchTracking(widget.requestId).listen((_) {
@@ -88,11 +91,23 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
       }
     });
   }
+  
+  Future<void> _initRealTimeTracking() async {
+    _trackingService = RealtimeTrackingService();
+    
+    // Start real-time GPS tracking if provider is on active mission
+    final providerUid = widget.store.currentProviderUid;
+    if (providerUid != null) {
+      await _trackingService?.startTracking(providerUid);
+      debugPrint('🛰️ Real-time GPS tracking started (updates every 3 seconds)');
+    }
+  }
 
   @override
   void dispose() {
     widget.store.removeListener(_handleStoreChanged);
     _trackingSub?.cancel();
+    _trackingService?.stopTracking();
     _routeTimer?.cancel();
     _simulationTimer?.cancel();
     _providerAnimationTimer?.cancel();
