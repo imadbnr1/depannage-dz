@@ -304,6 +304,37 @@
 
 ---
 
+#### 17. **Project Folder Cleanup - Remove Unused/Old Directories**
+- **Issue:** Project accumulated unused folders, old code, and generated artifacts cluttering the structure
+- **Goal:** Clean up project to essential folders only
+- **Folders Deleted (9 total):**
+  - `/src` - Old web routes/middleware (JavaScript files: `auth.js`, `requireAuth.js`) - not used, Flutter uses `lib/`
+  - `/functions` - Firebase Cloud Functions code (Node.js) - not deployed or used, app uses client-side logic
+  - `/docs` - Only contained `RELEASE_QA_CHECKLIST.md` - obsolete
+  - `/windows` - Windows desktop target folder - not targeting Windows platform
+  - `/build` - Generated build artifacts - recreated by `flutter build`
+  - `/.firebase` - Firebase emulator data/cache - recreated when needed
+  - `/.dart_tool` - Dart/Flutter cache - recreated automatically
+  - `/.continue` - Continue IDE extension config - not needed
+  - `/.idea` - IntelliJ/Android Studio settings - empty folder
+- **Configuration Updated:**
+  - `firebase.json` - Removed `"functions"` section since Cloud Functions folder was deleted
+- **Remaining Essential Folders:**
+  - `/lib` - Main Dart source code
+  - `/android` - Android platform
+  - `/web` - Web platform
+  - `/assets` - App assets (images, fonts, etc.)
+  - `/test` - Unit/widget tests
+  - `/.vscode` - VS Code settings (kept for development)
+  - `/.qwen` - Qwen Code memory/settings (kept for AI assistance)
+- **Verification:**
+  - `flutter pub get` - Dependencies resolved ✓
+  - `flutter analyze` - No issues found ✓
+- **Impact:** None - all deleted folders were unused, generated, or obsolete
+- **Status:** ✅ Complete - Project structure is now clean and focused
+
+---
+
 ## 🔄 ONGOING / FUTURE TASKS
 
 ### Pending Improvements
@@ -396,7 +427,7 @@ Build a reliable towing/roadside assistance platform connecting customers in nee
 
 **Last Updated:** April 30, 2026
 **Session Duration:** ~10 hours
-**Total Tasks Completed:** 16 major task groups
+**Total Tasks Completed:** 17 major task groups
 **Files Modified:** 20+ files
 **Deployment:** ✅ Live at https://depannage-dz-imad-2026.web.app
 
