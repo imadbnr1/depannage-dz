@@ -7,7 +7,6 @@ install! 'cocoapods', disable_stats: true
 
 # Set this to true to enable Swift Package Manager
 # It will speed up your build but is still experimental
-enable_swift_package_manager!
 
 target 'Runner' do
   use_frameworks!
