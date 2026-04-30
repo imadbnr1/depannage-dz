@@ -1,0 +1,26 @@
+workflows:
+  ios-workflow:
+    name: iOS Build (Flutter)
+    max_build_duration: 60
+
+    environment:
+      flutter: stable
+      xcode: latest
+
+    scripts:
+      - name: Get dependencies
+        script: |
+          flutter clean
+          flutter pub get
+
+      - name: Build iOS (unsigned)
+        script: |
+          flutter build ipa --release --no-codesign
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+
+    publishing:
+      email:
+        recipients:
+          - benrouaneimeed@gmail.com
