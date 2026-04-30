@@ -258,22 +258,23 @@ class PlaceSearchService {
   }) async {
     try {
       // Use Overpass API to get automotive-related places
-      // Prioritize: garages, mechanics, tire shops, gas stations, car dealerships
+      // Prioritize: garages, mechanics, tire shops, gas stations, car dealerships, auto electricians
       final overpassQuery = '''
         [out:json][timeout:5];
         (
-          node["shop"~"car|car_repair|car_parts|tire|vulcanizer"](around:3000,${position.latitude},${position.longitude});
-          node["amenity"="fuel"](around:3000,${position.latitude},${position.longitude});
-          node["amenity"="car_wash"](around:3000,${position.latitude},${position.longitude});
-          node["craft"="car_repair"](around:3000,${position.latitude},${position.longitude});
-          way["shop"~"car|car_repair|car_parts|tire"](around:3000,${position.latitude},${position.longitude});
-          way["amenity"="fuel"](around:3000,${position.latitude},${position.longitude});
-          node["shop"="car"](around:3000,${position.latitude},${position.longitude});
-          node["shop"="car_repair"](around:3000,${position.latitude},${position.longitude});
-          node["shop"="car_parts"](around:3000,${position.latitude},${position.longitude});
-          node["shop"="tire"](around:3000,${position.latitude},${position.longitude});
+          node["shop"~"car|car_repair|car_parts|tire|vulcanizer|motorcycle|motorcycle_repair"](around:5000,${position.latitude},${position.longitude});
+          node["amenity"="fuel"](around:5000,${position.latitude},${position.longitude});
+          node["amenity"="car_wash"](around:5000,${position.latitude},${position.longitude});
+          node["craft"="car_repair"](around:5000,${position.latitude},${position.longitude});
+          node["shop"="electronics"](around:5000,${position.latitude},${position.longitude})["electronics"~"car_audio|car_accessories"];
+          node["office"~"insurance"]["insurance"~"car|vehicle|auto"](around:5000,${position.latitude},${position.longitude});
+          way["shop"~"car|car_repair|car_parts|tire"](around:5000,${position.latitude},${position.longitude});
+          way["amenity"="fuel"](around:5000,${position.latitude},${position.longitude});
+          relation["shop"~"car|car_repair"](around:5000,${position.latitude},${position.longitude});
         );
-        out $limit;
+        out body;
+        >;
+        out skel qt;
       ''';
 
       final uri = Uri.https(
@@ -291,7 +292,7 @@ class PlaceSearchService {
       final response = await http.get(
         effectiveUri,
         headers: kIsWeb ? {} : _headers,
-      );
+      ).timeout(const Duration(seconds: 8));
 
       if (response.statusCode != 200) {
         return _getAutomotiveFallbackSuggestions(position);

@@ -148,15 +148,21 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
       // 1. Request is still searching
       // 2. No more providers in chain to try
       // 3. No provider has been offered/accepted yet
+      // 4. Dispatch has actually completed (not just started)
       final dispatchChain = widget.store.getDispatchChain(request.id);
       final dispatchIndex = widget.store.getDispatchChainIndex(request.id) ?? 0;
       final hasMoreProviders = dispatchChain != null && dispatchIndex < dispatchChain.length;
       final hasOfferedProvider = request.offeredProviderUid != null;
       final hasAcceptedProvider = _hasAcceptedProvider(request.status);
 
-      if (!hasMoreProviders && 
-          request.status == RequestStatus.searching && 
-          !hasOfferedProvider && 
+      // ✅ Only show popup if dispatch chain is exhausted AND we've tried at least one provider
+      // This prevents popup from showing before providers even receive notifications
+      final hasTriedProviders = dispatchIndex > 0 || (dispatchChain != null && dispatchChain.isNotEmpty);
+      
+      if (!hasMoreProviders &&
+          hasTriedProviders &&
+          request.status == RequestStatus.searching &&
+          !hasOfferedProvider &&
           !hasAcceptedProvider) {
         setState(() {
           _showNoProvidersPopup = true;
@@ -762,8 +768,8 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
     markers.add(
       Marker(
         point: customerPosition,
-        width: 80,
-        height: 80,
+        width: 50,
+        height: 50,
         child: _PinnedMarker(
           label: destinationStage ? 'Pick up' : 'Client',
           type: RoleMapMarkerType.customer,
@@ -980,6 +986,29 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
                     title: _routeStageTitle(request),
                     value: _routeStageValue(request),
                   ),
+                  // Show provider info when mission is accepted
+                  if (acceptedProvider) ...[
+                    const SizedBox(height: 6),
+                    _SummaryInlineRow(
+                      icon: Icons.person_rounded,
+                      title: 'Provider',
+                      value: _acceptedProviderMapLabel(request.providerName),
+                    ),
+                    if (request.providerVehicle != null ||
+                        request.providerPlate != null) ...[
+                      const SizedBox(height: 6),
+                      _SummaryInlineRow(
+                        icon: Icons.directions_car_rounded,
+                        title: 'Vehicule',
+                        value: [
+                          if (request.providerVehicle != null)
+                            request.providerVehicle!,
+                          if (request.providerPlate != null)
+                            '(${request.providerPlate!})',
+                        ].join(' ').trim(),
+                      ),
+                    ],
+                  ],
                   if (_loadingRoute)
                     const Padding(
                       padding: EdgeInsets.only(top: 6),

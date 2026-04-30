@@ -129,6 +129,70 @@ class RouteService {
       }
     }
 
+    // If all servers failed and we got a fallback, retry once with a delay
+    // This helps when servers are temporarily unavailable or rate-limited
+    if (result == null) {
+      if (kDebugMode) {
+        developer.log('RouteService: All servers failed, retrying after 2s delay...',
+          name: 'RouteService',
+          level: 700,
+        );
+      }
+      await Future.delayed(const Duration(seconds: 2));
+      
+      // Retry OSRM servers one more time
+      for (final server in _osrmServers) {
+        try {
+          result = await _tryFetchRoute(server, safeOrigin, safeDestination);
+          if (result != null && !result.isFallback) {
+            if (kDebugMode) {
+              developer.log('RouteService: Retry SUCCESS from $server',
+                name: 'RouteService',
+                level: 900,
+              );
+            }
+            break;
+          }
+        } catch (e) {
+          // Ignore retry errors
+        }
+      }
+      
+      // If OSRM still fails, retry GraphHopper
+      if (result == null) {
+        try {
+          result = await _tryFetchRouteGraphHopper(safeOrigin, safeDestination);
+          if (result != null && !result.isFallback) {
+            if (kDebugMode) {
+              developer.log('RouteService: Retry SUCCESS from GraphHopper',
+                name: 'RouteService',
+                level: 900,
+              );
+            }
+          }
+        } catch (e) {
+          // Ignore
+        }
+      }
+      
+      // If GraphHopper still fails, retry Mapbox
+      if (result == null) {
+        try {
+          result = await _tryFetchRouteMapbox(safeOrigin, safeDestination);
+          if (result != null && !result.isFallback) {
+            if (kDebugMode) {
+              developer.log('RouteService: Retry SUCCESS from Mapbox',
+                name: 'RouteService',
+                level: 900,
+              );
+            }
+          }
+        } catch (e) {
+          // Ignore
+        }
+      }
+    }
+
     final finalResult = result ?? _fallback(safeOrigin, safeDestination);
     
     if (kDebugMode) {

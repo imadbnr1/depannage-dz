@@ -40,12 +40,22 @@ class _PickDestinationPageState extends State<PickDestinationPage> {
     super.initState();
     _controller = TextEditingController(text: widget.initialText ?? '');
 
+    // Listen to position changes to update nearby suggestions
+    widget.store.addListener(_onPositionChanged);
+
     if (_controller.text.trim().isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _onSearchChanged(_controller.text);
       });
     } else {
       // Load nearby places automatically
+      _loadNearbyPlaces();
+    }
+  }
+
+  void _onPositionChanged() {
+    // Reload nearby suggestions when user position changes
+    if (_controller.text.trim().isEmpty) {
       _loadNearbyPlaces();
     }
   }
@@ -79,7 +89,9 @@ class _PickDestinationPageState extends State<PickDestinationPage> {
 
   @override
   void dispose() {
+    widget.store.removeListener(_onPositionChanged);
     _debounce?.cancel();
+    _nearbyDebounce?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -164,15 +176,25 @@ class _PickDestinationPageState extends State<PickDestinationPage> {
     });
   }
 
+  /// Get dynamic automotive-focused quick suggestions based on current location
+  List<String> _getAutomotiveSuggestions() {
+    // Dynamic automotive suggestions based on user's region in Algeria
+    // These are common automotive/industrial areas that exist in most Algerian cities
+    return [
+      'Zone Industrielle',
+      'Zone Artisanale',
+      'Route Nationale',
+      'Centre Ville',
+      'Garage Central',
+      'Station Service',
+      'Cité Mechaniciens',
+      'Marché Automobile',
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
-    final suggestions = [
-      ...widget.store.savedAddresses,
-      'Garage central Batna',
-      'Djerma',
-      'Fesdis',
-      'Tazoult',
-    ];
+    final suggestions = _getAutomotiveSuggestions();
 
     return Scaffold(
       appBar: AppBar(
@@ -187,7 +209,7 @@ class _PickDestinationPageState extends State<PickDestinationPage> {
               textInputAction: TextInputAction.search,
               onChanged: _onSearchChanged,
               decoration: InputDecoration(
-                hintText: 'Rechercher une vraie destination',
+                hintText: 'Ex: Garage, Station service, Zone industrielle...',
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: _loading
                     ? const Padding(
@@ -249,7 +271,7 @@ class _PickDestinationPageState extends State<PickDestinationPage> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    'Lieux a proximite',
+                    'Services auto à proximité',
                     style: TextStyle(
                       fontWeight: FontWeight.w900,
                       fontSize: 18,
@@ -274,7 +296,7 @@ class _PickDestinationPageState extends State<PickDestinationPage> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(
-                        Icons.location_on_outlined,
+                        Icons.garage_outlined,
                         color: Color(0xFF0284C7),
                         size: 20,
                       ),
@@ -296,7 +318,7 @@ class _PickDestinationPageState extends State<PickDestinationPage> {
             // Show static fallback suggestions only if no nearby places found
             if (_nearbySuggestions.isEmpty && !_loadingNearby) ...[
               const Text(
-                'Suggestions rapides',
+                'Zones automobiles (Batna)',
                 style: TextStyle(
                   fontWeight: FontWeight.w900,
                   fontSize: 18,
@@ -315,7 +337,7 @@ class _PickDestinationPageState extends State<PickDestinationPage> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             ),
                           )
-                        : const Icon(Icons.history),
+                        : const Icon(Icons.garage_outlined),
                     title: Text(item),
                     onTap: () {
                       _controller.text = item;

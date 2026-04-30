@@ -817,7 +817,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
         request.status == RequestStatus.completed) {
       return request.destination;
     }
-    return request.pickupLabel;
+    return request.customerName;
   }
 
   @override
