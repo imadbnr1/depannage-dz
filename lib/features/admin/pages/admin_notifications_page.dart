@@ -148,7 +148,7 @@ class _AdminNotificationsPageState extends State<AdminNotificationsPage> {
   }
 
   Future<void> _pickImage() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.image,
       allowMultiple: false,
       withData: kIsWeb,

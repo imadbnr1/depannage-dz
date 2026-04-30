@@ -564,13 +564,34 @@ class AppStore extends ChangeNotifier {
         }
       }
 
-      // ✅ No more providers in chain
+      // ✅ No more providers in chain - wait for current offer timeout first
       if (nextProviderId == null) {
+        // Check if there's still an active pending offer before showing no provider message
+        final currentRequest = findRequest(requestId);
+        if (currentRequest?.offerExpiresAt != null &&
+            currentRequest!.offerExpiresAt!.isAfter(DateTime.now())) {
+          // There is still an active offer pending, do NOT show no provider message yet
+          _dispatchFallbackInFlight.remove(requestId);
+          return;
+        }
+
+        // Only when all offers have expired and really no providers are left:
         _dispatchChains.remove(requestId);
         _dispatchChainIndex.remove(requestId);
         _currentOfferedProviderIds.remove(requestId);
         
-        // ✅ Notify customer that no providers are available
+        // Add final timeout delay before declaring no providers available (30 seconds total search time)
+        await Future<void>.delayed(const Duration(seconds: 8));
+        
+        // Double check one last time if someone accepted in the meantime
+        final finalCheckRequest = findRequest(requestId);
+        if (finalCheckRequest == null || 
+            finalCheckRequest.status != RequestStatus.searching ||
+            finalCheckRequest.providerUid?.isNotEmpty == true) {
+          return;
+        }
+        
+        // ✅ NOW notify customer that no providers are available
         _pushLifecycleNotification(
           title: 'Aucun provider disponible',
           body: 'Aucun provider n est disponible pour le moment. Veuillez reessayer plus tard.',

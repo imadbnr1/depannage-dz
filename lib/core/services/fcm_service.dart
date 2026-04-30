@@ -27,9 +27,11 @@ class FcmService {
 
     if (!kIsWeb) {
       const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-      const initSettings = InitializationSettings(android: androidInit);
+      const initSettings = InitializationSettings(
+        android: androidInit,
+      );
       await flutterLocalNotificationsPlugin.initialize(
-        initSettings,
+        settings: initSettings,
         onDidReceiveNotificationResponse: (details) {
           final raw = details.payload;
           if (raw == null || raw.isEmpty) return;
@@ -78,10 +80,10 @@ class FcmService {
 
       if (!kIsWeb && notification != null && android != null) {
         await flutterLocalNotificationsPlugin.show(
-          notification.hashCode,
-          notification.title,
-          notification.body,
-          NotificationDetails(
+          id: notification.hashCode,
+          title: notification.title,
+          body: notification.body,
+          notificationDetails: NotificationDetails(
             android: AndroidNotificationDetails(
               highImportanceChannel.id,
               highImportanceChannel.name,

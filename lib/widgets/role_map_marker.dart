@@ -14,7 +14,7 @@ class RoleMapMarker extends StatelessWidget {
     required this.fallbackIcon,
     required this.color,
     this.assetPath,
-    this.size = 80,
+    this.size = 50,
     this.rotationRadians,
     this.showLabel = true,
     this.compactLabel = false,
@@ -53,20 +53,20 @@ class RoleMapMarker extends StatelessWidget {
   Widget build(BuildContext context) {
     final labelWidget = Container(
       constraints: BoxConstraints(
-        maxWidth: size * (compactLabel ? 1.15 : 1.65),
+        maxWidth: size * (compactLabel ? 1.4 : 1.8),
       ),
       padding: EdgeInsets.symmetric(
-        horizontal: compactLabel ? 8 : 10,
-        vertical: compactLabel ? 4 : 5,
+        horizontal: compactLabel ? 6 : 8,
+        vertical: compactLabel ? 3 : 4,
       ),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.92),
+        color: Colors.white.withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(999),
         boxShadow: const [
           BoxShadow(
             color: Colors.black12,
-            blurRadius: 10,
-            offset: Offset(0, 4),
+            blurRadius: 6,
+            offset: Offset(0, 2),
           ),
         ],
       ),
@@ -76,9 +76,9 @@ class RoleMapMarker extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         textAlign: TextAlign.center,
         style: TextStyle(
-          fontSize: compactLabel ? 10 : 11,
-          fontWeight: FontWeight.w800,
-          letterSpacing: compactLabel ? 0.1 : 0.2,
+          fontSize: compactLabel ? 9 : 10,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0,
         ),
       ),
     );
@@ -87,7 +87,7 @@ class RoleMapMarker extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (showLabel) labelWidget,
-        if (showLabel) const SizedBox(height: 4),
+        if (showLabel) const SizedBox(height: 2),
         SizedBox(
           width: size,
           height: size,
@@ -102,17 +102,24 @@ class RoleMapMarker extends StatelessWidget {
                     shape: BoxShape.circle,
                     gradient: LinearGradient(
                       colors: [
-                        color.withValues(alpha: 0.86),
+                        color.withValues(alpha: 0.9),
                         color,
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: color.withValues(alpha: 0.4),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: Icon(
                     fallbackIcon,
                     color: Colors.white,
-                    size: size * 0.52,
+                    size: size * 0.55,
                   ),
                 );
               },

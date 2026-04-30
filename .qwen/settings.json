@@ -3,7 +3,13 @@
     "allow": [
       "Bash(flutter *)",
       "Bash(select-string *)",
-      "Bash(findstr *)"
+      "Bash(findstr *)",
+      "Bash(select-object *)",
+      "Bash(del *)",
+      "Bash(rm *)",
+      "Bash(dir *)",
+      "Bash(powershell *)",
+      "Bash(type *)"
     ]
   },
   "$version": 3

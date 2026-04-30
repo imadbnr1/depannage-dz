@@ -29,8 +29,11 @@ class _PickDestinationPageState extends State<PickDestinationPage> {
   final _searchService = PlaceSearchService();
 
   Timer? _debounce;
+  Timer? _nearbyDebounce;
   bool _loading = false;
+  bool _loadingNearby = false;
   List<PlaceSearchResult> _results = [];
+  List<PlaceSearchResult> _nearbySuggestions = [];
 
   @override
   void initState() {
@@ -41,7 +44,37 @@ class _PickDestinationPageState extends State<PickDestinationPage> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _onSearchChanged(_controller.text);
       });
+    } else {
+      // Load nearby places automatically
+      _loadNearbyPlaces();
     }
+  }
+
+  void _loadNearbyPlaces() {
+    _nearbyDebounce?.cancel();
+    _nearbyDebounce = Timer(const Duration(milliseconds: 300), () async {
+      if (!mounted) return;
+
+      setState(() {
+        _loadingNearby = true;
+      });
+
+      try {
+        final position = widget.store.customerCurrentPosition ?? widget.initialCenter;
+        final places = await _searchService.fetchNearbyPlaces(position, limit: 8);
+
+        if (!mounted) return;
+        setState(() {
+          _nearbySuggestions = places;
+        });
+      } catch (e) {
+        // Fallback suggestions will be provided by the service
+      } finally {
+        if (mounted) {
+          setState(() => _loadingNearby = false);
+        }
+      }
+    });
   }
 
   @override
@@ -86,13 +119,18 @@ class _PickDestinationPageState extends State<PickDestinationPage> {
           _results = [];
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              e.toString().replaceFirst('Exception: ', ''),
+        // Only show error if user manually typed (not from suggestion click)
+        // to avoid annoying popups when clicking suggestions
+        if (query.trim().length > 3) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Recherche indisponible. Essayez avec un autre terme ou choisissez sur la carte.',
+              ),
+              backgroundColor: Color(0xFFE65100),
             ),
-          ),
-        );
+          );
+        }
       } finally {
         if (mounted) {
           setState(() => _loading = false);
@@ -206,26 +244,87 @@ class _PickDestinationPageState extends State<PickDestinationPage> {
               ),
               const SizedBox(height: 18),
             ],
-            const Text(
-              'Suggestions rapides',
-              style: TextStyle(
-                fontWeight: FontWeight.w900,
-                fontSize: 18,
+            if (_nearbySuggestions.isNotEmpty || _loadingNearby) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Lieux a proximite',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 18,
+                    ),
+                  ),
+                  if (_loadingNearby)
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                ],
               ),
-            ),
-            const SizedBox(height: 10),
-            ...suggestions.map(
-              (item) => Card(
-                child: ListTile(
-                  leading: const Icon(Icons.history),
-                  title: Text(item),
-                  onTap: () {
-                    _controller.text = item;
-                    _onSearchChanged(item);
-                  },
+              const SizedBox(height: 10),
+              ..._nearbySuggestions.map(
+                (item) => Card(
+                  child: ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE0F2FE),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.location_on_outlined,
+                        color: Color(0xFF0284C7),
+                        size: 20,
+                      ),
+                    ),
+                    title: Text(
+                      item.displayName,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      'Lat ${item.position.latitude.toStringAsFixed(4)} • Lng ${item.position.longitude.toStringAsFixed(4)}',
+                    ),
+                    onTap: () => _selectResult(item),
+                  ),
                 ),
               ),
-            ),
+              const SizedBox(height: 18),
+            ],
+            // Show static fallback suggestions only if no nearby places found
+            if (_nearbySuggestions.isEmpty && !_loadingNearby) ...[
+              const Text(
+                'Suggestions rapides',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 18,
+                ),
+              ),
+              const SizedBox(height: 10),
+              ...suggestions.map(
+                (item) => Card(
+                  child: ListTile(
+                    leading: _loading && _controller.text == item
+                        ? const Padding(
+                            padding: EdgeInsets.all(8),
+                            child: SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : const Icon(Icons.history),
+                    title: Text(item),
+                    onTap: () {
+                      _controller.text = item;
+                      _onSearchChanged(item);
+                    },
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

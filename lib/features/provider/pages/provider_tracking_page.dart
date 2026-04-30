@@ -6,9 +6,10 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../../core/services/routing_service.dart';
+import '../../../core/services/route_service.dart';
 import '../../../models/app_request.dart';
 import '../../../models/request_status.dart';
+import '../../../models/route_snapshot.dart';
 import '../../../state/app_store.dart';
 import '../../../widgets/role_map_marker.dart';
 import '../../shared/pages/chat_page.dart';
@@ -29,7 +30,7 @@ class ProviderTrackingPage extends StatefulWidget {
 
 class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
   final MapController _mapController = MapController();
-  final RoutingService _routingService = RoutingService();
+  final RouteService _routeService = RouteService();
 
   StreamSubscription? _trackingSub;
   Timer? _routeTimer;
@@ -56,6 +57,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
   int _devTapCount = 0;
   DateTime? _lastDevTapAt;
   bool _followProvider = true;
+  bool _routeIsFallback = false;
 
   @override
   void initState() {
@@ -110,6 +112,10 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
     AppRequest request, {
     bool immediate = false,
   }) {
+    // During simulation, the simulation timer handles position updates
+    // Don't interfere with the animation system
+    if (_simulationRunning) return;
+    
     final tracking = widget.store.trackingFor(widget.requestId);
     final targetPosition = tracking?.providerPosition ??
         widget.store.providerCurrentPosition ??
@@ -238,6 +244,10 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
 
 
   void _scheduleRouteUpdate() {
+    // Don't update route during simulation - route is already calculated
+    // Updating during simulation causes unnecessary API calls and can result in fallback (red line)
+    if (_simulationRunning) return;
+    
     _routeTimer?.cancel();
     _routeTimer = Timer(const Duration(seconds: 3), _loadRoute);
   }
@@ -452,34 +462,38 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
     setState(() => _loadingRoute = true);
 
     try {
-      final route = await _routingService.getRoute(
-        providerPosition,
-        routeTarget,
+      final route = await _routeService.buildDrivingRoute(
+        origin: providerPosition,
+        destination: routeTarget,
       );
 
       if (!mounted) return;
 
-      if (route == null || route.points.isEmpty) {
+      if (route.points.isEmpty || route.isFallback) {
+        // Only use fallback (direct line) if route service completely failed
+        // This should rarely happen with RouteService's robust error handling
         setState(() {
-          _routePoints = [providerPosition, routeTarget];
-          _routeDistanceMeters = null;
-          _routeDurationSeconds = null;
+          _routePoints = route.points;
+          _routeDistanceMeters = route.distanceKm * 1000;
+          _routeDurationSeconds = route.durationMinutes * 60;
           _routeProgress = null;
+          _routeIsFallback = route.isFallback;
         });
       } else {
         final estimatedTotalMeters =
             _estimatedTotalMetersForStage(request, route);
         final progress = estimatedTotalMeters <= 0
             ? null
-            : ((estimatedTotalMeters - route.distanceMeters) /
+            : ((estimatedTotalMeters - (route.distanceKm * 1000)) /
                     estimatedTotalMeters)
                 .clamp(0.0, 1.0);
 
         setState(() {
           _routePoints = route.points;
-          _routeDistanceMeters = route.distanceMeters;
-          _routeDurationSeconds = route.durationSeconds;
+          _routeDistanceMeters = route.distanceKm * 1000;
+          _routeDurationSeconds = route.durationMinutes * 60;
           _routeProgress = progress;
+          _routeIsFallback = false;
         });
       }
 
@@ -492,6 +506,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
         _routeDistanceMeters = null;
         _routeDurationSeconds = null;
         _routeProgress = null;
+        _routeIsFallback = true;
       });
 
       _fitRoute(providerPosition, routeTarget);
@@ -512,17 +527,16 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
         : customerPosition;
   }
 
-  double _estimatedTotalMetersForStage(AppRequest request, RouteData route) {
+  double _estimatedTotalMetersForStage(AppRequest request, RouteSnapshot route) {
     if (request.status == RequestStatus.arrived ||
         request.status == RequestStatus.inService ||
         request.status == RequestStatus.completed) {
-      return (request.estimatedDistanceKm ?? (route.distanceMeters / 1000)) *
-          1000;
+      return (request.estimatedDistanceKm ?? route.distanceKm) * 1000;
     }
 
     return ((request.providerApproachDistanceKm ?? 0) > 0
             ? request.providerApproachDistanceKm!
-            : (route.distanceMeters / 1000)) *
+            : route.distanceKm) *
         1000;
   }
 
@@ -536,11 +550,6 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
       ),
     );
     _didAutoFitRoute = true;
-  }
-
-  void _recenterRoute(LatLng a, LatLng b) {
-    _didAutoFitRoute = false;
-    _fitRoute(a, b);
   }
 
   double? _providerHeadingRadians({
@@ -843,8 +852,10 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
             18;
     final customerMarkerOffset =
         providerAtPickup ? const Offset(-32, -14) : Offset.zero;
+    // ignore: unused_local_variable
     final providerMarkerOffset =
         providerAtPickup ? const Offset(32, 10) : Offset.zero;
+    // ignore: unused_local_variable
     final providerHeadingRadians = providerPosition == null
         ? null
         : _providerHeadingRadians(
@@ -858,8 +869,8 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
       markers.add(
         Marker(
           point: customerPosition,
-          width: 192,
-          height: 160,
+          width: 80,
+          height: 80,
           child: _PinnedMarker(
             label: destinationStage ? 'Pick up' : 'Client',
             type: RoleMapMarkerType.customer,
@@ -876,10 +887,10 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
       markers.add(
         Marker(
           point: request.destinationPosition!,
-          width: 192,
-          height: 160,
+          width: 50,
+          height: 50,
           child: const _PinnedMarker(
-            label: 'Destination',
+            label: 'Dest',
             type: RoleMapMarkerType.destination,
             icon: Icons.place,
             color: Colors.red,
@@ -890,19 +901,26 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
     }
 
     if (providerPosition != null) {
+      // PROVIDER MARKER - CONSISTENT SIZE WITH OTHER MARKERS
       markers.add(
         Marker(
           point: providerPosition,
-          width: 192,
-          height: 160,
-          child: _PinnedMarker(
-            label: 'DEPANNAGE',
-            type: RoleMapMarkerType.provider,
-            icon: Icons.car_repair_rounded,
-            color: const Color(0xFFF59E0B),
-            rotationRadians: providerHeadingRadians,
-            compactLabel: true,
-            offset: providerMarkerOffset,
+          width: 50,
+          height: 50,
+          alignment: Alignment.topCenter,
+          child: const DecoratedBox(
+            decoration: BoxDecoration(
+              color: Color(0xFFF59E0B),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 8,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Icon(Icons.directions_car, color: Colors.white, size: 24),
           ),
         ),
       );
@@ -930,7 +948,23 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
                       Polyline(
                         points: _routePoints,
                         strokeWidth: 5,
-                        color: Colors.green,
+                        color: _loadingRoute
+                            ? Colors.blue
+                            : (_routeIsFallback ? Colors.red : Colors.green),
+                      ),
+                    ],
+                  ),
+                if (_loadingRoute)
+                  MarkerLayer(
+                    markers: [
+                      Marker(
+                        point: _routePoints.isNotEmpty ? _routePoints.first : customerPosition,
+                        width: 40,
+                        height: 40,
+                        child: const CircularProgressIndicator(
+                          strokeWidth: 3,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                        ),
                       ),
                     ],
                   ),
@@ -960,13 +994,27 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
                   ),
                 ),
                 const SizedBox(width: 10),
-                _MapGlassButton(
-                  icon: Icons.my_location_outlined,
-                  onTap: actualProviderPosition == null
-                      ? null
-                      : () {
-                          setState(() => _followProvider = true);
-                          _recenterRoute(actualProviderPosition, routeTarget);
+                 _MapGlassButton(
+                   icon: Icons.my_location_outlined,
+                   onTap: () {
+                       final currentPos = widget.store.providerCurrentPosition ?? actualProviderPosition;
+                       if (currentPos == null) {
+                         widget.store.requestProviderLocation();
+                         return;
+                       }
+
+                       setState(() => _followProvider = true);
+
+                       // Center map exactly on provider position (like home page)
+                       _mapController.move(currentPos, 16);
+
+                       ScaffoldMessenger.of(context).showSnackBar(
+                         SnackBar(
+                           content: Text('Position: ${currentPos.latitude.toStringAsFixed(5)}, ${currentPos.longitude.toStringAsFixed(5)}'),
+                           duration: const Duration(seconds: 2),
+                           backgroundColor: Colors.green,
+                         ),
+                       );
                         },
                 ),
               ],
@@ -1031,12 +1079,6 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
                     icon: Icons.place_rounded,
                     title: 'Pick up',
                     value: request.pickupLabel,
-                  ),
-                  const SizedBox(height: 6),
-                  _SummaryInlineRow(
-                    icon: Icons.outlined_flag_rounded,
-                    title: 'Destination',
-                    value: request.destination,
                   ),
                   const SizedBox(height: 6),
                   _SummaryInlineRow(
@@ -1134,15 +1176,17 @@ class _PinnedMarker extends StatelessWidget {
     required this.type,
     required this.icon,
     required this.color,
-    this.rotationRadians,
     this.compactLabel = false,
     this.offset = Offset.zero,
+    // ignore: unused_element_parameter
+    this.rotationRadians,
   });
 
   final String label;
   final RoleMapMarkerType type;
   final IconData icon;
   final Color color;
+  // ignore: unused_field
   final double? rotationRadians;
   final bool compactLabel;
   final Offset offset;
