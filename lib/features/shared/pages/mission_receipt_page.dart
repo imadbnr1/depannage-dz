@@ -118,132 +118,23 @@ class MissionReceiptPage extends StatelessWidget {
                     style:
                         TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
                   ),
-                  const SizedBox(height: 10),
-                  _Row('Service', request.service.label),
-                  _Row(
-                    'Vehicule',
-                    '${request.vehicleType} · ${request.brandModel}',
-                  ),
-                  _Row('Paiement', request.payment),
-                  _Row('Urgence', request.urgency),
-                  if (request.estimatedDistanceKm != null)
-                    _Row(
-                      'Distance',
-                      '${request.estimatedDistanceKm!.toStringAsFixed(1)} km',
-                    ),
-                  if (request.estimatedDurationMinutes != null)
-                    _Row(
-                      'Duree',
-                      '${request.estimatedDurationMinutes} min',
-                    ),
-                  _Row('Repere', request.landmark),
+                  const SizedBox(height: 12),
+                  _InfoRow(label: 'Service', value: request.service.label),
+                  _InfoRow(label: 'Vehicule', value: '${request.vehicleType} · ${request.brandModel}'),
+                  _InfoRow(label: 'Pick up', value: request.pickupLabel),
                   if (request.destination.isNotEmpty)
-                    _Row('Destination', request.destination),
+                    _InfoRow(label: 'Destination', value: request.destination),
+                  _InfoRow(label: 'Paiement', value: request.payment),
                 ],
               ),
             ),
-            const SizedBox(height: 14),
-            _Card(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Client',
-                    style:
-                        TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
-                  ),
-                  const SizedBox(height: 10),
-                  _Row('Nom', request.customerName),
-                  _Row('Telephone', request.customerPhone),
-                  _Row('Position', request.pickupLabel),
-                ],
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Retour'),
               ),
-            ),
-            if ((request.providerName ?? '').isNotEmpty) ...[
-              const SizedBox(height: 14),
-              _Card(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Provider',
-                      style:
-                          TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
-                    ),
-                    const SizedBox(height: 10),
-                    _Row('Nom', request.providerName!),
-                    _Row('Telephone', request.providerPhone ?? '--'),
-                    _Row(
-                      'Vehicule',
-                      '${request.providerVehicle ?? '--'} · ${request.providerPlate ?? '--'}',
-                    ),
-                  ],
-                ),
-              ),
-            ],
-            if (request.clientRatingForProvider != null) ...[
-              const SizedBox(height: 14),
-              _Card(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Votre evaluation',
-                      style:
-                          TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '⭐ ${request.clientRatingForProvider!.toStringAsFixed(1)}',
-                      style: const TextStyle(fontWeight: FontWeight.w900),
-                    ),
-                    if ((request.clientReviewForProvider ?? '').isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Text(
-                          request.clientReviewForProvider!,
-                          style: const TextStyle(color: Colors.black54),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-            if (request.providerRatingForClient != null) ...[
-              const SizedBox(height: 14),
-              _Card(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Evaluation provider',
-                      style:
-                          TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '⭐ ${request.providerRatingForClient!.toStringAsFixed(1)}',
-                      style: const TextStyle(fontWeight: FontWeight.w900),
-                    ),
-                    if ((request.providerReviewForClient ?? '').isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Text(
-                          request.providerReviewForClient!,
-                          style: const TextStyle(color: Colors.black54),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-            const SizedBox(height: 18),
-            FilledButton.icon(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              icon: const Icon(Icons.home),
-              label: const Text('Retour'),
             ),
           ],
         ),
@@ -260,41 +151,46 @@ class _Card extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: child,
     );
   }
 }
 
-class _Row extends StatelessWidget {
-  const _Row(this.title, this.value);
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({required this.label, required this.value});
 
-  final String title;
+  final String label;
   final String value;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
+          SizedBox(
+            width: 100,
             child: Text(
-              title,
-              style: const TextStyle(color: Colors.black54),
+              label,
+              style: const TextStyle(
+                color: Colors.black54,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              textAlign: TextAlign.end,
-              style: const TextStyle(fontWeight: FontWeight.w700),
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
