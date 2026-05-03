@@ -42,17 +42,16 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/icon/app_icon.png
-    - assets/markers/
+    - assets/logo/autorescuelogo.png
     - assets/sounds/alert.mp3
     - assets/sounds/admin_popup.ogg
 
 flutter_launcher_icons:
   android: true
-  image_path: assets/icon/app_icon.png
+  image_path: assets/logo/autorescuelogo.png
   min_sdk_android: 21
   web:
     generate: true
-    image_path: assets/icon/app_icon.png
+    image_path: assets/logo/autorescuelogo.png
     background_color: "#0F172A"
     theme_color: "#2563EB"

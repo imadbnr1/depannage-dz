@@ -66,4 +66,5 @@ class DefaultFirebaseOptions {
     projectId: 'depannage-dz-imad-2026',
     storageBucket: 'depannage-dz-imad-2026.firebasestorage.app',
   );
+
 }
