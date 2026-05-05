@@ -33,18 +33,22 @@ class _LoginPageState extends State<LoginPage> {
   bool _loading = false;
   bool _obscure = true;
   bool _didLaunchSignup = false;
-  int _adminTapCount = 0;
-  DateTime? _lastAdminTapAt;
 
   // Login mode: 'password' or 'email_otp'
   String _loginMode = 'password';
   bool _otpSent = false;
   String _emailOtpCode = '';
-
+  
+  // Variables for hidden admin login
+  int _tapCount = 0;
+  late DateTime _firstTapTime;
+  
   @override
   void initState() {
     super.initState();
     _initSharedPreferences();
+    // Initialize _firstTapTime
+    _firstTapTime = DateTime.now();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted ||
           widget.adminOnly ||
@@ -65,37 +69,7 @@ class _LoginPageState extends State<LoginPage> {
     _sharedPreferences = await SharedPreferences.getInstance();
   }
 
-  void _handleHiddenAdminTap() {
-    if (widget.adminOnly || _loading) return;
 
-    final now = DateTime.now();
-    final lastTapAt = _lastAdminTapAt;
-    if (lastTapAt == null ||
-        now.difference(lastTapAt) > const Duration(seconds: 2)) {
-      _adminTapCount = 0;
-    }
-
-    _lastAdminTapAt = now;
-    _adminTapCount += 1;
-
-    if (_adminTapCount >= 7) {
-      _adminTapCount = 0;
-      _lastAdminTapAt = null;
-      _openAdminLogin();
-    }
-  }
-
-  void _openAdminLogin() {
-    if (widget.adminOnly || _loading) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => LoginPage(
-          authService: widget.authService,
-          adminOnly: true,
-        ),
-      ),
-    );
-  }
 
   @override
   void dispose() {
@@ -118,7 +92,7 @@ class _LoginPageState extends State<LoginPage> {
 
     try {
       String? generatedOtp;
-      
+
       await widget.authService.sendEmailOTP(
         email: email,
         onSent: () {
@@ -134,16 +108,13 @@ class _LoginPageState extends State<LoginPage> {
           AppFeedback.showError(context, error);
         },
       );
-      
-      // Wait a bit for storage to complete
-      await Future.delayed(Duration(milliseconds: 200));
-      
-      // Read OTP from SharedPreferences (most reliable)
+
+      await Future.delayed(const Duration(milliseconds: 200));
+
       generatedOtp = _sharedPreferences?.getString('email_otp_code');
-      
+
       if (!mounted) return;
-      
-      // Show prominent OTP dialog
+
       await showDialog(
         context: context,
         barrierDismissible: false,
@@ -151,29 +122,29 @@ class _LoginPageState extends State<LoginPage> {
           return AlertDialog(
             title: Row(
               children: [
-                Icon(Icons.mark_email_read_outlined, color: Color(0xFFF59E0B)),
-                SizedBox(width: 12),
-                Text('Code OTP envoye'),
+                const Icon(Icons.mark_email_read_outlined, color: Color(0xFFF59E0B)),
+                const SizedBox(width: 12),
+                const Text('Code OTP envoyé'),
               ],
             ),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Votre code de verification a 6 chiffres:'),
-                SizedBox(height: 16),
+                const Text('Votre code de vérification à 6 chiffres:'),
+                const SizedBox(height: 16),
                 Container(
                   width: double.infinity,
-                  padding: EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Color(0xFFFFF7E8),
+                    color: const Color(0xFFFFF7E8),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Color(0xFFF59E0B), width: 2),
+                    border: Border.all(color: const Color(0xFFF59E0B), width: 2),
                   ),
                   child: Text(
                     generatedOtp ?? 'NON DISPONIBLE',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.w900,
                       color: Color(0xFFF59E0B),
@@ -181,8 +152,8 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                 ),
-                SizedBox(height: 16),
-                Text(
+                const SizedBox(height: 16),
+                const Text(
                   'Copiez ce code et collez-le dans le champ ci-dessous.',
                   style: TextStyle(color: Colors.black54, fontSize: 13),
                 ),
@@ -191,8 +162,8 @@ class _LoginPageState extends State<LoginPage> {
             actions: [
               FilledButton.icon(
                 onPressed: () => Navigator.of(dialogContext).pop(),
-                icon: Icon(Icons.check_circle),
-                label: Text('Compris'),
+                icon: const Icon(Icons.check_circle),
+                label: const Text('Compris'),
               ),
             ],
           );
@@ -210,23 +181,21 @@ class _LoginPageState extends State<LoginPage> {
 
     final email = _identifierController.text.trim();
     final otpCode = _emailOtpCode.trim();
-    
+
     if (otpCode.length != 6) {
-      AppFeedback.showError(context, 'Veuillez entrer le code a 6 chiffres.');
+      AppFeedback.showError(context, 'Veuillez entrer le code à 6 chiffres.');
       return;
     }
 
     setState(() => _loading = true);
 
     try {
-      // Show dialog to enter password after OTP verification
       final password = await _showPasswordDialogForEmailOTP();
       if (password == null || password.isEmpty) {
         setState(() => _loading = false);
         return;
       }
 
-      // Verify OTP and login
       await widget.authService.loginWithEmailOTP(
         email: email,
         otpCode: otpCode,
@@ -303,10 +272,7 @@ class _LoginPageState extends State<LoginPage> {
 
     final isValid = _formKey.currentState?.validate() ?? false;
     if (!isValid) {
-      AppFeedback.showError(
-        context,
-        'Verifiez vos informations.',
-      );
+      AppFeedback.showError(context, 'Vérifiez vos informations.');
       return;
     }
 
@@ -337,7 +303,7 @@ class _LoginPageState extends State<LoginPage> {
     final normalized = message.toLowerCase();
     final needsDialog = normalized.contains('bloque') ||
         normalized.contains('internet') ||
-        normalized.contains('regles de securite') ||
+        normalized.contains('règles de sécurité') ||
         normalized.contains('administrateur');
 
     if (!needsDialog) {
@@ -346,10 +312,10 @@ class _LoginPageState extends State<LoginPage> {
     }
 
     final title = normalized.contains('bloque')
-        ? 'Compte bloque'
+        ? 'Compte bloqué'
         : normalized.contains('internet')
             ? 'Connexion indisponible'
-            : 'Acces refuse';
+            : 'Accès refusé';
 
     showDialog<void>(
       context: context,
@@ -372,6 +338,39 @@ class _LoginPageState extends State<LoginPage> {
         );
       },
     );
+  }
+
+  /// Handles logo tap for hidden admin login
+  void _handleLogoTap() {
+    final now = DateTime.now();
+    if (_tapCount == 0 || now.difference(_firstTapTime).inSeconds > 10) {
+      _tapCount = 1;
+      _firstTapTime = now;
+    } else {
+      _tapCount++;
+      if (_tapCount >= 7) {
+        _showAdminLogin();
+        _tapCount = 0;
+      }
+    }
+  }
+
+  /// Shows admin login interface
+  void _showAdminLogin() {
+    // Clear the admin-only flag if it was set
+    if (widget.adminOnly) {
+      Navigator.of(context).pop();
+    } else {
+      // Navigate to admin login
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => LoginPage(
+            authService: widget.authService,
+            adminOnly: true,
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _openPasswordResetDialog() async {
@@ -410,10 +409,7 @@ class _LoginPageState extends State<LoginPage> {
                 await widget.authService.sendPasswordResetEmail(email: email);
                 if (!mounted || !dialogContext.mounted) return;
                 Navigator.of(dialogContext).pop();
-                AppFeedback.showSuccess(
-                  context,
-                  strings.t('resetPasswordSent'),
-                );
+                AppFeedback.showSuccess(context, strings.t('resetPasswordSent'));
               } catch (e) {
                 if (!dialogContext.mounted) return;
                 setDialogState(() {
@@ -441,9 +437,7 @@ class _LoginPageState extends State<LoginPage> {
                     keyboardType: TextInputType.emailAddress,
                     textInputAction: TextInputAction.send,
                     onSubmitted: (_) {
-                      if (!sending) {
-                        sendReset();
-                      }
+                      if (!sending) sendReset();
                     },
                     decoration: InputDecoration(
                       labelText: strings.t('resetPasswordEmail'),
@@ -455,8 +449,7 @@ class _LoginPageState extends State<LoginPage> {
               ),
               actions: [
                 TextButton(
-                  onPressed:
-                      sending ? null : () => Navigator.of(dialogContext).pop(),
+                  onPressed: sending ? null : () => Navigator.of(dialogContext).pop(),
                   child: Text(strings.t('cancel')),
                 ),
                 FilledButton.icon(
@@ -486,9 +479,7 @@ class _LoginPageState extends State<LoginPage> {
 
   void _openLegal(LegalDocument document) {
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => LegalPage(document: document),
-      ),
+      MaterialPageRoute(builder: (_) => LegalPage(document: document)),
     );
   }
 
@@ -526,81 +517,20 @@ class _LoginPageState extends State<LoginPage> {
                 constraints: const BoxConstraints(maxWidth: 500),
                 child: Column(
                   children: [
-                    // Premium logo with glow effect
                     GestureDetector(
-                      onTap: _handleHiddenAdminTap,
-                      child: Container(
-                        width: 130,
-                        height: 130,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.white.withValues(alpha: 0.25),
-                              Colors.white.withValues(alpha: 0.1),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white38,
-                            width: 2.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.3),
-                              blurRadius: 50,
-                              offset: const Offset(0, 25),
-                            ),
-                            BoxShadow(
-                              color: const Color(0xFFF59E0B).withValues(alpha: 0.25),
-                              blurRadius: 30,
-                              spreadRadius: 3,
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.car_repair_rounded,
-                          color: Colors.white,
-                          size: 62,
-                        ),
+                      onTap: _handleLogoTap,
+                      child: Column(
+                        children: [
+                          Image.asset('assets/logo/applogo.png', width: 500, height: 300, fit: BoxFit.contain),
+                          const SizedBox(height: 20),
+                          const Text('Assistance routière rapide en Algérie', style: TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.w500)),
+                          const SizedBox(height: 30),
+                          const LanguageSelector(),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 26),
-                    // Premium app name
-                    GestureDetector(
-                      onTap: _handleHiddenAdminTap,
-                      child: const Text(
-                        'DEPANINY',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 40,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.5,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black38,
-                              offset: Offset(0, 4),
-                              blurRadius: 12,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    const Text(
-                      'Depannage routier rapide en Algerie',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-                    // Language selector
-                    const LanguageSelector(),
                     const SizedBox(height: 20),
+
                     // Premium login card
                     Container(
                       padding: const EdgeInsets.all(26),
@@ -637,6 +567,7 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                             ),
                             const SizedBox(height: 24),
+
                             // Login mode toggle (only for non-admin)
                             if (!widget.adminOnly) ...[
                               Container(
@@ -759,6 +690,7 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                               const SizedBox(height: 20),
                             ],
+
                             // Password login form
                             if (_loginMode == 'password') ...[
                               TextFormField(
@@ -823,19 +755,14 @@ class _LoginPageState extends State<LoginPage> {
                               Align(
                                 alignment: AlignmentDirectional.centerEnd,
                                 child: TextButton(
-                                  onPressed: _loading
-                                      ? null
-                                      : _openPasswordResetDialog,
+                                  onPressed: _loading ? null : _openPasswordResetDialog,
                                   child: const Text(
-                                    'Mot de passe oublie ?',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                    ),
+                                    'Mot de passe oublié ?',
+                                    style: TextStyle(fontWeight: FontWeight.w700),
                                   ),
                                 ),
                               ),
                             ] else if (_loginMode == 'email_otp') ...[
-                              // Email OTP login form
                               TextFormField(
                                 controller: _identifierController,
                                 enabled: !_otpSent,
@@ -862,10 +789,7 @@ class _LoginPageState extends State<LoginPage> {
                                     borderSide: BorderSide.none,
                                   ),
                                   suffixIcon: _otpSent
-                                      ? const Icon(
-                                          Icons.check_circle,
-                                          color: Color(0xFF059669),
-                                        )
+                                      ? const Icon(Icons.check_circle, color: Color(0xFF059669))
                                       : null,
                                 ),
                               ),
@@ -908,12 +832,10 @@ class _LoginPageState extends State<LoginPage> {
                                         ? const SizedBox(
                                             width: 18,
                                             height: 18,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                            ),
+                                            child: CircularProgressIndicator(strokeWidth: 2),
                                           )
                                         : const Icon(Icons.login),
-                                    label: const Text('Verifier et se connecter'),
+                                    label: const Text('Vérifier et se connecter'),
                                   ),
                                 ),
                                 const SizedBox(height: 10),
@@ -926,7 +848,7 @@ class _LoginPageState extends State<LoginPage> {
                                       });
                                     },
                                     icon: const Icon(Icons.edit_outlined, size: 18),
-                                    label: const Text('Changer d email'),
+                                    label: const Text('Changer d\'email'),
                                   ),
                                 ),
                               ] else ...[
@@ -938,9 +860,7 @@ class _LoginPageState extends State<LoginPage> {
                                         ? const SizedBox(
                                             width: 18,
                                             height: 18,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                            ),
+                                            child: CircularProgressIndicator(strokeWidth: 2),
                                           )
                                         : const Icon(Icons.email_outlined),
                                     label: const Text('Envoyer le code OTP'),
@@ -949,6 +869,7 @@ class _LoginPageState extends State<LoginPage> {
                               ],
                             ],
                             const SizedBox(height: 18),
+
                             // Helper box
                             Container(
                               width: double.infinity,
@@ -957,9 +878,7 @@ class _LoginPageState extends State<LoginPage> {
                                 color: const Color(0xFFFFF7E8),
                                 borderRadius: BorderRadius.circular(18),
                                 border: Border.all(
-                                  color: const Color(0xFFF59E0B).withValues(
-                                    alpha: 0.3,
-                                  ),
+                                  color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
                                 ),
                               ),
                               child: Row(
@@ -984,6 +903,7 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                             ),
                             const SizedBox(height: 20),
+
                             // Login button
                             if (_loginMode == 'password')
                               SizedBox(
@@ -994,19 +914,16 @@ class _LoginPageState extends State<LoginPage> {
                                       ? const SizedBox(
                                           width: 18,
                                           height: 18,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
+                                          child: CircularProgressIndicator(strokeWidth: 2),
                                         )
                                       : const Icon(Icons.login),
                                   label: Text(
-                                    _loading
-                                        ? strings.t('signingIn')
-                                        : strings.t('signIn'),
+                                    _loading ? strings.t('signingIn') : strings.t('signIn'),
                                   ),
                                 ),
                               ),
                             const SizedBox(height: 14),
+
                             // Create account button
                             if (!widget.adminOnly)
                               SizedBox(
@@ -1023,14 +940,10 @@ class _LoginPageState extends State<LoginPage> {
                                             ),
                                           );
                                         },
-                                  icon: const Icon(
-                                    Icons.person_add_alt_1_outlined,
-                                  ),
-                                  label: const Text('Creer un compte'),
+                                  icon: const Icon(Icons.person_add_alt_1_outlined),
+                                  label: const Text('Créer un compte'),
                                   style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 14,
-                                    ),
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
                                   ),
                                 ),
                               )
@@ -1038,14 +951,13 @@ class _LoginPageState extends State<LoginPage> {
                               SizedBox(
                                 width: double.infinity,
                                 child: OutlinedButton.icon(
-                                  onPressed: _loading
-                                      ? null
-                                      : () => Navigator.of(context).pop(),
+                                  onPressed: _loading ? null : () => Navigator.of(context).pop(),
                                   icon: const Icon(Icons.arrow_back),
-                                  label: const Text('Retour a l entree publique'),
+                                  label: const Text('Retour à l\'entrée publique'),
                                 ),
                               ),
                             const SizedBox(height: 14),
+
                             // Legal links
                             Wrap(
                               alignment: WrapAlignment.center,
@@ -1053,21 +965,13 @@ class _LoginPageState extends State<LoginPage> {
                               runSpacing: 4,
                               children: [
                                 TextButton.icon(
-                                  onPressed: () =>
-                                      _openLegal(LegalDocument.privacy),
-                                  icon: const Icon(
-                                    Icons.privacy_tip_outlined,
-                                    size: 18,
-                                  ),
-                                  label: const Text('Confidentialite'),
+                                  onPressed: () => _openLegal(LegalDocument.privacy),
+                                  icon: const Icon(Icons.privacy_tip_outlined, size: 18),
+                                  label: const Text('Confidentialité'),
                                 ),
                                 TextButton.icon(
-                                  onPressed: () =>
-                                      _openLegal(LegalDocument.terms),
-                                  icon: const Icon(
-                                    Icons.description_outlined,
-                                    size: 18,
-                                  ),
+                                  onPressed: () => _openLegal(LegalDocument.terms),
+                                  icon: const Icon(Icons.description_outlined, size: 18),
                                   label: const Text('Conditions'),
                                 ),
                               ],

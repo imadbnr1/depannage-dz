@@ -1,6 +1,6 @@
 {
-    "name": "depannage_dz_pro_structured",
-    "short_name": "depannage_dz_pro_structured",
+    "name": "Auto Rescue",
+    "short_name": "Auto Rescue",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0F172A",

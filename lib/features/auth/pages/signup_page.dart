@@ -82,7 +82,7 @@ class _SignupPageState extends State<SignupPage>
 
     try {
       String? generatedOtp;
-      
+
       await widget.authService.sendEmailOTP(
         email: email,
         onSent: () {
@@ -98,16 +98,13 @@ class _SignupPageState extends State<SignupPage>
           AppFeedback.showError(context, error);
         },
       );
-      
-      // Wait a bit for storage to complete
-      await Future.delayed(Duration(milliseconds: 200));
-      
-      // Read OTP from SharedPreferences (most reliable)
+
+      await Future.delayed(const Duration(milliseconds: 200));
+
       generatedOtp = _sharedPreferences?.getString('email_otp_code');
-      
+
       if (!mounted) return;
-      
-      // Show prominent OTP dialog
+
       await showDialog(
         context: context,
         barrierDismissible: false,
@@ -115,29 +112,29 @@ class _SignupPageState extends State<SignupPage>
           return AlertDialog(
             title: Row(
               children: [
-                Icon(Icons.mark_email_read_outlined, color: Color(0xFFF59E0B)),
-                SizedBox(width: 12),
-                Text('Code OTP envoye'),
+                const Icon(Icons.mark_email_read_outlined, color: Color(0xFFF59E0B)),
+                const SizedBox(width: 12),
+                const Text('Code OTP envoyé'),
               ],
             ),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Votre code de verification a 6 chiffres:'),
-                SizedBox(height: 16),
+                const Text('Votre code de vérification à 6 chiffres:'),
+                const SizedBox(height: 16),
                 Container(
                   width: double.infinity,
-                  padding: EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Color(0xFFFFF7E8),
+                    color: const Color(0xFFFFF7E8),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Color(0xFFF59E0B), width: 2),
+                    border: Border.all(color: const Color(0xFFF59E0B), width: 2),
                   ),
                   child: Text(
                     generatedOtp ?? 'NON DISPONIBLE',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.w900,
                       color: Color(0xFFF59E0B),
@@ -145,8 +142,8 @@ class _SignupPageState extends State<SignupPage>
                     ),
                   ),
                 ),
-                SizedBox(height: 16),
-                Text(
+                const SizedBox(height: 16),
+                const Text(
                   'Copiez ce code et collez-le dans le champ ci-dessous.',
                   style: TextStyle(color: Colors.black54, fontSize: 13),
                 ),
@@ -155,8 +152,8 @@ class _SignupPageState extends State<SignupPage>
             actions: [
               FilledButton.icon(
                 onPressed: () => Navigator.of(dialogContext).pop(),
-                icon: Icon(Icons.check_circle),
-                label: Text('Compris'),
+                icon: const Icon(Icons.check_circle),
+                label: const Text('Compris'),
               ),
             ],
           );
@@ -172,28 +169,24 @@ class _SignupPageState extends State<SignupPage>
   Future<void> _verifyAndSignup() async {
     if (_loading) return;
 
-    // Validate form first
     if (!(_formKey.currentState?.validate() ?? false)) {
-      AppFeedback.showError(context, 'Verifiez vos informations.');
+      AppFeedback.showError(context, 'Vérifiez vos informations.');
       return;
     }
 
-    // Check password match
     if (_passwordController.text != _confirmPasswordController.text) {
       AppFeedback.showError(context, 'Les mots de passe ne correspondent pas.');
       return;
     }
 
-    // Check OTP code
     if (_emailOtpCode.trim().length != 6) {
-      AppFeedback.showError(context, 'Veuillez entrer le code a 6 chiffres.');
+      AppFeedback.showError(context, 'Veuillez entrer le code à 6 chiffres.');
       return;
     }
 
     setState(() => _loading = true);
 
     try {
-      // Sign up with email OTP
       await widget.authService.signUpWithEmailOTP(
         email: _emailController.text.trim(),
         otpCode: _emailOtpCode.trim(),
@@ -205,17 +198,14 @@ class _SignupPageState extends State<SignupPage>
 
       if (!mounted) return;
 
-      // Auto-redirect based on role
       if (_role == 'provider') {
-        // Provider needs admin approval - redirect to login
         AppFeedback.showSuccess(
           context,
-          'Compte provider cree. Validation admin en attente.',
+          'Compte provider créé. Validation admin en attente.',
         );
         Navigator.of(context).popUntil((route) => route.isFirst);
       } else {
-        // Customer - auth state change will handle navigation to home
-        AppFeedback.showSuccess(context, 'Compte cree avec succes!');
+        AppFeedback.showSuccess(context, 'Compte créé avec succès!');
       }
     } catch (e) {
       if (!mounted) return;
@@ -348,56 +338,24 @@ class _SignupPageState extends State<SignupPage>
                         ],
                       ),
                       const SizedBox(height: 8),
-                      // Premium logo
-                      Container(
-                        width: 110,
-                        height: 110,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.white.withValues(alpha: 0.25),
-                              Colors.white.withValues(alpha: 0.1),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white38,
-                            width: 2,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.3),
-                              blurRadius: 45,
-                              offset: const Offset(0, 22),
-                            ),
-                            BoxShadow(
-                              color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
-                              blurRadius: 25,
-                              spreadRadius: 2,
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.car_repair_rounded,
-                          color: Colors.white,
-                          size: 54,
-                        ),
-                      ),
-                      const SizedBox(height: 22),
+
+                       // logo
+                             Image.asset('assets/logo/applogo.png', width: 500, height: 300, fit: BoxFit.contain),
+                             const SizedBox(height: 22),
+                             
+                             // App Name
+                             const Text(
+                               'Auto Rescue',
+                               style: TextStyle(
+                                 color: Colors.white,
+                                 fontSize: 38,
+                                 fontWeight: FontWeight.w900,
+                                 letterSpacing: 1.2,
+                               ),
+                             ),
+                             const SizedBox(height: 8),
                       const Text(
-                        'DEPANINY',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 38,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      const Text(
-                        'Inscription rapide et securisee',
+                        'Inscription rapide et sécurisée',
                         style: TextStyle(
                           color: Colors.white70,
                           fontSize: 15,
@@ -405,6 +363,7 @@ class _SignupPageState extends State<SignupPage>
                         ),
                       ),
                       const SizedBox(height: 28),
+
                       // Premium signup card
                       Container(
                         padding: const EdgeInsets.all(26),
@@ -425,7 +384,7 @@ class _SignupPageState extends State<SignupPage>
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
-                                'Creer un compte',
+                                'Créer un compte',
                                 style: TextStyle(
                                   fontWeight: FontWeight.w900,
                                   fontSize: 26,
@@ -441,11 +400,12 @@ class _SignupPageState extends State<SignupPage>
                                 ),
                               ),
                               const SizedBox(height: 20),
+
                               _roleTile(
                                 value: 'customer',
                                 title: 'Client',
                                 subtitle:
-                                    'Commander un depannage et suivre la mission.',
+                                    'Commander un dépannage et suivre la mission.',
                                 icon: Icons.person_outline,
                               ),
                               const SizedBox(height: 12),
@@ -457,6 +417,7 @@ class _SignupPageState extends State<SignupPage>
                                 icon: Icons.car_repair_outlined,
                               ),
                               const SizedBox(height: 20),
+
                               TextFormField(
                                 controller: _fullNameController,
                                 enabled: !_otpSent,
@@ -492,15 +453,15 @@ class _SignupPageState extends State<SignupPage>
                                 validator: (value) {
                                   final text = (value ?? '').trim();
                                   if (text.isEmpty) {
-                                    return 'Entrez votre numero';
+                                    return 'Entrez votre numéro';
                                   }
                                   if (text.length < 8) {
-                                    return 'Numero invalide';
+                                    return 'Numéro invalide';
                                   }
                                   return null;
                                 },
                                 decoration: InputDecoration(
-                                  labelText: 'Numero de telephone',
+                                  labelText: 'Numéro de téléphone',
                                   prefixIcon: const Icon(Icons.phone_outlined),
                                   filled: true,
                                   fillColor: const Color(0xFFF8F5EF),
@@ -553,7 +514,7 @@ class _SignupPageState extends State<SignupPage>
                                     return 'Entrez un mot de passe';
                                   }
                                   if (text.length < 6) {
-                                    return 'Minimum 6 caracteres';
+                                    return 'Minimum 6 caractères';
                                   }
                                   return null;
                                 },
@@ -615,6 +576,7 @@ class _SignupPageState extends State<SignupPage>
                                 ),
                               ),
                               const SizedBox(height: 20),
+
                               // Info box
                               Container(
                                 width: double.infinity,
@@ -637,8 +599,8 @@ class _SignupPageState extends State<SignupPage>
                                     Expanded(
                                       child: Text(
                                         _role == 'provider'
-                                            ? 'Les comptes provider restent soumis a la validation admin avant de recevoir des missions.'
-                                            : 'Inscription directe: vous pourrez commander votre premiere mission juste apres.',
+                                            ? 'Les comptes provider restent soumis à la validation admin avant de recevoir des missions.'
+                                            : 'Inscription directe : vous pourrez commander votre première mission juste après.',
                                         style: const TextStyle(
                                           color: Colors.black54,
                                           height: 1.35,
@@ -650,6 +612,7 @@ class _SignupPageState extends State<SignupPage>
                                 ),
                               ),
                               const SizedBox(height: 20),
+
                               if (!_otpSent)
                                 SizedBox(
                                   width: double.infinity,
@@ -702,10 +665,11 @@ class _SignupPageState extends State<SignupPage>
                                   child: FilledButton.icon(
                                     onPressed: _loading ? null : _verifyAndSignup,
                                     icon: const Icon(Icons.check_circle_outline),
-                                    label: const Text('Verifier et creer le compte'),
+                                    label: const Text('Vérifier et créer le compte'),
                                   ),
                                 ),
                               ],
+
                               if (_otpSent) ...[
                                 const SizedBox(height: 12),
                                 Center(
@@ -717,7 +681,7 @@ class _SignupPageState extends State<SignupPage>
                                       });
                                     },
                                     icon: const Icon(Icons.edit_outlined, size: 18),
-                                    label: const Text('Changer d email'),
+                                    label: const Text('Changer d\'email'),
                                   ),
                                 ),
                               ],
@@ -729,7 +693,7 @@ class _SignupPageState extends State<SignupPage>
                                       ? null
                                       : () => Navigator.of(context).pop(),
                                   icon: const Icon(Icons.login),
-                                  label: const Text('J ai deja un compte'),
+                                  label: const Text('J\'ai déjà un compte'),
                                   style: OutlinedButton.styleFrom(
                                     padding: const EdgeInsets.symmetric(
                                       vertical: 14,

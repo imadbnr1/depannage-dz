@@ -158,10 +158,10 @@ const _localizedValues = {
     'skip': 'Passer',
     'next': 'Suivant',
     'enterApp': 'Entrer dans l app',
-    'permissionTitle': 'Avant de commencer',
-    'permissionIntro':
-        'DEPANINY fonctionne mieux si l application peut utiliser votre position et vous envoyer les alertes mission en temps reel.',
-    'permissionAutoTrying': 'Demande automatique en cours...',
+     'permissionTitle': 'Avant de commencer',
+     'permissionIntro':
+         'Auto Rescue fonctionne mieux si l application peut utiliser votre position et vous envoyer les alertes mission en temps reel.',
+     'permissionAutoTrying': 'Demande automatique en cours...',
     'permissionAutoDone': 'Autorisations verifiees.',
     'permissionAutoBlocked':
         'Si Chrome ne montre pas la fenetre, utilisez le bouton ci-dessous.',
@@ -258,10 +258,10 @@ const _localizedValues = {
     'skip': 'Skip',
     'next': 'Next',
     'enterApp': 'Enter the app',
-    'permissionTitle': 'Before you start',
-    'permissionIntro':
-        'DEPANINY works better when it can use your location and send real-time mission alerts.',
-    'permissionAutoTrying': 'Requesting permissions automatically...',
+     'permissionTitle': 'Before you start',
+     'permissionIntro':
+         'Auto Rescue works better when it can use your location and send real-time mission alerts.',
+     'permissionAutoTrying': 'Requesting permissions automatically...',
     'permissionAutoDone': 'Permissions checked.',
     'permissionAutoBlocked':
         'If Chrome does not show the prompt, use the button below.',
@@ -357,10 +357,10 @@ const _localizedValues = {
     'skip': 'تخطي',
     'next': 'التالي',
     'enterApp': 'الدخول إلى التطبيق',
-    'permissionTitle': 'قبل أن تبدأ',
-    'permissionIntro':
-        'يعمل DEPANINY بشكل أفضل عند السماح باستخدام موقعك وإرسال تنبيهات المهام في الوقت الحقيقي.',
-    'permissionAutoTrying': 'جاري طلب الصلاحيات تلقائيا...',
+     'permissionTitle': 'قبل أن تبدأ',
+     'permissionIntro':
+         'يعمل Auto Rescue بشكل أفضل عند السماح باستخدام موقعك وإرسال تنبيهات المهام في الوقت الحقيقي.',
+     'permissionAutoTrying': 'جاري طلب الصلاحيات تلقائيا...',
     'permissionAutoDone': 'تم فحص الصلاحيات.',
     'permissionAutoBlocked':
         'إذا لم يظهر Chrome نافذة السماح، استخدم الزر في الأسفل.',

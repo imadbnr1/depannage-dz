@@ -96,7 +96,7 @@ class MyApp extends StatelessWidget {
       builder: (context, _) {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
-          title: 'DEPANINY',
+          title: 'Auto Rescue',
           locale: languageController.locale,
           supportedLocales: AppLocalizations.supportedLocales,
           localizationsDelegates: const [

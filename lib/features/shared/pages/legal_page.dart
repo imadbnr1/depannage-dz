@@ -141,7 +141,7 @@ const _privacySections = [
   _LegalText(
     title: 'Donnees collectees',
     body:
-        'DEPANINY peut collecter le nom, le telephone, l email, le role utilisateur, les informations de vehicule, la position GPS, les demandes de mission, les messages de support, les notes et les avis.',
+        'Auto Rescue peut collecter le nom, le telephone, l email, le role utilisateur, les informations de vehicule, la position GPS, les demandes de mission, les messages de support, les notes et les avis.',
   ),
   _LegalText(
     title: 'Utilisation des donnees',
@@ -169,7 +169,7 @@ const _termsSections = [
   _LegalText(
     title: 'Objet du service',
     body:
-        'DEPANINY met en relation des customers ayant besoin d assistance routiere avec des providers disponibles, sous supervision administrative.',
+        'Auto Rescue met en relation des customers ayant besoin d assistance routiere avec des providers disponibles, sous supervision administrative.',
   ),
   _LegalText(
     title: 'Responsabilites utilisateur',

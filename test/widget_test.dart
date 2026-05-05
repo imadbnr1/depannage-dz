@@ -1,10 +1,10 @@
-// DEPANINY - Widget Test Placeholder
+// Auto Rescue - Widget Test Placeholder
 // 
 // This file is a placeholder for future widget tests.
 // The original Flutter default test was removed as it referenced
 // a counter app that doesn't match our towing application.
 //
-// TODO: Add widget tests for:
+//  Add widget tests for the following components:
 // - Login page
 // - Signup page  
 // - Customer tracking page

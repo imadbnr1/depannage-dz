@@ -1,5 +1,5 @@
-name: depaniny
-description: Professional structured towing app with customer/provider flows and live tracking simulation.
+name: auto_rescue
+description: Auto Rescue - Real-time roadside assistance platform
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -42,16 +42,16 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/logo/autorescuelogo.png
+    - assets/logo/applogo.png
     - assets/sounds/alert.mp3
     - assets/sounds/admin_popup.ogg
 
 flutter_launcher_icons:
   android: true
-  image_path: assets/logo/autorescuelogo.png
+  image_path: assets/logo/applogo.png
   min_sdk_android: 21
   web:
     generate: true
-    image_path: assets/logo/autorescuelogo.png
+    image_path: assets/logo/applogo.png
     background_color: "#0F172A"
     theme_color: "#2563EB"
