@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/services/app_feedback.dart';
 import '../../../core/services/auth_service.dart';
+import '../../../core/i18n/app_localizations.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({
@@ -68,13 +69,13 @@ class _SignupPageState extends State<SignupPage>
     super.dispose();
   }
 
-  Future<void> _sendOTP() async {
+  Future<void> _sendOTP(AppLocalizations strings) async {
     FocusScope.of(context).unfocus();
     if (_loading) return;
 
     final email = _emailController.text.trim();
     if (email.isEmpty || !email.contains('@')) {
-      AppFeedback.showError(context, 'Entrez un email valide.');
+      AppFeedback.showError(context, strings.t('invalidEmail'));
       return;
     }
 
@@ -166,21 +167,21 @@ class _SignupPageState extends State<SignupPage>
     }
   }
 
-  Future<void> _verifyAndSignup() async {
+  Future<void> _verifyAndSignup(AppLocalizations strings) async {
     if (_loading) return;
 
     if (!(_formKey.currentState?.validate() ?? false)) {
-      AppFeedback.showError(context, 'Vérifiez vos informations.');
+      AppFeedback.showError(context, strings.t('checkInfo'));
       return;
     }
 
     if (_passwordController.text != _confirmPasswordController.text) {
-      AppFeedback.showError(context, 'Les mots de passe ne correspondent pas.');
+      AppFeedback.showError(context, strings.t('passwordMismatch'));
       return;
     }
 
     if (_emailOtpCode.trim().length != 6) {
-      AppFeedback.showError(context, 'Veuillez entrer le code à 6 chiffres.');
+      AppFeedback.showError(context, strings.t('enter6DigitCode'));
       return;
     }
 
@@ -256,7 +257,7 @@ class _SignupPageState extends State<SignupPage>
               child: Icon(
                 icon,
                 color: selected
-                    ? const Color(0xFF1F2937)
+                    ? const Color(0xFF1F293B)
                     : const Color(0xFF6B7280),
                 size: 24,
               ),
@@ -299,6 +300,7 @@ class _SignupPageState extends State<SignupPage>
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -338,22 +340,20 @@ class _SignupPageState extends State<SignupPage>
                         ],
                       ),
                       const SizedBox(height: 8),
-
-                       // logo
-                             Image.asset('assets/logo/applogo.png', width: 500, height: 300, fit: BoxFit.contain),
-                             const SizedBox(height: 22),
-                             
-                             // App Name
-                             const Text(
-                               'Auto Rescue',
-                               style: TextStyle(
-                                 color: Colors.white,
-                                 fontSize: 38,
-                                 fontWeight: FontWeight.w900,
-                                 letterSpacing: 1.2,
-                               ),
-                             ),
-                             const SizedBox(height: 8),
+                      // logo
+                      Image.asset('assets/logo/applogo.png', width: 500, height: 300, fit: BoxFit.contain),
+                      const SizedBox(height: 30),
+                      // App Name
+                      const Text(
+                        'Auto Rescue',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 38,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
                       const Text(
                         'Inscription rapide et sécurisée',
                         style: TextStyle(
@@ -363,7 +363,6 @@ class _SignupPageState extends State<SignupPage>
                         ),
                       ),
                       const SizedBox(height: 28),
-
                       // Premium signup card
                       Container(
                         padding: const EdgeInsets.all(26),
@@ -400,24 +399,20 @@ class _SignupPageState extends State<SignupPage>
                                 ),
                               ),
                               const SizedBox(height: 20),
-
                               _roleTile(
                                 value: 'customer',
                                 title: 'Client',
-                                subtitle:
-                                    'Commander un dépannage et suivre la mission.',
+                                subtitle: 'Commander un dépannage et suivre la mission.',
                                 icon: Icons.person_outline,
                               ),
                               const SizedBox(height: 12),
                               _roleTile(
                                 value: 'provider',
                                 title: 'Provider',
-                                subtitle:
-                                    'Recevoir les missions et intervenir sur le terrain.',
+                                subtitle: 'Recevoir les missions et intervenir sur le terrain.',
                                 icon: Icons.car_repair_outlined,
                               ),
                               const SizedBox(height: 20),
-
                               TextFormField(
                                 controller: _fullNameController,
                                 enabled: !_otpSent,
@@ -559,7 +554,8 @@ class _SignupPageState extends State<SignupPage>
                                   prefixIcon: const Icon(Icons.lock_outlined),
                                   suffixIcon: IconButton(
                                     onPressed: () {
-                                      setState(() => _confirmObscure = !_confirmObscure);
+                                      setState(
+                                          () => _confirmObscure = !_confirmObscure);
                                     },
                                     icon: Icon(
                                       _confirmObscure
@@ -576,8 +572,6 @@ class _SignupPageState extends State<SignupPage>
                                 ),
                               ),
                               const SizedBox(height: 20),
-
-                              // Info box
                               Container(
                                 width: double.infinity,
                                 padding: const EdgeInsets.all(16),
@@ -612,12 +606,13 @@ class _SignupPageState extends State<SignupPage>
                                 ),
                               ),
                               const SizedBox(height: 20),
-
                               if (!_otpSent)
                                 SizedBox(
                                   width: double.infinity,
                                   child: FilledButton.icon(
-                                    onPressed: _loading ? null : _sendOTP,
+                                    onPressed: _loading
+                                        ? null
+                                        : () => _sendOTP(strings),
                                     icon: _loading
                                         ? const SizedBox(
                                             width: 18,
@@ -663,13 +658,14 @@ class _SignupPageState extends State<SignupPage>
                                 SizedBox(
                                   width: double.infinity,
                                   child: FilledButton.icon(
-                                    onPressed: _loading ? null : _verifyAndSignup,
+                                    onPressed: _loading
+                                        ? null
+                                        : () => _verifyAndSignup(strings),
                                     icon: const Icon(Icons.check_circle_outline),
                                     label: const Text('Vérifier et créer le compte'),
                                   ),
                                 ),
                               ],
-
                               if (_otpSent) ...[
                                 const SizedBox(height: 12),
                                 Center(
@@ -686,21 +682,6 @@ class _SignupPageState extends State<SignupPage>
                                 ),
                               ],
                               const SizedBox(height: 14),
-                              SizedBox(
-                                width: double.infinity,
-                                child: OutlinedButton.icon(
-                                  onPressed: _loading || _otpSent
-                                      ? null
-                                      : () => Navigator.of(context).pop(),
-                                  icon: const Icon(Icons.login),
-                                  label: const Text('J\'ai déjà un compte'),
-                                  style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 14,
-                                    ),
-                                  ),
-                                ),
-                              ),
                             ],
                           ),
                         ),
