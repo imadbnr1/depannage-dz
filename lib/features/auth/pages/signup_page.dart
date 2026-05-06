@@ -339,11 +339,10 @@ class _SignupPageState extends State<SignupPage>
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
                       // logo
-                      Image.asset('assets/logo/applogo.png', width: 500, height: 300, fit: BoxFit.contain),
-                      const SizedBox(height: 30),
-                      // App Name
+                      Image.asset('assets/logo/applogo.png', width: 600, height: 400, fit: BoxFit.contain),
+                      const SizedBox(height: 10),
                       const Text(
                         'Auto Rescue',
                         style: TextStyle(
@@ -353,7 +352,7 @@ class _SignupPageState extends State<SignupPage>
                           letterSpacing: 1.2,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
                       const Text(
                         'Inscription rapide et sécurisée',
                         style: TextStyle(
@@ -362,7 +361,7 @@ class _SignupPageState extends State<SignupPage>
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 12),
                       // Premium signup card
                       Container(
                         padding: const EdgeInsets.all(26),
@@ -682,6 +681,22 @@ class _SignupPageState extends State<SignupPage>
                                 ),
                               ],
                               const SizedBox(height: 14),
+                              // Already have an account button
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton.icon(
+                                  onPressed: _loading
+                                      ? null
+                                      : () {
+                                          Navigator.of(context).pop();
+                                        },
+                                  icon: const Icon(Icons.login),
+                                  label: const Text('J\'ai déjà un compte'),
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                  ),
+                                ),
+                              ),
                             ],
                           ),
                         ),

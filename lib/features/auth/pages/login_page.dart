@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -112,7 +113,12 @@ class _LoginPageState extends State<LoginPage> {
       await Future.delayed(const Duration(milliseconds: 200));
 
       generatedOtp = _sharedPreferences?.getString('email_otp_code');
-
+      
+      // Print OTP to console for debugging
+      if (kDebugMode) {
+        print('DEBUG: Retrieved OTP code: $generatedOtp');
+      }
+      
       if (!mounted) return;
 
       await showDialog(
@@ -521,15 +527,24 @@ class _LoginPageState extends State<LoginPage> {
                       onTap: _handleLogoTap,
                       child: Column(
                         children: [
-                          Image.asset('assets/logo/applogo.png', width: 500, height: 300, fit: BoxFit.contain),
-                          const SizedBox(height: 20),
+                          Image.asset('assets/logo/applogo.png', width: 600, height: 400, fit: BoxFit.contain),
+                          const SizedBox(height: 5),
+                          const Text(
+                        'Auto Rescue',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 38,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
                           const Text('Assistance routière rapide en Algérie', style: TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.w500)),
-                          const SizedBox(height: 30),
+                          const SizedBox(height: 10),
                           const LanguageSelector(),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 5),
 
                     // Premium login card
                     Container(

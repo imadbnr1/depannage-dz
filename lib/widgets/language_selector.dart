@@ -103,59 +103,58 @@ class LanguageSelector extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetContext) {
-                      return SafeArea(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                strings.t('chooseLanguage'),
-                                style: const TextStyle(
-                                  color: Color(0xFF0F172A),
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                strings.t('chooseLanguageHint'),
-                                style: const TextStyle(
-                                  color: Color(0xFF6B7280),
-                                  fontWeight: FontWeight.w600,
-                                  height: 1.35,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              // Make the language options scrollable to prevent overflow
-                              Expanded(
-                                child: SingleChildScrollView(
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      for (final language in AppLanguage.values) ...[
-                                        _LanguageOption(
-                                          language: language,
-                                          selected: controller.language == language,
-                                          onTap: () async {
-                                            await controller.setLanguage(language);
-                                            if (sheetContext.mounted) {
-                                              Navigator.of(sheetContext).pop();
-                                            }
-                                          },
-                                        ),
-                                        if (language != AppLanguage.values.last)
-                                          const SizedBox(height: 10),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  strings.t('chooseLanguage'),
+                  style: const TextStyle(
+                    color: Color(0xFF0F172A),
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  strings.t('chooseLanguageHint'),
+                  style: const TextStyle(
+                    color: Color(0xFF6B7280),
+                    fontWeight: FontWeight.w600,
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (final language in AppLanguage.values) ...[
+                          _LanguageOption(
+                            language: language,
+                            selected: controller.language == language,
+                            onTap: () async {
+                              await controller.setLanguage(language);
+                              if (sheetContext.mounted) {
+                                Navigator.of(sheetContext).pop();
+                              }
+                            },
                           ),
-                        ),
-                      );
+                          if (language != AppLanguage.values.last)
+                            const SizedBox(height: 10),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
       },
     );
   }
@@ -185,8 +184,7 @@ class _LanguageOption extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color:
-                  selected ? const Color(0xFFE89A1E) : const Color(0xFFE5E7EB),
+              color: selected ? const Color(0xFFE89A1E) : const Color(0xFFE5E7EB),
             ),
           ),
           child: Row(

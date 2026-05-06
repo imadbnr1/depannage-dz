@@ -280,6 +280,11 @@ class AuthService {
       await _sharedPreferences?.setString('email_for_signin', email.trim());
       await _sharedPreferences?.setString('email_otp_code', otpCode); // Debug: store OTP locally
       
+      // Print OTP to console for debugging
+      if (kDebugMode) {
+        print('DEBUG: Generated OTP code for ${email.trim()}: $otpCode');
+      }
+      
       onSent();
     } on FirebaseAuthException catch (e) {
       onError(_emailAuthErrorMessage(e));

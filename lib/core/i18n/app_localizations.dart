@@ -66,6 +66,7 @@ class AppLanguageController extends ChangeNotifier {
   static const _storageKey = 'app_language_code';
 
   AppLanguage _language;
+  final materialAppKey = GlobalKey();
 
   AppLanguage get language => _language;
 
@@ -100,6 +101,11 @@ class AppLanguageScope extends InheritedNotifier<AppLanguageController> {
         context.dependOnInheritedWidgetOfExactType<AppLanguageScope>();
     assert(scope != null, 'AppLanguageScope is missing from the widget tree.');
     return scope!.notifier!;
+  }
+
+  @override
+  bool updateShouldNotify(AppLanguageScope oldWidget) {
+    return notifier!.language != oldWidget.notifier!.language;
   }
 }
 
