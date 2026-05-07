@@ -69,7 +69,8 @@ class _SignupPageState extends State<SignupPage>
     super.dispose();
   }
 
-  Future<void> _sendOTP(AppLocalizations strings) async {
+  Future<void> _sendOTP() async {
+    final strings = AppLocalizations.of(context);
     FocusScope.of(context).unfocus();
     if (_loading) return;
 
@@ -115,14 +116,14 @@ class _SignupPageState extends State<SignupPage>
               children: [
                 const Icon(Icons.mark_email_read_outlined, color: Color(0xFFF59E0B)),
                 const SizedBox(width: 12),
-                const Text('Code OTP envoyé'),
+                Text(strings.t('otp_sent')),
               ],
             ),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Votre code de vérification à 6 chiffres:'),
+                Text(strings.t('your_6_digit_code')),
                 const SizedBox(height: 16),
                 Container(
                   width: double.infinity,
@@ -133,7 +134,7 @@ class _SignupPageState extends State<SignupPage>
                     border: Border.all(color: const Color(0xFFF59E0B), width: 2),
                   ),
                   child: Text(
-                    generatedOtp ?? 'NON DISPONIBLE',
+                    generatedOtp ?? strings.t('not_available'),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 32,
@@ -144,9 +145,9 @@ class _SignupPageState extends State<SignupPage>
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'Copiez ce code et collez-le dans le champ ci-dessous.',
-                  style: TextStyle(color: Colors.black54, fontSize: 13),
+                Text(
+                  strings.t('copy_paste_code'),
+                  style: const TextStyle(color: Colors.black54, fontSize: 13),
                 ),
               ],
             ),
@@ -154,7 +155,7 @@ class _SignupPageState extends State<SignupPage>
               FilledButton.icon(
                 onPressed: () => Navigator.of(dialogContext).pop(),
                 icon: const Icon(Icons.check_circle),
-                label: const Text('Compris'),
+                label: Text(strings.t('understood')),
               ),
             ],
           );
@@ -167,7 +168,8 @@ class _SignupPageState extends State<SignupPage>
     }
   }
 
-  Future<void> _verifyAndSignup(AppLocalizations strings) async {
+  Future<void> _verifyAndSignup() async {
+    final strings = AppLocalizations.of(context);
     if (_loading) return;
 
     if (!(_formKey.currentState?.validate() ?? false)) {
@@ -200,13 +202,10 @@ class _SignupPageState extends State<SignupPage>
       if (!mounted) return;
 
       if (_role == 'provider') {
-        AppFeedback.showSuccess(
-          context,
-          'Compte provider créé. Validation admin en attente.',
-        );
+        AppFeedback.showSuccess(context, strings.t('providerCreated'));
         Navigator.of(context).popUntil((route) => route.isFirst);
       } else {
-        AppFeedback.showSuccess(context, 'Compte créé avec succès!');
+        AppFeedback.showSuccess(context, strings.t('accountCreated'));
       }
     } catch (e) {
       if (!mounted) return;
@@ -339,29 +338,29 @@ class _SignupPageState extends State<SignupPage>
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       // logo
-                      Image.asset('assets/logo/applogo.png', width: 600, height: 400, fit: BoxFit.contain),
-                      const SizedBox(height: 10),
-                      const Text(
-                        'Auto Rescue',
-                        style: TextStyle(
+                      Image.asset('assets/logo/applogo.png', width: 500, height: 200, fit: BoxFit.contain),
+                      const SizedBox(height: 2),
+                      Text(
+                        strings.t('app_name'),
+                        style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 38,
+                          fontSize: 32,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 1.2,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Inscription rapide et sécurisée',
-                        style: TextStyle(
+                      const SizedBox(height: 2),
+                      Text(
+                        strings.t('app_subtitle'),
+                        style: const TextStyle(
                           color: Colors.white70,
-                          fontSize: 15,
+                          fontSize: 14,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       // Premium signup card
                       Container(
                         padding: const EdgeInsets.all(26),
@@ -381,18 +380,18 @@ class _SignupPageState extends State<SignupPage>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Créer un compte',
-                                style: TextStyle(
+                              Text(
+                                strings.t('signupTitle'),
+                                style: const TextStyle(
                                   fontWeight: FontWeight.w900,
                                   fontSize: 26,
                                   color: Color(0xFF0F172A),
                                 ),
                               ),
                               const SizedBox(height: 6),
-                              const Text(
-                                'Choisissez votre profil puis remplissez le strict minimum',
-                                style: TextStyle(
+                              Text(
+                                strings.t('signupSubtitle'),
+                                style: const TextStyle(
                                   color: Colors.black54,
                                   fontSize: 14,
                                 ),
@@ -400,15 +399,15 @@ class _SignupPageState extends State<SignupPage>
                               const SizedBox(height: 20),
                               _roleTile(
                                 value: 'customer',
-                                title: 'Client',
-                                subtitle: 'Commander un dépannage et suivre la mission.',
+                                title: strings.t('signupCustomer'),
+                                subtitle: strings.t('signupCustomerDesc'),
                                 icon: Icons.person_outline,
                               ),
                               const SizedBox(height: 12),
                               _roleTile(
                                 value: 'provider',
-                                title: 'Provider',
-                                subtitle: 'Recevoir les missions et intervenir sur le terrain.',
+                                title: strings.t('signupProvider'),
+                                subtitle: strings.t('signupProviderDesc'),
                                 icon: Icons.car_repair_outlined,
                               ),
                               const SizedBox(height: 20),
@@ -417,16 +416,12 @@ class _SignupPageState extends State<SignupPage>
                                 enabled: !_otpSent,
                                 validator: (value) {
                                   final text = (value ?? '').trim();
-                                  if (text.isEmpty) {
-                                    return 'Entrez votre nom';
-                                  }
-                                  if (text.length < 3) {
-                                    return 'Nom trop court';
-                                  }
+                                  if (text.isEmpty) return strings.t('enterFullName');
+                                  if (text.length < 3) return strings.t('nameTooShort');
                                   return null;
                                 },
                                 decoration: InputDecoration(
-                                  labelText: 'Nom complet',
+                                  labelText: strings.t('full_name'),
                                   prefixIcon: const Icon(Icons.badge_outlined),
                                   filled: true,
                                   fillColor: const Color(0xFFF8F5EF),
@@ -446,16 +441,12 @@ class _SignupPageState extends State<SignupPage>
                                 ],
                                 validator: (value) {
                                   final text = (value ?? '').trim();
-                                  if (text.isEmpty) {
-                                    return 'Entrez votre numéro';
-                                  }
-                                  if (text.length < 8) {
-                                    return 'Numéro invalide';
-                                  }
+                                  if (text.isEmpty) return strings.t('enterPhone');
+                                  if (text.length < 8) return strings.t('phoneInvalid');
                                   return null;
                                 },
                                 decoration: InputDecoration(
-                                  labelText: 'Numéro de téléphone',
+                                  labelText: strings.t('phone'),
                                   prefixIcon: const Icon(Icons.phone_outlined),
                                   filled: true,
                                   fillColor: const Color(0xFFF8F5EF),
@@ -464,10 +455,7 @@ class _SignupPageState extends State<SignupPage>
                                     borderSide: BorderSide.none,
                                   ),
                                   suffixIcon: _otpSent
-                                      ? const Icon(
-                                          Icons.check_circle,
-                                          color: Color(0xFF059669),
-                                        )
+                                      ? const Icon(Icons.check_circle, color: Color(0xFF059669))
                                       : null,
                                 ),
                               ),
@@ -478,16 +466,12 @@ class _SignupPageState extends State<SignupPage>
                                 keyboardType: TextInputType.emailAddress,
                                 validator: (value) {
                                   final text = (value ?? '').trim();
-                                  if (text.isEmpty) {
-                                    return 'Entrez votre email';
-                                  }
-                                  if (!text.contains('@')) {
-                                    return 'Email invalide';
-                                  }
+                                  if (text.isEmpty) return strings.t('enterEmail');
+                                  if (!text.contains('@')) return strings.t('invalidEmail');
                                   return null;
                                 },
                                 decoration: InputDecoration(
-                                  labelText: 'Email',
+                                  labelText: strings.t('email'),
                                   prefixIcon: const Icon(Icons.email_outlined),
                                   filled: true,
                                   fillColor: const Color(0xFFF8F5EF),
@@ -504,21 +488,15 @@ class _SignupPageState extends State<SignupPage>
                                 obscureText: _obscure,
                                 validator: (value) {
                                   final text = (value ?? '').trim();
-                                  if (text.isEmpty) {
-                                    return 'Entrez un mot de passe';
-                                  }
-                                  if (text.length < 6) {
-                                    return 'Minimum 6 caractères';
-                                  }
+                                  if (text.isEmpty) return strings.t('enterPassword');
+                                  if (text.length < 6) return strings.t('passwordTooShort');
                                   return null;
                                 },
                                 decoration: InputDecoration(
-                                  labelText: 'Mot de passe',
+                                  labelText: strings.t('password'),
                                   prefixIcon: const Icon(Icons.lock_outline),
                                   suffixIcon: IconButton(
-                                    onPressed: () {
-                                      setState(() => _obscure = !_obscure);
-                                    },
+                                    onPressed: () => setState(() => _obscure = !_obscure),
                                     icon: Icon(
                                       _obscure
                                           ? Icons.visibility_off_outlined
@@ -540,22 +518,18 @@ class _SignupPageState extends State<SignupPage>
                                 obscureText: _confirmObscure,
                                 validator: (value) {
                                   final text = (value ?? '').trim();
-                                  if (text.isEmpty) {
-                                    return 'Confirmez le mot de passe';
-                                  }
+                                  if (text.isEmpty) return strings.t('confirmPassword');
                                   if (text != _passwordController.text) {
-                                    return 'Les mots de passe ne correspondent pas';
+                                    return strings.t('passwordsMismatch');
                                   }
                                   return null;
                                 },
                                 decoration: InputDecoration(
-                                  labelText: 'Confirmer le mot de passe',
+                                  labelText: strings.t('confirmPassword'),
                                   prefixIcon: const Icon(Icons.lock_outlined),
                                   suffixIcon: IconButton(
-                                    onPressed: () {
-                                      setState(
-                                          () => _confirmObscure = !_confirmObscure);
-                                    },
+                                    onPressed: () =>
+                                        setState(() => _confirmObscure = !_confirmObscure),
                                     icon: Icon(
                                       _confirmObscure
                                           ? Icons.visibility_off_outlined
@@ -583,17 +557,14 @@ class _SignupPageState extends State<SignupPage>
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(
-                                      Icons.info_outline,
-                                      color: Color(0xFFF59E0B),
-                                      size: 20,
-                                    ),
+                                    const Icon(Icons.info_outline,
+                                        color: Color(0xFFF59E0B), size: 20),
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: Text(
                                         _role == 'provider'
-                                            ? 'Les comptes provider restent soumis à la validation admin avant de recevoir des missions.'
-                                            : 'Inscription directe : vous pourrez commander votre première mission juste après.',
+                                            ? strings.t('providerNote')
+                                            : strings.t('customerNote'),
                                         style: const TextStyle(
                                           color: Colors.black54,
                                           height: 1.35,
@@ -609,19 +580,15 @@ class _SignupPageState extends State<SignupPage>
                                 SizedBox(
                                   width: double.infinity,
                                   child: FilledButton.icon(
-                                    onPressed: _loading
-                                        ? null
-                                        : () => _sendOTP(strings),
+                                    onPressed: _loading ? null : _sendOTP,
                                     icon: _loading
                                         ? const SizedBox(
                                             width: 18,
                                             height: 18,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                            ),
+                                            child: CircularProgressIndicator(strokeWidth: 2),
                                           )
                                         : const Icon(Icons.email_outlined),
-                                    label: const Text('Envoyer le code OTP'),
+                                    label: Text(strings.t('sendOTP')),
                                   ),
                                 )
                               else ...[
@@ -632,16 +599,12 @@ class _SignupPageState extends State<SignupPage>
                                   maxLength: 6,
                                   validator: (value) {
                                     final text = (value ?? '').trim();
-                                    if (text.isEmpty) {
-                                      return 'Entrez le code OTP';
-                                    }
-                                    if (text.length != 6) {
-                                      return 'Le code doit avoir 6 chiffres';
-                                    }
+                                    if (text.isEmpty) return strings.t('enterOTPCode');
+                                    if (text.length != 6) return strings.t('code_must_be_6_digits');
                                     return null;
                                   },
                                   decoration: InputDecoration(
-                                    labelText: 'Code OTP (6 chiffres)',
+                                    labelText: strings.t('enter_otp_code'),
                                     hintText: '123456',
                                     prefixIcon: const Icon(Icons.pin_outlined),
                                     filled: true,
@@ -657,11 +620,9 @@ class _SignupPageState extends State<SignupPage>
                                 SizedBox(
                                   width: double.infinity,
                                   child: FilledButton.icon(
-                                    onPressed: _loading
-                                        ? null
-                                        : () => _verifyAndSignup(strings),
+                                    onPressed: _loading ? null : _verifyAndSignup,
                                     icon: const Icon(Icons.check_circle_outline),
-                                    label: const Text('Vérifier et créer le compte'),
+                                    label: Text(strings.t('verifyAndCreate')),
                                   ),
                                 ),
                               ],
@@ -676,7 +637,7 @@ class _SignupPageState extends State<SignupPage>
                                       });
                                     },
                                     icon: const Icon(Icons.edit_outlined, size: 18),
-                                    label: const Text('Changer d\'email'),
+                                    label: Text(strings.t('change_email')),
                                   ),
                                 ),
                               ],
@@ -687,11 +648,9 @@ class _SignupPageState extends State<SignupPage>
                                 child: OutlinedButton.icon(
                                   onPressed: _loading
                                       ? null
-                                      : () {
-                                          Navigator.of(context).pop();
-                                        },
+                                      : () => Navigator.of(context).pop(),
                                   icon: const Icon(Icons.login),
-                                  label: const Text('J\'ai déjà un compte'),
+                                  label: Text(strings.t('alreadyAccount')),
                                   style: OutlinedButton.styleFrom(
                                     padding: const EdgeInsets.symmetric(vertical: 14),
                                   ),

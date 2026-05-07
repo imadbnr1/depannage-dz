@@ -1,3 +1,4 @@
+// lib/main.dart
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -5,8 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 
 import 'core/i18n/app_localizations.dart';
+import 'core/i18n/app_language_controller.dart';
 import 'core/services/alert_service.dart';
 import 'core/services/auth_service.dart';
 import 'core/services/in_app_notification_service.dart';
@@ -21,29 +24,29 @@ import 'repositories/firestore_tracking_repository.dart';
 import 'state/app_store.dart';
 import 'core/services/fcm_service.dart';
 
-  Future<void> main() async {
-    WidgetsFlutterBinding.ensureInitialized();
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-    try {
-      await FcmService.init();
-    } catch (e) {
-      debugPrint('FCM init skipped: $e');
-    }
-    final store = AppStore(
-      requestRepository: FirestoreRequestRepository(),
-      trackingRepository: FirestoreTrackingRepository(),
-    )..bootstrap();
-    final languageController = await AppLanguageController.load();
-
-    runApp(
-      MyApp(
-        store: store,
-        languageController: languageController,
-      ),
-    );
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  try {
+    await FcmService.init();
+  } catch (e) {
+    debugPrint('FCM init skipped: $e');
   }
+  final store = AppStore(
+    requestRepository: FirestoreRequestRepository(),
+    trackingRepository: FirestoreTrackingRepository(),
+  )..bootstrap();
+  final languageController = await AppLanguageController.load();
+
+  runApp(
+    MyApp(
+      store: store,
+      languageController: languageController,
+    ),
+  );
+}
 
 class MyApp extends StatefulWidget {
   const MyApp({
@@ -112,247 +115,200 @@ class _MyAppState extends State<MyApp> {
       shadow: Color(0x1A000000),
     );
 
-    return MaterialApp(
-      key: widget.languageController.materialAppKey,
-      debugShowCheckedModeBanner: false,
-      title: 'Auto Rescue',
-      locale: widget.languageController.locale,
-      supportedLocales: AppLocalizations.supportedLocales,
-      localizationsDelegates: const [
-        AppLocalizations.delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      builder: (context, child) {
-        return AppLanguageScope(
-          controller: widget.languageController,
-          child: child ?? const SizedBox.shrink(),
-        );
-      },
-      theme: ThemeData(
-        colorScheme: colorScheme,
-        useMaterial3: true,
-        scaffoldBackgroundColor: background,
-        canvasColor: background,
-        splashColor: primary.withValues(alpha: 0.08),
-        highlightColor: primary.withValues(alpha: 0.04),
-        dividerColor: outline,
-        appBarTheme: AppBarTheme(
-          centerTitle: false,
-          backgroundColor: surface,
-          foregroundColor: colorScheme.onSurface,
+    return ChangeNotifierProvider<AppLanguageController>.value(
+  value: widget.languageController,
+  child: MaterialApp(
+    key: widget.languageController.materialAppKey,
+    debugShowCheckedModeBanner: false,
+    title: 'Auto Rescue',
+    locale: widget.languageController.locale,
+    supportedLocales: AppLocalizations.supportedLocales,
+    localizationsDelegates: const [
+      AppLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    builder: (context, child) {
+      return Directionality(
+        textDirection: widget.languageController.isArabic
+            ? TextDirection.rtl
+            : TextDirection.ltr,
+        child: child ?? const SizedBox.shrink(),
+      );
+    },
+    theme: ThemeData(
+      colorScheme: colorScheme,
+      useMaterial3: true,
+      scaffoldBackgroundColor: background,
+      canvasColor: background,
+      splashColor: primary.withValues(alpha: 0.08),
+      highlightColor: primary.withValues(alpha: 0.04),
+      dividerColor: outline,
+      appBarTheme: AppBarTheme(
+        centerTitle: false,
+        backgroundColor: surface,
+        foregroundColor: colorScheme.onSurface,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+        titleTextStyle: const TextStyle(
+          color: Color(0xFF0F172A),
+          fontSize: 22,
+          fontWeight: FontWeight.w900,
+          letterSpacing: -0.3,
+        ),
+      ),
+      cardTheme: CardThemeData(
+        color: surface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
+        margin: EdgeInsets.zero,
+        surfaceTintColor: Colors.transparent,
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: surface,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+        labelStyle: const TextStyle(color: muted, fontWeight: FontWeight.w700),
+        hintStyle: const TextStyle(color: muted, fontWeight: FontWeight.w500),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(color: outline),
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(color: outline),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(color: Color(0xFFE89A1E), width: 1.4),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(color: error),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(color: error, width: 1.4),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          minimumSize: const Size.fromHeight(52),
+          backgroundColor: primary,
+          foregroundColor: const Color(0xFF1E1400),
           elevation: 0,
-          scrolledUnderElevation: 0,
-          surfaceTintColor: Colors.transparent,
-          titleTextStyle: const TextStyle(
-            color: Color(0xFF0F172A),
-            fontSize: 22,
-            fontWeight: FontWeight.w900,
-            letterSpacing: -0.3,
-          ),
+          textStyle: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 0.1),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         ),
-        cardTheme: CardThemeData(
-          color: surface,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
-          margin: EdgeInsets.zero,
-          surfaceTintColor: Colors.transparent,
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: surface,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 18,
-            vertical: 18,
-          ),
-          labelStyle: const TextStyle(
-            color: muted,
-            fontWeight: FontWeight.w700,
-          ),
-          hintStyle: const TextStyle(
-            color: muted,
-            fontWeight: FontWeight.w500,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(18),
-            borderSide: const BorderSide(color: outline),
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(18),
-            borderSide: const BorderSide(color: outline),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(18),
-            borderSide: const BorderSide(color: primary, width: 1.4),
-          ),
-          errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(18),
-            borderSide: const BorderSide(color: error),
-          ),
-          focusedErrorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(18),
-            borderSide: const BorderSide(color: error, width: 1.4),
-          ),
-        ),
-        filledButtonTheme: FilledButtonThemeData(
-          style: FilledButton.styleFrom(
-            minimumSize: const Size.fromHeight(52),
-            backgroundColor: primary,
-            foregroundColor: const Color(0xFF1E1400),
-            elevation: 0,
-            textStyle: const TextStyle(
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0.1,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-            ),
-          ),
-        ),
-        outlinedButtonTheme: OutlinedButtonThemeData(
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size.fromHeight(52),
-            foregroundColor: secondary,
-            side: const BorderSide(color: outline),
-            textStyle: const TextStyle(fontWeight: FontWeight.w800),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-            ),
-          ),
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: surface,
-            foregroundColor: secondary,
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-            ),
-          ),
-        ),
-        chipTheme: ChipThemeData(
-          backgroundColor: surfaceTint,
-          selectedColor: primary,
-          disabledColor: outline.withValues(alpha: 0.5),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size.fromHeight(52),
+          foregroundColor: secondary,
           side: BorderSide.none,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          labelStyle: const TextStyle(
-            color: Color(0xFF0F172A),
-            fontWeight: FontWeight.w800,
-          ),
-          secondaryLabelStyle: const TextStyle(
-            color: Color(0xFF1E1400),
-            fontWeight: FontWeight.w800,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(999),
-          ),
-        ),
-        snackBarTheme: SnackBarThemeData(
-          backgroundColor: secondary,
-          contentTextStyle: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w700,
-          ),
-          actionTextColor: primaryContainer,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
-        ),
-        dialogTheme: DialogThemeData(
-          backgroundColor: surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
-          ),
-          surfaceTintColor: Colors.transparent,
-        ),
-        bottomSheetTheme: const BottomSheetThemeData(
-          backgroundColor: surface,
-          modalBackgroundColor: surface,
-          surfaceTintColor: Colors.transparent,
-        ),
-        navigationBarTheme: NavigationBarThemeData(
-          backgroundColor: surface,
-          surfaceTintColor: Colors.transparent,
-          indicatorColor: primaryContainer,
-          labelTextStyle: WidgetStateProperty.resolveWith((states) {
-            return TextStyle(
-              color:
-                  states.contains(WidgetState.selected) ? secondary : muted,
-              fontWeight: states.contains(WidgetState.selected)
-                  ? FontWeight.w900
-                  : FontWeight.w700,
-            );
-          }),
-          iconTheme: WidgetStateProperty.resolveWith((states) {
-            return IconThemeData(
-              color:
-                  states.contains(WidgetState.selected) ? secondary : muted,
-            );
-          }),
-        ),
-        progressIndicatorTheme: const ProgressIndicatorThemeData(
-          color: primary,
-          linearTrackColor: Color(0xFFEADFCF),
-          circularTrackColor: Color(0xFFEADFCF),
-        ),
-        switchTheme: SwitchThemeData(
-          thumbColor: WidgetStateProperty.resolveWith((states) {
-            if (states.contains(WidgetState.selected)) {
-              return secondary;
-            }
-            return Colors.white;
-          }),
-          trackColor: WidgetStateProperty.resolveWith((states) {
-            if (states.contains(WidgetState.selected)) {
-              return primary.withValues(alpha: 0.45);
-            }
-            return outline;
-          }),
-        ),
-        textTheme: const TextTheme(
-          displaySmall: TextStyle(
-            color: Color(0xFF0F172A),
-            fontWeight: FontWeight.w900,
-            letterSpacing: -1.1,
-          ),
-          headlineMedium: TextStyle(
-            color: Color(0xFF0F172A),
-            fontWeight: FontWeight.w900,
-            letterSpacing: -0.8,
-          ),
-          headlineSmall: TextStyle(
-            color: Color(0xFF0F172A),
-            fontWeight: FontWeight.w900,
-            letterSpacing: -0.5,
-          ),
-          titleLarge: TextStyle(
-            color: Color(0xFF0F172A),
-            fontWeight: FontWeight.w800,
-          ),
-          titleMedium: TextStyle(
-            color: Color(0xFF0F172A),
-            fontWeight: FontWeight.w800,
-          ),
-          bodyLarge: TextStyle(
-            color: Color(0xFF0F172A),
-            height: 1.4,
-          ),
-          bodyMedium: TextStyle(
-            color: muted,
-            height: 1.45,
-          ),
+          textStyle: const TextStyle(fontWeight: FontWeight.w800),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         ),
       ),
-      home: _AppEntry(
-        authService: authService,
-        store: widget.store,
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: surface,
+          foregroundColor: secondary,
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        ),
       ),
-    );
+      chipTheme: ChipThemeData(
+        backgroundColor: surfaceTint,
+        selectedColor: primary,
+        disabledColor: outline.withValues(alpha: 0.5),
+        side: BorderSide.none,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        labelStyle: const TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.w800),
+        secondaryLabelStyle: const TextStyle(color: Color(0xFF1E1400), fontWeight: FontWeight.w800),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: secondary,
+        contentTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+        actionTextColor: primaryContainer,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        surfaceTintColor: Colors.transparent,
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: surface,
+        modalBackgroundColor: surface,
+        surfaceTintColor: Colors.transparent,
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: surface,
+        surfaceTintColor: Colors.transparent,
+        indicatorColor: primaryContainer,
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          return TextStyle(
+            color: states.contains(WidgetState.selected) ? secondary : muted,
+            fontWeight:
+                states.contains(WidgetState.selected) ? FontWeight.w900 : FontWeight.w700,
+          );
+        }),
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          return IconThemeData(
+            color: states.contains(WidgetState.selected) ? secondary : muted,
+          );
+        }),
+      ),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: primary,
+        linearTrackColor: Color(0xFFEADFCF),
+        circularTrackColor: Color(0xFFEADFCF),
+      ),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return secondary;
+          return Colors.white;
+        }),
+        trackColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return primary.withValues(alpha: 0.45);
+          return outline;
+        }),
+      ),
+      textTheme: const TextTheme(
+        displaySmall: TextStyle(
+          color: Color(0xFF0F172A),
+          fontWeight: FontWeight.w900,
+          letterSpacing: -1.1,
+        ),
+        headlineMedium: TextStyle(
+          color: Color(0xFF0F172A),
+          fontWeight: FontWeight.w900,
+          letterSpacing: -0.8,
+        ),
+        headlineSmall: TextStyle(
+          color: Color(0xFF0F172A),
+          fontWeight: FontWeight.w900,
+          letterSpacing: -0.5,
+        ),
+        titleLarge: TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.w800),
+        titleMedium: TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.w800),
+        bodyLarge: TextStyle(color: Color(0xFF0F172A), height: 1.4),
+        bodyMedium: TextStyle(color: muted, height: 1.45),
+      ),
+    ),
+    home: _AppEntry(
+      authService: authService,
+      store: widget.store,
+    ),
+  ),
+);
   }
 }
 
@@ -383,8 +339,7 @@ class _AppEntryState extends State<_AppEntry> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    InAppNotificationService.notifier
-        .addListener(_handlePopupNotification);
+    InAppNotificationService.notifier.addListener(_handlePopupNotification);
     _loadFirstRunPreference();
   }
 
@@ -432,33 +387,26 @@ class _AppEntryState extends State<_AppEntry> with WidgetsBindingObserver {
   }
 
   Future<void> _refreshStartupPermissionGate({bool forceGate = false}) async {
-    final locationPermission =
-        await Geolocator.checkPermission().catchError((_) {
+    final locationPermission = await Geolocator.checkPermission().catchError((_) {
       return LocationPermission.denied;
     });
     final locationGranted = locationPermission == LocationPermission.always ||
         locationPermission == LocationPermission.whileInUse;
-    final locationServicesEnabled = kIsWeb
-        ? true
-        : await Geolocator.isLocationServiceEnabled().catchError((_) => false);
+    final locationServicesEnabled =
+        kIsWeb ? true : await Geolocator.isLocationServiceEnabled().catchError((_) => false);
 
-    AuthorizationStatus? notificationStatus;
     var notificationsSupported = true;
     try {
-      final settings =
-          await FirebaseMessaging.instance.getNotificationSettings();
-      notificationStatus = settings.authorizationStatus;
+      await FirebaseMessaging.instance.getNotificationSettings();
     } catch (_) {
       notificationsSupported = false;
     }
-    final notificationsGranted = !notificationsSupported ||
-        notificationStatus == AuthorizationStatus.authorized ||
-        notificationStatus == AuthorizationStatus.provisional;
 
     if (!mounted) return;
     setState(() {
-      _showPermissionGate = forceGate ||
-          !(locationServicesEnabled && locationGranted && notificationsGranted);
+      _showPermissionGate =
+          forceGate ||
+          !(locationServicesEnabled && locationGranted && notificationsSupported);
       _startupPermissionReady = true;
     });
   }
@@ -515,6 +463,7 @@ class _AppEntryState extends State<_AppEntry> with WidgetsBindingObserver {
     }
 
     final visual = _visualForType(item.type);
+    final closeLabel = AppLocalizations.of(context).t('close');
 
     await showLiveAlertOverlay(
       context: context,
@@ -526,7 +475,7 @@ class _AppEntryState extends State<_AppEntry> with WidgetsBindingObserver {
       transitionCurve: visual.transitionCurve,
       slideBegin: visual.slideBegin,
       scaleBegin: visual.scaleBegin,
-      primaryLabel: 'Fermer',
+      primaryLabel: closeLabel,
     );
 
     _isShowingPopup = false;
@@ -589,30 +538,22 @@ class _AppEntryState extends State<_AppEntry> with WidgetsBindingObserver {
 
     if (!_authPreferenceReady) {
       return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
+        body: Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_showOnboarding) {
-      return OnboardingPage(
-        onFinish: _finishOnboarding,
-      );
+      return OnboardingPage(onFinish: _finishOnboarding);
     }
 
     if (!_startupPermissionReady) {
       return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
+        body: Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_showPermissionGate) {
-      return PermissionGatePage(
-        onContinue: _completePermissionGate,
-      );
+      return PermissionGatePage(onContinue: _completePermissionGate);
     }
 
     return AuthGate(

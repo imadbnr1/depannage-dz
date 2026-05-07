@@ -1,3 +1,4 @@
+// lib/features/shared/pages/permission_gate_page.dart
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -193,23 +194,17 @@ class _PermissionGatePageState extends State<PermissionGatePage> {
                                     compact: compact,
                                     icon: Icons.location_on_outlined,
                                     title: strings.t('locationTitle'),
-                                    subtitle: _locationStatus(
-                                      context,
-                                      snapshot,
-                                    ),
+                                    subtitle: _locationStatus(context, snapshot),
                                     granted: snapshot.locationServiceEnabled &&
                                         snapshot.locationGranted,
-                                    actionLabel:
-                                        !snapshot.locationServiceEnabled
-                                            ? strings.t('enableGps')
-                                            : strings.t('allow'),
+                                    actionLabel: !snapshot.locationServiceEnabled
+                                        ? strings.t('enableGps')
+                                        : strings.t('allow'),
                                     onAction: () async {
                                       if (!snapshot.locationServiceEnabled) {
-                                        await _permissionService
-                                            .openLocationSettings();
+                                        await _permissionService.openLocationSettings();
                                       } else {
-                                        await _permissionService
-                                            .requestLocationPermission();
+                                        await _permissionService.requestLocationPermission();
                                       }
                                       await _refresh();
                                     },
@@ -219,10 +214,7 @@ class _PermissionGatePageState extends State<PermissionGatePage> {
                                     compact: compact,
                                     icon: Icons.notifications_active_outlined,
                                     title: strings.t('notificationsTitle'),
-                                    subtitle: _notificationStatus(
-                                      context,
-                                      snapshot,
-                                    ),
+                                    subtitle: _notificationStatus(context, snapshot),
                                     granted: snapshot.notificationsGranted,
                                     actionLabel: strings.t('allow'),
                                     onAction: snapshot.notificationsSupported
@@ -254,20 +246,14 @@ class _PermissionGatePageState extends State<PermissionGatePage> {
                                   SizedBox(
                                     width: double.infinity,
                                     child: FilledButton.icon(
-                                      onPressed: _requestingAll
-                                          ? null
-                                          : () => _requestAll(),
+                                      onPressed: _requestingAll ? null : () => _requestAll(),
                                       icon: _requestingAll
                                           ? const SizedBox(
                                               width: 18,
                                               height: 18,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                              ),
+                                              child: CircularProgressIndicator(strokeWidth: 2),
                                             )
-                                          : const Icon(
-                                              Icons.security_update_good,
-                                            ),
+                                          : const Icon(Icons.security_update_good),
                                       label: Text(
                                         _requestingAll
                                             ? strings.t('checking')
@@ -282,7 +268,7 @@ class _PermissionGatePageState extends State<PermissionGatePage> {
                                       onPressed: widget.onContinue,
                                       child: Text(
                                         snapshot.allGranted
-                                            ? strings.t('continue')
+                                            ? strings.t('continue_btn')
                                             : strings.t('continueAnyway'),
                                       ),
                                     ),
@@ -303,10 +289,7 @@ class _PermissionGatePageState extends State<PermissionGatePage> {
 }
 
 class _PermissionHeader extends StatelessWidget {
-  const _PermissionHeader({
-    required this.compact,
-  });
-
+  const _PermissionHeader({required this.compact});
   final bool compact;
 
   @override
@@ -317,18 +300,11 @@ class _PermissionHeader extends StatelessWidget {
       height: compact ? 60 : 72,
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [
-            Color(0xFFFFE3AE),
-            Color(0xFFE89A1E),
-          ],
+          colors: [Color(0xFFFFE3AE), Color(0xFFE89A1E)],
         ),
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Icon(
-        Icons.verified_user_outlined,
-        color: const Color(0xFF3B2500),
-        size: compact ? 30 : 34,
-      ),
+      child: Icon(Icons.verified_user_outlined, color: const Color(0xFF3B2500), size: compact ? 30 : 34),
     );
 
     final text = Column(
@@ -336,53 +312,25 @@ class _PermissionHeader extends StatelessWidget {
       children: [
         Text(
           strings.t('permissionTitle'),
-          style: TextStyle(
-            fontSize: compact ? 26 : 32,
-            fontWeight: FontWeight.w900,
-            color: const Color(0xFF111827),
-            height: 1.06,
-          ),
+          style: TextStyle(fontSize: compact ? 26 : 32, fontWeight: FontWeight.w900, color: const Color(0xFF111827), height: 1.06),
         ),
         const SizedBox(height: 8),
         Text(
           strings.t('permissionIntro'),
-          style: const TextStyle(
-            color: Color(0xFF6B7280),
-            height: 1.45,
-            fontWeight: FontWeight.w500,
-          ),
+          style: const TextStyle(color: Color(0xFF6B7280), height: 1.45, fontWeight: FontWeight.w500),
         ),
       ],
     );
 
     if (compact) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          icon,
-          const SizedBox(height: 16),
-          text,
-        ],
-      );
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [icon, const SizedBox(height: 16), text]);
     }
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        icon,
-        const SizedBox(width: 18),
-        Expanded(child: text),
-      ],
-    );
+    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [icon, const SizedBox(width: 18), Expanded(child: text)]);
   }
 }
 
 class _AutoPromptBanner extends StatelessWidget {
-  const _AutoPromptBanner({
-    required this.autoPrompting,
-    required this.allGranted,
-  });
-
+  const _AutoPromptBanner({required this.autoPrompting, required this.allGranted});
   final bool autoPrompting;
   final bool allGranted;
 
@@ -406,19 +354,9 @@ class _AutoPromptBanner extends StatelessWidget {
       child: Row(
         children: [
           if (autoPrompting)
-            SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: color,
-              ),
-            )
+            SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: color))
           else
-            Icon(
-              allGranted ? Icons.check_circle_outline : Icons.info_outline,
-              color: color,
-            ),
+            Icon(allGranted ? Icons.check_circle_outline : Icons.info_outline, color: color),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
@@ -427,11 +365,7 @@ class _AutoPromptBanner extends StatelessWidget {
                   : autoPrompting
                       ? strings.t('permissionAutoTrying')
                       : strings.t('permissionAutoBlocked'),
-              style: const TextStyle(
-                color: Color(0xFF1F2937),
-                fontWeight: FontWeight.w700,
-                height: 1.35,
-              ),
+              style: const TextStyle(color: Color(0xFF1F2937), fontWeight: FontWeight.w700, height: 1.35),
             ),
           ),
         ],
@@ -450,7 +384,6 @@ class _PermissionTile extends StatelessWidget {
     required this.actionLabel,
     this.onAction,
   });
-
   final bool compact;
   final IconData icon;
   final String title;
@@ -461,57 +394,32 @@ class _PermissionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final content = _PermissionTileContent(
-      icon: icon,
-      title: title,
-      subtitle: subtitle,
-      granted: granted,
-    );
+    final content = _PermissionTileContent(icon: icon, title: title, subtitle: subtitle, granted: granted);
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: granted ? const Color(0xFFD1FAE5) : const Color(0xFFE5E7EB),
-        ),
+        border: Border.all(color: granted ? const Color(0xFFD1FAE5) : const Color(0xFFE5E7EB)),
       ),
       child: compact
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                content,
-                const SizedBox(height: 12),
-                _PermissionTileAction(
-                  granted: granted,
-                  actionLabel: actionLabel,
-                  onAction: onAction,
-                ),
-              ],
-            )
-          : Row(
-              children: [
-                Expanded(child: content),
-                const SizedBox(width: 12),
-                _PermissionTileAction(
-                  granted: granted,
-                  actionLabel: actionLabel,
-                  onAction: onAction,
-                ),
-              ],
-            ),
+          ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              content,
+              const SizedBox(height: 12),
+              _PermissionTileAction(granted: granted, actionLabel: actionLabel, onAction: onAction),
+            ])
+          : Row(children: [
+              Expanded(child: content),
+              const SizedBox(width: 12),
+              _PermissionTileAction(granted: granted, actionLabel: actionLabel, onAction: onAction),
+            ]),
     );
   }
 }
 
 class _PermissionTileAction extends StatelessWidget {
-  const _PermissionTileAction({
-    required this.granted,
-    required this.actionLabel,
-    this.onAction,
-  });
-
+  const _PermissionTileAction({required this.granted, required this.actionLabel, this.onAction});
   final bool granted;
   final String actionLabel;
   final VoidCallback? onAction;
@@ -519,30 +427,18 @@ class _PermissionTileAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (onAction == null) {
-      return Icon(
-        granted ? Icons.check_circle : Icons.info_outline,
-        color: granted ? const Color(0xFF0E8D7B) : const Color(0xFF9CA3AF),
-      );
+      return Icon(granted ? Icons.check_circle : Icons.info_outline,
+          color: granted ? const Color(0xFF0E8D7B) : const Color(0xFF9CA3AF));
     }
-
     return SizedBox(
       width: 148,
-      child: OutlinedButton(
-        onPressed: onAction,
-        child: Text(actionLabel),
-      ),
+      child: OutlinedButton(onPressed: onAction, child: Text(actionLabel)),
     );
   }
 }
 
 class _PermissionTileContent extends StatelessWidget {
-  const _PermissionTileContent({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.granted,
-  });
-
+  const _PermissionTileContent({required this.icon, required this.title, required this.subtitle, required this.granted});
   final IconData icon;
   final String title;
   final String subtitle;
@@ -560,31 +456,16 @@ class _PermissionTileContent extends StatelessWidget {
             color: granted ? const Color(0xFFECFDF5) : const Color(0xFFFFF4DE),
             borderRadius: BorderRadius.circular(16),
           ),
-          child: Icon(
-            icon,
-            color: granted ? const Color(0xFF0E8D7B) : const Color(0xFFE89A1E),
-          ),
+          child: Icon(icon, color: granted ? const Color(0xFF0E8D7B) : const Color(0xFFE89A1E)),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 16,
-                ),
-              ),
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
               const SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  color: Color(0xFF6B7280),
-                  height: 1.35,
-                ),
-              ),
+              Text(subtitle, style: const TextStyle(color: Color(0xFF6B7280), height: 1.35)),
             ],
           ),
         ),

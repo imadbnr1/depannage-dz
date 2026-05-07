@@ -1,8 +1,10 @@
+// lib/features/admin/pages/admin_dashboard_page.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/admin_audit_service.dart';
+import '../../../core/i18n/app_localizations.dart';
 import '../../../widgets/language_selector.dart';
 import 'admin_activity_log_page.dart';
 import 'admin_analytics_page.dart';
@@ -21,65 +23,69 @@ class AdminDashboardPage extends StatefulWidget {
 class _AdminDashboardPageState extends State<AdminDashboardPage> {
   int _index = 0;
 
-  static const _destinations = [
-    _AdminDestination(
-      label: 'Command',
-      title: 'Command Center',
-      icon: Icons.space_dashboard_outlined,
-      selectedIcon: Icons.space_dashboard,
-    ),
-    _AdminDestination(
-      label: 'Demandes',
-      title: 'Mission Control',
-      icon: Icons.receipt_long_outlined,
-      selectedIcon: Icons.receipt_long,
-    ),
-    _AdminDestination(
-      label: 'Providers',
-      title: 'Provider Ops',
-      icon: Icons.local_shipping_outlined,
-      selectedIcon: Icons.local_shipping,
-    ),
-    _AdminDestination(
-      label: 'Clients',
-      title: 'Customer Ops',
-      icon: Icons.people_outline_rounded,
-      selectedIcon: Icons.people_rounded,
-    ),
-    _AdminDestination(
-      label: 'Tarifs',
-      title: 'Pricing Lab',
-      icon: Icons.tune_outlined,
-      selectedIcon: Icons.tune,
-    ),
-    _AdminDestination(
-      label: 'Analytics',
-      title: 'Revenue Pulse',
-      icon: Icons.analytics_outlined,
-      selectedIcon: Icons.analytics,
-    ),
-    _AdminDestination(
-      label: 'Notif',
-      title: 'Broadcast Studio',
-      icon: Icons.campaign_outlined,
-      selectedIcon: Icons.campaign,
-    ),
-    _AdminDestination(
-      label: 'Support',
-      title: 'Support Control',
-      icon: Icons.support_agent_outlined,
-      selectedIcon: Icons.support_agent,
-    ),
-    _AdminDestination(
-      label: 'Logs',
-      title: 'Activity Log',
-      icon: Icons.fact_check_outlined,
-      selectedIcon: Icons.fact_check,
-    ),
-  ];
+  List<_AdminDestination> _destinations(BuildContext context) {
+    final t = AppLocalizations.of(context).t;
+    return [
+      _AdminDestination(
+        label: t('cmd_label'),
+        title: t('cmd_center'),
+        icon: Icons.space_dashboard_outlined,
+        selectedIcon: Icons.space_dashboard,
+      ),
+      _AdminDestination(
+        label: t('missions_label'),
+        title: t('mission_ctrl'),
+        icon: Icons.receipt_long_outlined,
+        selectedIcon: Icons.receipt_long,
+      ),
+      _AdminDestination(
+        label: t('providers_label'),
+        title: t('provider_ops'),
+        icon: Icons.local_shipping_outlined,
+        selectedIcon: Icons.local_shipping,
+      ),
+      _AdminDestination(
+        label: t('clients_label'),
+        title: t('customer_ops'),
+        icon: Icons.people_outline_rounded,
+        selectedIcon: Icons.people_rounded,
+      ),
+      _AdminDestination(
+        label: t('tarifs_label'),
+        title: t('pricing_lab'),
+        icon: Icons.tune_outlined,
+        selectedIcon: Icons.tune,
+      ),
+      _AdminDestination(
+        label: t('analytics_label'),
+        title: t('revenue_pulse'),
+        icon: Icons.analytics_outlined,
+        selectedIcon: Icons.analytics,
+      ),
+      _AdminDestination(
+        label: t('notif_label'),
+        title: t('broadcast_studio'),
+        icon: Icons.campaign_outlined,
+        selectedIcon: Icons.campaign,
+      ),
+      _AdminDestination(
+        label: t('support_label'),
+        title: t('support_control'),
+        icon: Icons.support_agent_outlined,
+        selectedIcon: Icons.support_agent,
+      ),
+      _AdminDestination(
+        label: t('logs_label'),
+        title: t('activity_log'),
+        icon: Icons.fact_check_outlined,
+        selectedIcon: Icons.fact_check,
+      ),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
+    final destinations = _destinations(context);
     final pages = [
       _AdminOverviewPage(onNavigate: _onSelect),
       const AdminRequestsPage(),
@@ -93,7 +99,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     ];
 
     final theme = Theme.of(context);
-    final current = _destinations[_index];
+    final current = destinations[_index];
+    final t = AppLocalizations.of(context).t;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4EFE6),
@@ -104,7 +111,12 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
             return Row(
               children: [
-                if (wide) _AdminSidebar(index: _index, onSelect: _onSelect),
+                if (wide)
+                  _AdminSidebar(
+                    index: _index,
+                    onSelect: _onSelect,
+                    destinations: destinations,
+                  ),
                 Expanded(
                   child: Align(
                     alignment: Alignment.topCenter,
@@ -147,8 +159,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                                       width: 52,
                                       height: 52,
                                       decoration: BoxDecoration(
-                                        color: Colors.white
-                                            .withValues(alpha: 0.12),
+                                        color: Colors.white.withValues(alpha: 0.12),
                                         borderRadius: BorderRadius.circular(18),
                                       ),
                                       child: Icon(
@@ -159,27 +170,21 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                                     SizedBox(
                                       width: wide
                                           ? 620
-                                          : (constraints.maxWidth - 110).clamp(
-                                              220.0,
-                                              620.0,
-                                            ),
+                                          : (constraints.maxWidth - 110).clamp(220.0, 620.0),
                                       child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             current.title,
-                                            style: theme.textTheme.headlineSmall
-                                                ?.copyWith(
+                                            style: theme.textTheme.headlineSmall?.copyWith(
                                               color: Colors.white,
                                               fontWeight: FontWeight.w900,
                                             ),
                                           ),
                                           const SizedBox(height: 4),
                                           Text(
-                                            'Pilotage en temps reel, operations plus rapides, controles admin renforces.',
-                                            style: theme.textTheme.bodyMedium
-                                                ?.copyWith(
+                                            t('admin_banner_subtitle'),
+                                            style: theme.textTheme.bodyMedium?.copyWith(
                                               color: Colors.white70,
                                             ),
                                           ),
@@ -188,16 +193,14 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                                     ),
                                     FilledButton.icon(
                                       style: FilledButton.styleFrom(
-                                        backgroundColor:
-                                            const Color(0xFFF8FAFC),
-                                        foregroundColor:
-                                            const Color(0xFF0F172A),
+                                        backgroundColor: const Color(0xFFF8FAFC),
+                                        foregroundColor: const Color(0xFF0F172A),
                                       ),
                                       onPressed: () async {
                                         await AuthService().signOut();
                                       },
                                       icon: const Icon(Icons.logout),
-                                      label: const Text('Deconnexion'),
+                                      label: Text(t('admin_logout')),
                                     ),
                                     const LanguageSelector(
                                       compact: true,
@@ -211,20 +214,18 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                                     height: 50,
                                     child: ListView.separated(
                                       scrollDirection: Axis.horizontal,
-                                      itemCount: _destinations.length,
+                                      itemCount: destinations.length,
                                       separatorBuilder: (_, __) =>
                                           const SizedBox(width: 10),
                                       itemBuilder: (context, index) {
-                                        final item = _destinations[index];
+                                        final item = destinations[index];
                                         final selected = index == _index;
                                         return ChoiceChip(
                                           label: Text(item.label),
                                           selected: selected,
                                           onSelected: (_) => _onSelect(index),
                                           avatar: Icon(
-                                            selected
-                                                ? item.selectedIcon
-                                                : item.icon,
+                                            selected ? item.selectedIcon : item.icon,
                                             size: 18,
                                             color: selected
                                                 ? const Color(0xFF0F172A)
@@ -236,13 +237,10 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                                                 : Colors.white,
                                             fontWeight: FontWeight.w800,
                                           ),
-                                          backgroundColor: Colors.white
-                                              .withValues(alpha: 0.08),
-                                          selectedColor:
-                                              const Color(0xFFF8FAFC),
+                                          backgroundColor: Colors.white.withValues(alpha: 0.08),
+                                          selectedColor: const Color(0xFFF8FAFC),
                                           side: BorderSide(
-                                            color: Colors.white
-                                                .withValues(alpha: 0.1),
+                                            color: Colors.white.withValues(alpha: 0.1),
                                           ),
                                         );
                                       },
@@ -274,7 +272,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           : NavigationBar(
               selectedIndex: _index,
               onDestinationSelected: _onSelect,
-              destinations: _destinations
+              destinations: destinations
                   .map(
                     (item) => NavigationDestination(
                       icon: Icon(item.icon),
@@ -292,11 +290,11 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// _AdminOverviewPage — fully localized
+// ═══════════════════════════════════════════════════════════════════
 class _AdminOverviewPage extends StatelessWidget {
-  const _AdminOverviewPage({
-    required this.onNavigate,
-  });
-
+  const _AdminOverviewPage({required this.onNavigate});
   final ValueChanged<int> onNavigate;
 
   double _toDouble(dynamic value) {
@@ -312,22 +310,22 @@ class _AdminOverviewPage extends StatelessWidget {
     return null;
   }
 
-  String _statusLabel(String status) {
+  String _statusLabel(String status, AppLocalizations t) {
     switch (status) {
       case 'accepted':
-        return 'Acceptee';
+        return t.t('status_accepted');
       case 'onTheWay':
-        return 'En route';
+        return t.t('status_on_the_way');
       case 'arrived':
-        return 'Arrivee';
+        return t.t('status_arrived');
       case 'inService':
-        return 'En service';
+        return t.t('status_in_service');
       case 'completed':
-        return 'Terminee';
+        return t.t('status_completed');
       case 'cancelled':
-        return 'Annulee';
+        return t.t('status_cancelled');
       default:
-        return 'Recherche';
+        return t.t('status_searching');
     }
   }
 
@@ -350,9 +348,9 @@ class _AdminOverviewPage extends StatelessWidget {
     }
   }
 
-  String _formatMoney(double value) => '${value.toStringAsFixed(0)} DA';
+  String _formatMoney(double value, AppLocalizations t) => '${value.toStringAsFixed(0)} DA';
 
-  String _formatWhen(DateTime? value) {
+  String _formatWhen(DateTime? value, AppLocalizations t) {
     if (value == null) return '--';
     final local = value.toLocal();
     final now = DateTime.now();
@@ -362,7 +360,7 @@ class _AdminOverviewPage extends StatelessWidget {
     final hh = local.hour.toString().padLeft(2, '0');
     final mm = local.minute.toString().padLeft(2, '0');
     if (sameDay) {
-      return 'Aujourd hui $hh:$mm';
+      return '${t.t('today')} $hh:$mm';
     }
     final dd = local.day.toString().padLeft(2, '0');
     final mo = local.month.toString().padLeft(2, '0');
@@ -371,6 +369,7 @@ class _AdminOverviewPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final firestore = FirebaseFirestore.instance;
 
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
@@ -386,9 +385,8 @@ class _AdminOverviewPage extends StatelessWidget {
                     providersSnapshot.hasError ||
                     usersSnapshot.hasError) {
                   return _AdminErrorPanel(
-                    title: 'Dashboard indisponible',
-                    subtitle:
-                        'Les donnees admin n ont pas pu charger. Verifiez les regles Firestore, les index ou la connexion.',
+                    title: t.t('error'),
+                    subtitle: t.t('error'),
                     details: [
                       requestsSnapshot.error,
                       providersSnapshot.error,
@@ -397,10 +395,8 @@ class _AdminOverviewPage extends StatelessWidget {
                   );
                 }
 
-                if (requestsSnapshot.connectionState ==
-                        ConnectionState.waiting ||
-                    providersSnapshot.connectionState ==
-                        ConnectionState.waiting ||
+                if (requestsSnapshot.connectionState == ConnectionState.waiting ||
+                    providersSnapshot.connectionState == ConnectionState.waiting ||
                     usersSnapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
@@ -409,9 +405,8 @@ class _AdminOverviewPage extends StatelessWidget {
                 final providers = providersSnapshot.data?.docs ?? [];
                 final users = usersSnapshot.data?.docs ?? [];
 
-                final searching = requests
-                    .where((d) => (d.data()['status'] ?? '') == 'searching')
-                    .length;
+                final searching =
+                    requests.where((d) => (d.data()['status'] ?? '') == 'searching').length;
                 final active = requests.where((d) {
                   final status = (d.data()['status'] ?? '').toString();
                   return status == 'accepted' ||
@@ -419,15 +414,12 @@ class _AdminOverviewPage extends StatelessWidget {
                       status == 'arrived' ||
                       status == 'inService';
                 }).length;
-                final completed = requests
-                    .where((d) => (d.data()['status'] ?? '') == 'completed')
-                    .length;
-                final cancelled = requests
-                    .where((d) => (d.data()['status'] ?? '') == 'cancelled')
-                    .length;
+                final completed =
+                    requests.where((d) => (d.data()['status'] ?? '') == 'completed').length;
+                final cancelled =
+                    requests.where((d) => (d.data()['status'] ?? '') == 'cancelled').length;
                 final urgent = requests.where((d) {
-                  final urgency =
-                      (d.data()['urgency'] ?? '').toString().toLowerCase();
+                  final urgency = (d.data()['urgency'] ?? '').toString().toLowerCase();
                   return urgency.contains('urgent') || urgency.contains('crit');
                 }).length;
 
@@ -435,24 +427,19 @@ class _AdminOverviewPage extends StatelessWidget {
                     providers.where((d) => d.data()['isOnline'] == true).length;
                 final busyProviders =
                     providers.where((d) => d.data()['isBusy'] == true).length;
-                final approvedProviders = providers
-                    .where((d) => d.data()['isApproved'] == true)
-                    .length;
+                final approvedProviders =
+                    providers.where((d) => d.data()['isApproved'] == true).length;
                 final pendingProviders = providers.where((d) {
                   final data = d.data();
-                  return data['isApproved'] != true &&
-                      data['isBlocked'] != true;
+                  return data['isApproved'] != true && data['isBlocked'] != true;
                 }).toList();
-                final blockedProviders = providers
-                    .where((d) => d.data()['isBlocked'] == true)
-                    .length;
+                final blockedProviders =
+                    providers.where((d) => d.data()['isBlocked'] == true).length;
 
-                final customers = users
-                    .where((d) => (d.data()['role'] ?? '') == 'customer')
-                    .length;
-                final providerUsers = users
-                    .where((d) => (d.data()['role'] ?? '') == 'provider')
-                    .length;
+                final customers =
+                    users.where((d) => (d.data()['role'] ?? '') == 'customer').length;
+                final providerUsers =
+                    users.where((d) => (d.data()['role'] ?? '') == 'provider').length;
                 final freeProviders = onlineProviders - busyProviders < 0
                     ? 0
                     : onlineProviders - busyProviders;
@@ -460,11 +447,9 @@ class _AdminOverviewPage extends StatelessWidget {
                     .where((d) => (d.data()['status'] ?? '') == 'completed')
                     .fold<double>(
                       0,
-                      (total, doc) =>
-                          total + _toDouble(doc.data()['estimatedPrice']),
+                      (total, doc) => total + _toDouble(doc.data()['estimatedPrice']),
                     );
-                final averageTicket =
-                    completed == 0 ? 0.0 : completedRevenue / completed;
+                final averageTicket = completed == 0 ? 0.0 : completedRevenue / completed;
                 final completionRate = requests.isEmpty
                     ? 0.0
                     : ((completed / requests.length) * 100).clamp(0, 100);
@@ -477,10 +462,8 @@ class _AdminOverviewPage extends StatelessWidget {
                         DateTime.fromMillisecondsSinceEpoch(0);
                     return bDate.compareTo(aDate);
                   });
-                final spotlightRequests =
-                    recentRequests.take(4).toList(growable: false);
-                final providerSpotlight =
-                    pendingProviders.take(3).toList(growable: false);
+                final spotlightRequests = recentRequests.take(4).toList(growable: false);
+                final providerSpotlight = pendingProviders.take(3).toList(growable: false);
                 final screenWidth = MediaQuery.of(context).size.width;
                 final kpiColumns = screenWidth >= 1300
                     ? 4
@@ -502,65 +485,69 @@ class _AdminOverviewPage extends StatelessWidget {
                       childAspectRatio: 1.48,
                       children: [
                         _KpiCard(
-                          title: 'Recherche',
+                          title: t.t('overview_searching'),
                           value: '$searching',
-                          subtitle: 'Missions sans provider',
+                          subtitle: t.t('overview_searching_sub'),
                           accent: const Color(0xFFEA580C),
                           icon: Icons.radar_outlined,
                           onTap: () => onNavigate(1),
                         ),
                         _KpiCard(
-                          title: 'Actives',
+                          title: t.t('overview_active'),
                           value: '$active',
-                          subtitle: 'Suivis en direct',
+                          subtitle: t.t('overview_active_sub'),
                           accent: const Color(0xFF2563EB),
                           icon: Icons.route_outlined,
                           onTap: () => onNavigate(1),
                         ),
                         _KpiCard(
-                          title: 'Terminees',
+                          title: t.t('overview_completed'),
                           value: '$completed',
-                          subtitle: 'Missions bouclees',
+                          subtitle: t.t('overview_completed_sub'),
                           accent: const Color(0xFF16A34A),
                           icon: Icons.verified_outlined,
                           onTap: () => onNavigate(5),
                         ),
                         _KpiCard(
-                          title: 'Urgentes',
+                          title: t.t('overview_urgent'),
                           value: '$urgent',
-                          subtitle: 'A surveiller maintenant',
+                          subtitle: t.t('overview_urgent_sub'),
                           accent: const Color(0xFFDC2626),
                           icon: Icons.priority_high_outlined,
                           onTap: () => onNavigate(1),
                         ),
                         _KpiCard(
-                          title: 'Providers ON',
+                          title: t.t('overview_providers_on'),
                           value: '$onlineProviders',
-                          subtitle: '$busyProviders occupes',
+                          subtitle: t
+                              .t('overview_providers_on_sub')
+                              .replaceAll('{busy}', '$busyProviders'),
                           accent: const Color(0xFF0EA5E9),
                           icon: Icons.wifi_tethering_outlined,
                           onTap: () => onNavigate(2),
                         ),
                         _KpiCard(
-                          title: 'Approuves',
+                          title: t.t('overview_approved'),
                           value: '$approvedProviders',
-                          subtitle: '$blockedProviders bloques',
+                          subtitle: t
+                              .t('overview_approved_sub')
+                              .replaceAll('{blocked}', '$blockedProviders'),
                           accent: const Color(0xFF7C3AED),
                           icon: Icons.verified_user_outlined,
                           onTap: () => onNavigate(2),
                         ),
                         _KpiCard(
-                          title: 'Clients',
+                          title: t.t('overview_clients'),
                           value: '$customers',
-                          subtitle: 'Base utilisateur',
+                          subtitle: t.t('overview_clients_sub'),
                           accent: const Color(0xFF0891B2),
                           icon: Icons.people_alt_outlined,
                           onTap: () => onNavigate(3),
                         ),
                         _KpiCard(
-                          title: 'Providers',
+                          title: t.t('overview_provider_users'),
                           value: '$providerUsers',
-                          subtitle: 'Comptes metier',
+                          subtitle: t.t('overview_provider_users_sub'),
                           accent: const Color(0xFF4F46E5),
                           icon: Icons.engineering_outlined,
                           onTap: () => onNavigate(2),
@@ -572,35 +559,34 @@ class _AdminOverviewPage extends StatelessWidget {
                       Column(
                         children: [
                           _AdminPanel(
-                            title: 'Lecture rapide',
-                            subtitle:
-                                'Signal instantane sur la sante des operations.',
+                            title: t.t('insight_mission_load'),
+                            subtitle: t.t('insight_mission_load'),
                             child: Column(
                               children: [
                                 _InsightRow(
-                                  label: 'Charge mission',
+                                  label: t.t('insight_mission_load'),
                                   value: active == 0
-                                      ? 'Faible'
+                                      ? t.t('mission_load_low')
                                       : active < 20
-                                          ? 'Normale'
+                                          ? t.t('mission_load_normal')
                                           : active < 50
-                                              ? 'Elevee'
-                                              : 'Critique',
+                                              ? t.t('mission_load_high')
+                                              : t.t('mission_load_critical'),
                                 ),
                                 _InsightRow(
-                                  label: 'Providers libres',
+                                  label: t.t('insight_free_providers'),
                                   value: '$freeProviders',
                                 ),
                                 _InsightRow(
-                                  label: 'Annulations',
+                                  label: t.t('insight_cancellations'),
                                   value: '$cancelled',
                                 ),
                                 _InsightRow(
-                                  label: 'Demandes critiques',
+                                  label: t.t('insight_critical_demands'),
                                   value: '$urgent',
                                 ),
                                 _InsightRow(
-                                  label: 'Approval en attente',
+                                  label: t.t('insight_pending_approval'),
                                   value: '${pendingProviders.length}',
                                 ),
                               ],
@@ -608,40 +594,35 @@ class _AdminOverviewPage extends StatelessWidget {
                           ),
                           const SizedBox(height: 14),
                           _AdminPanel(
-                            title: 'Actions rapides',
-                            subtitle:
-                                'Pilotage plus direct pour les cas chauds.',
+                            title: t.t('quick_launch_promo'),
+                            subtitle: t.t('quick_launch_promo_sub'),
                             child: Column(
                               children: [
                                 _QuickActionTile(
                                   icon: Icons.campaign_outlined,
-                                  title: 'Lancer une promo',
-                                  subtitle:
-                                      'Envoyer une offre live avec image et popup.',
+                                  title: t.t('quick_launch_promo'),
+                                  subtitle: t.t('quick_launch_promo_sub'),
                                   onTap: () => onNavigate(6),
                                 ),
                                 const SizedBox(height: 10),
                                 _QuickActionTile(
                                   icon: Icons.local_shipping_outlined,
-                                  title: 'Verifier les providers',
-                                  subtitle:
-                                      'Valider, bloquer ou filtrer les comptes actifs.',
+                                  title: t.t('quick_verify_providers'),
+                                  subtitle: t.t('quick_verify_providers_sub'),
                                   onTap: () => onNavigate(2),
                                 ),
                                 const SizedBox(height: 10),
                                 _QuickActionTile(
                                   icon: Icons.payments_outlined,
-                                  title: 'Ajuster les prix',
-                                  subtitle:
-                                      'Reagir vite a la demande ou a la distance.',
+                                  title: t.t('quick_adjust_prices'),
+                                  subtitle: t.t('quick_adjust_prices_sub'),
                                   onTap: () => onNavigate(4),
                                 ),
                                 const SizedBox(height: 10),
                                 _QuickActionTile(
                                   icon: Icons.support_agent_outlined,
-                                  title: 'Support & canaux',
-                                  subtitle:
-                                      'Mettre a jour l aide visible partout dans l app.',
+                                  title: t.t('quick_support_channels'),
+                                  subtitle: t.t('quick_support_channels_sub'),
                                   onTap: () => onNavigate(7),
                                 ),
                               ],
@@ -656,35 +637,34 @@ class _AdminOverviewPage extends StatelessWidget {
                           Expanded(
                             flex: 3,
                             child: _AdminPanel(
-                              title: 'Lecture rapide',
-                              subtitle:
-                                  'Signal instantane sur la sante des operations.',
+                              title: t.t('insight_mission_load'),
+                              subtitle: t.t('insight_mission_load'),
                               child: Column(
                                 children: [
                                   _InsightRow(
-                                    label: 'Charge mission',
+                                    label: t.t('insight_mission_load'),
                                     value: active == 0
-                                        ? 'Faible'
+                                        ? t.t('mission_load_low')
                                         : active < 20
-                                            ? 'Normale'
+                                            ? t.t('mission_load_normal')
                                             : active < 50
-                                                ? 'Elevee'
-                                                : 'Critique',
+                                                ? t.t('mission_load_high')
+                                                : t.t('mission_load_critical'),
                                   ),
                                   _InsightRow(
-                                    label: 'Providers libres',
+                                    label: t.t('insight_free_providers'),
                                     value: '$freeProviders',
                                   ),
                                   _InsightRow(
-                                    label: 'Annulations',
+                                    label: t.t('insight_cancellations'),
                                     value: '$cancelled',
                                   ),
                                   _InsightRow(
-                                    label: 'Demandes critiques',
+                                    label: t.t('insight_critical_demands'),
                                     value: '$urgent',
                                   ),
                                   _InsightRow(
-                                    label: 'Approval en attente',
+                                    label: t.t('insight_pending_approval'),
                                     value: '${pendingProviders.length}',
                                   ),
                                 ],
@@ -695,40 +675,35 @@ class _AdminOverviewPage extends StatelessWidget {
                           Expanded(
                             flex: 2,
                             child: _AdminPanel(
-                              title: 'Actions rapides',
-                              subtitle:
-                                  'Pilotage plus direct pour les cas chauds.',
+                              title: t.t('quick_launch_promo'),
+                              subtitle: t.t('quick_launch_promo_sub'),
                               child: Column(
                                 children: [
                                   _QuickActionTile(
                                     icon: Icons.campaign_outlined,
-                                    title: 'Lancer une promo',
-                                    subtitle:
-                                        'Envoyer une offre live avec image et popup.',
+                                    title: t.t('quick_launch_promo'),
+                                    subtitle: t.t('quick_launch_promo_sub'),
                                     onTap: () => onNavigate(6),
                                   ),
                                   const SizedBox(height: 10),
                                   _QuickActionTile(
                                     icon: Icons.local_shipping_outlined,
-                                    title: 'Verifier les providers',
-                                    subtitle:
-                                        'Valider, bloquer ou filtrer les comptes actifs.',
+                                    title: t.t('quick_verify_providers'),
+                                    subtitle: t.t('quick_verify_providers_sub'),
                                     onTap: () => onNavigate(2),
                                   ),
                                   const SizedBox(height: 10),
                                   _QuickActionTile(
                                     icon: Icons.payments_outlined,
-                                    title: 'Ajuster les prix',
-                                    subtitle:
-                                        'Reagir vite a la demande ou a la distance.',
+                                    title: t.t('quick_adjust_prices'),
+                                    subtitle: t.t('quick_adjust_prices_sub'),
                                     onTap: () => onNavigate(4),
                                   ),
                                   const SizedBox(height: 10),
                                   _QuickActionTile(
                                     icon: Icons.support_agent_outlined,
-                                    title: 'Support & canaux',
-                                    subtitle:
-                                        'Mettre a jour l aide visible partout dans l app.',
+                                    title: t.t('quick_support_channels'),
+                                    subtitle: t.t('quick_support_channels_sub'),
                                     onTap: () => onNavigate(7),
                                   ),
                                 ],
@@ -741,11 +716,8 @@ class _AdminOverviewPage extends StatelessWidget {
                     LayoutBuilder(
                       builder: (context, sectionConstraints) {
                         final width = sectionConstraints.maxWidth;
-                        final columns = width >= 1180
-                            ? 3
-                            : width >= 760
-                                ? 2
-                                : 1;
+                        final columns =
+                            width >= 1180 ? 3 : width >= 760 ? 2 : 1;
                         final itemWidth = columns == 1
                             ? width
                             : (width - ((columns - 1) * 14)) / columns;
@@ -757,41 +729,38 @@ class _AdminOverviewPage extends StatelessWidget {
                             SizedBox(
                               width: itemWidth,
                               child: _AdminPanel(
-                                title: 'Finance live',
-                                subtitle:
-                                    'Lecture directe du revenu missions et du rendement plateforme.',
+                                title: t.t('finance_live'),
+                                subtitle: t.t('finance_live_sub'),
                                 child: Column(
                                   children: [
                                     Row(
                                       children: [
                                         Expanded(
                                           child: _MiniStat(
-                                            label: 'Ticket moyen',
-                                            value: _formatMoney(averageTicket),
+                                            label: t.t('avg_ticket'),
+                                            value: _formatMoney(averageTicket, t),
                                           ),
                                         ),
                                         const SizedBox(width: 10),
                                         Expanded(
                                           child: _MiniStat(
-                                            label: 'CA termine',
-                                            value:
-                                                _formatMoney(completedRevenue),
+                                            label: t.t('ca_completed'),
+                                            value: _formatMoney(completedRevenue, t),
                                           ),
                                         ),
                                       ],
                                     ),
                                     const SizedBox(height: 12),
                                     _InsightRow(
-                                      label: 'Taux completion',
-                                      value:
-                                          '${completionRate.toStringAsFixed(0)}%',
+                                      label: t.t('completion_rate'),
+                                      value: '${completionRate.toStringAsFixed(0)}%',
                                     ),
                                     _InsightRow(
-                                      label: 'Missions terminees',
+                                      label: t.t('missions_completed'),
                                       value: '$completed',
                                     ),
                                     _InsightRow(
-                                      label: 'Missions annulees',
+                                      label: t.t('missions_cancelled'),
                                       value: '$cancelled',
                                     ),
                                   ],
@@ -801,42 +770,33 @@ class _AdminOverviewPage extends StatelessWidget {
                             SizedBox(
                               width: itemWidth,
                               child: _AdminPanel(
-                                title: 'Provider control',
-                                subtitle:
-                                    'Surveillez les validations et les comptes a traiter en priorite.',
+                                title: t.t('provider_control'),
+                                subtitle: t.t('provider_control_sub'),
                                 child: providerSpotlight.isEmpty
                                     ? Column(
                                         children: [
                                           const _EmptyStateLine(
-                                            title: 'Aucun provider en attente',
-                                            subtitle:
-                                                'Tous les comptes sont traites pour le moment.',
+                                            title: 'no_pending_providers',
+                                            subtitle: 'no_pending_providers_sub',
                                           ),
                                           const SizedBox(height: 12),
                                           _QuickActionTile(
                                             icon: Icons.local_shipping_outlined,
-                                            title: 'Ouvrir Provider Ops',
-                                            subtitle:
-                                                'Verifier les comptes, approvals et blocages.',
+                                            title: t.t('open_provider_ops'),
+                                            subtitle: t.t('open_provider_ops_sub'),
                                             onTap: () => onNavigate(2),
                                           ),
                                         ],
                                       )
                                     : Column(
                                         children: [
-                                          ...providerSpotlight
-                                              .map((providerDoc) {
+                                          ...providerSpotlight.map((providerDoc) {
                                             final data = providerDoc.data();
                                             return Padding(
-                                              padding: const EdgeInsets.only(
-                                                bottom: 10,
-                                              ),
+                                              padding: const EdgeInsets.only(bottom: 10),
                                               child: _ProviderApprovalPreview(
-                                                name:
-                                                    (data['name'] ?? 'Provider')
-                                                        .toString(),
-                                                phone: (data['phone'] ?? '--')
-                                                    .toString(),
+                                                name: (data['name'] ?? 'Provider').toString(),
+                                                phone: (data['phone'] ?? '--').toString(),
                                                 vehicle:
                                                     '${data['vehicleType'] ?? '--'} · ${data['plate'] ?? '--'}',
                                               ),
@@ -844,10 +804,10 @@ class _AdminOverviewPage extends StatelessWidget {
                                           }),
                                           _QuickActionTile(
                                             icon: Icons.verified_user_outlined,
-                                            title:
-                                                'Traiter ${pendingProviders.length} approval(s)',
-                                            subtitle:
-                                                'Acceder directement au centre de verification.',
+                                            title: t
+                                                .t('treat_approval')
+                                                .replaceAll('{count}', '${pendingProviders.length}'),
+                                            subtitle: t.t('treat_approval_sub'),
                                             onTap: () => onNavigate(2),
                                           ),
                                         ],
@@ -857,46 +817,37 @@ class _AdminOverviewPage extends StatelessWidget {
                             SizedBox(
                               width: itemWidth,
                               child: _AdminPanel(
-                                title: 'Mission radar',
-                                subtitle:
-                                    'Les dernieres missions pour voir ce qui se passe maintenant.',
+                                title: t.t('mission_radar'),
+                                subtitle: t.t('mission_radar_sub'),
                                 child: spotlightRequests.isEmpty
                                     ? const _EmptyStateLine(
-                                        title: 'Aucune mission recente',
-                                        subtitle:
-                                            'Les nouvelles missions apparaitront ici en direct.',
+                                        title: 'no_recent_mission',
+                                        subtitle: 'no_recent_mission_sub',
                                       )
                                     : Column(
                                         children: spotlightRequests.map((doc) {
                                           final data = doc.data();
-                                          final status =
-                                              (data['status'] ?? 'searching')
-                                                  .toString();
+                                          final status = (data['status'] ?? 'searching').toString();
                                           return Padding(
-                                            padding: const EdgeInsets.only(
-                                              bottom: 10,
-                                            ),
+                                            padding: const EdgeInsets.only(bottom: 10),
                                             child: _MissionRadarTile(
-                                              title: (data['customerName'] ??
-                                                      'Client')
+                                              title: (data['customerName'] ?? 'Client').toString(),
+                                              pickup: (data['pickupLabel'] ?? 'Point de depart')
                                                   .toString(),
-                                              pickup: (data['pickupLabel'] ??
-                                                      'Point de depart')
-                                                  .toString(),
-                                              destination:
-                                                  (data['destination'] ?? '--')
-                                                      .toString(),
+                                              destination: (data['destination'] ?? '--').toString(),
                                               when: _formatWhen(
                                                 _toDate(data['updatedAt']) ??
                                                     _toDate(data['createdAt']),
+                                                t,
                                               ),
                                               price: _formatMoney(
-                                                _toDouble(
-                                                  data['estimatedPrice'],
-                                                ),
+                                                _toDouble(data['estimatedPrice']),
+                                                t,
                                               ),
-                                              status: _statusLabel(status),
+                                              status: _statusLabel(status, t),
                                               statusColor: _statusColor(status),
+                                              pickupLabel: t.t('pick_up'),
+                                              destinationLabel: t.t('destination_label'),
                                             ),
                                           );
                                         }).toList(),
@@ -918,6 +869,9 @@ class _AdminOverviewPage extends StatelessWidget {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// _AdminProvidersPage — fully localized
+// ═══════════════════════════════════════════════════════════════════
 class _AdminProvidersPage extends StatefulWidget {
   const _AdminProvidersPage();
 
@@ -959,9 +913,7 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
       targetCollection: 'providers',
       targetId: uid,
       summary: value ? 'Approval provider active' : 'Approval provider retiree',
-      metadata: {
-        'isApproved': value,
-      },
+      metadata: {'isApproved': value},
     );
   }
 
@@ -991,9 +943,7 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
       targetCollection: 'providers',
       targetId: uid,
       summary: value ? 'Provider bloque' : 'Provider debloque',
-      metadata: {
-        'isBlocked': value,
-      },
+      metadata: {'isBlocked': value},
     );
   }
 
@@ -1022,7 +972,6 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
   bool _matchesSearch(Map<String, dynamic> data) {
     final q = _searchController.text.trim().toLowerCase();
     if (q.isEmpty) return true;
-
     return (data['fullName'] ?? '').toString().toLowerCase().contains(q) ||
         (data['email'] ?? '').toString().toLowerCase().contains(q) ||
         (data['phone'] ?? '').toString().toLowerCase().contains(q) ||
@@ -1031,14 +980,14 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context).t;
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: FirebaseFirestore.instance.collection('providers').snapshots(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return _AdminErrorPanel(
-            title: 'Providers indisponibles',
-            subtitle:
-                'La liste providers n a pas pu etre chargee. Verifiez les permissions admin et la connexion.',
+            title: t('error'),
+            subtitle: t('error'),
             details: snapshot.error?.toString(),
           );
         }
@@ -1058,18 +1007,15 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
             return bOnline.compareTo(aOnline);
           });
 
-        final onlineCount =
-            docs.where((doc) => doc.data()['isOnline'] == true).length;
-        final blockedCount =
-            docs.where((doc) => doc.data()['isBlocked'] == true).length;
+        final onlineCount = docs.where((doc) => doc.data()['isOnline'] == true).length;
+        final blockedCount = docs.where((doc) => doc.data()['isBlocked'] == true).length;
         final compactStats = MediaQuery.of(context).size.width < 720;
 
         return ListView(
           children: [
             _AdminPanel(
-              title: 'Provider ops',
-              subtitle:
-                  'Filtrer rapidement, approuver plus vite, couper les comptes a risque.',
+              title: t('provider_ops_title'),
+              subtitle: t('provider_ops_subtitle'),
               child: Column(
                 children: [
                   Row(
@@ -1079,8 +1025,7 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
                           controller: _searchController,
                           onChanged: (_) => setState(() {}),
                           decoration: InputDecoration(
-                            hintText:
-                                'Rechercher nom, email, telephone, plaque...',
+                            hintText: t('search_providers'),
                             prefixIcon: const Icon(Icons.search),
                             filled: true,
                             fillColor: const Color(0xFFF8FAFC),
@@ -1099,32 +1044,32 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
                     runSpacing: 8,
                     children: [
                       _FilterChip(
-                        label: 'Tous',
+                        label: t('filter_all'),
                         selected: _filter == 'all',
                         onTap: () => setState(() => _filter = 'all'),
                       ),
                       _FilterChip(
-                        label: 'Approuves',
+                        label: t('filter_approved'),
                         selected: _filter == 'approved',
                         onTap: () => setState(() => _filter = 'approved'),
                       ),
                       _FilterChip(
-                        label: 'En attente',
+                        label: t('filter_pending'),
                         selected: _filter == 'pending',
                         onTap: () => setState(() => _filter = 'pending'),
                       ),
                       _FilterChip(
-                        label: 'En ligne',
+                        label: t('filter_online'),
                         selected: _filter == 'online',
                         onTap: () => setState(() => _filter = 'online'),
                       ),
                       _FilterChip(
-                        label: 'Occupes',
+                        label: t('filter_busy'),
                         selected: _filter == 'busy',
                         onTap: () => setState(() => _filter = 'busy'),
                       ),
                       _FilterChip(
-                        label: 'Bloques',
+                        label: t('filter_blocked'),
                         selected: _filter == 'blocked',
                         onTap: () => setState(() => _filter = 'blocked'),
                       ),
@@ -1139,21 +1084,21 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
                         SizedBox(
                           width: 150,
                           child: _MiniStat(
-                            label: 'Resultats',
+                            label: t('result_count'),
                             value: '${filtered.length}',
                           ),
                         ),
                         SizedBox(
                           width: 150,
                           child: _MiniStat(
-                            label: 'Online',
+                            label: t('online_count'),
                             value: '$onlineCount',
                           ),
                         ),
                         SizedBox(
                           width: 150,
                           child: _MiniStat(
-                            label: 'Bloques',
+                            label: t('blocked_count'),
                             value: '$blockedCount',
                           ),
                         ),
@@ -1164,21 +1109,21 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
                       children: [
                         Expanded(
                           child: _MiniStat(
-                            label: 'Resultats',
+                            label: t('result_count'),
                             value: '${filtered.length}',
                           ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: _MiniStat(
-                            label: 'Online',
+                            label: t('online_count'),
                             value: '$onlineCount',
                           ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: _MiniStat(
-                            label: 'Bloques',
+                            label: t('blocked_count'),
                             value: '$blockedCount',
                           ),
                         ),
@@ -1195,8 +1140,7 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
               final online = data['isOnline'] == true;
               final busy = data['isBusy'] == true;
               final blocked = data['isBlocked'] == true;
-              final vehicleImageUrl =
-                  (data['vehicleImageUrl'] ?? '').toString().trim();
+              final vehicleImageUrl = (data['vehicleImageUrl'] ?? '').toString().trim();
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 14),
@@ -1252,9 +1196,7 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
                         ),
                         Switch(
                           value: approved,
-                          onChanged: blocked
-                              ? null
-                              : (value) => _setApproval(uid, value),
+                          onChanged: blocked ? null : (value) => _setApproval(uid, value),
                         ),
                       ],
                     ),
@@ -1264,42 +1206,32 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
                       runSpacing: 8,
                       children: [
                         _StatusPill(
-                          label: approved ? 'Approuve' : 'En attente',
-                          background: approved
-                              ? const Color(0xFFDCFCE7)
-                              : const Color(0xFFFEF3C7),
+                          label: approved ? t('status_approved') : t('status_pending'),
+                          background: approved ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
                         ),
                         _StatusPill(
-                          label: online ? 'En ligne' : 'Hors ligne',
-                          background: online
-                              ? const Color(0xFFDBEAFE)
-                              : const Color(0xFFF1F5F9),
+                          label: online ? t('status_online') : t('status_offline'),
+                          background: online ? const Color(0xFFDBEAFE) : const Color(0xFFF1F5F9),
                         ),
                         _StatusPill(
-                          label: busy ? 'Occupe' : 'Libre',
-                          background: busy
-                              ? const Color(0xFFFEE2E2)
-                              : const Color(0xFFECFDF5),
+                          label: busy ? t('status_busy') : t('status_free'),
+                          background: busy ? const Color(0xFFFEE2E2) : const Color(0xFFECFDF5),
                         ),
                         if (blocked)
-                          const _StatusPill(
-                            label: 'Bloque',
-                            background: Color(0xFFFECACA),
+                          _StatusPill(
+                            label: t('status_blocked'),
+                            background: const Color(0xFFFECACA),
                           ),
                       ],
                     ),
                     const SizedBox(height: 14),
+                    _InfoLine(title: t('phone_label'), value: (data['phone'] ?? '--').toString()),
                     _InfoLine(
-                      title: 'Telephone',
-                      value: (data['phone'] ?? '--').toString(),
+                      title: t('vehicle_label'),
+                      value: '${data['vehicleType'] ?? '--'} · ${data['plate'] ?? '--'}',
                     ),
                     _InfoLine(
-                      title: 'Vehicule',
-                      value:
-                          '${data['vehicleType'] ?? '--'} · ${data['plate'] ?? '--'}',
-                    ),
-                    _InfoLine(
-                      title: 'Performance',
+                      title: t('performance_label'),
                       value:
                           '${data['missionsCompleted'] ?? 0} missions · rating ${data['rating'] ?? 5.0}',
                     ),
@@ -1320,9 +1252,9 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
                                 color: const Color(0xFFF8FAFC),
                                 borderRadius: BorderRadius.circular(18),
                               ),
-                              child: const Text(
-                                'Image vehicule indisponible',
-                                style: TextStyle(color: Colors.black54),
+                              child: Text(
+                                t('image_unavailable'),
+                                style: const TextStyle(color: Colors.black54),
                               ),
                             );
                           },
@@ -1336,29 +1268,20 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
                           child: OutlinedButton.icon(
                             onPressed: () => _setApproval(uid, !approved),
                             icon: Icon(
-                              approved
-                                  ? Icons.remove_circle_outline
-                                  : Icons.verified_outlined,
+                              approved ? Icons.remove_circle_outline : Icons.verified_outlined,
                             ),
-                            label: Text(
-                              approved ? 'Retirer approval' : 'Approuver',
-                            ),
+                            label: Text(approved ? t('retirer_approval') : t('approuver')),
                           ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: FilledButton.icon(
                             style: FilledButton.styleFrom(
-                              backgroundColor:
-                                  blocked ? Colors.green : Colors.red,
+                              backgroundColor: blocked ? Colors.green : Colors.red,
                             ),
                             onPressed: () => _setBlocked(uid, !blocked),
-                            icon: Icon(
-                              blocked
-                                  ? Icons.lock_open_outlined
-                                  : Icons.block_outlined,
-                            ),
-                            label: Text(blocked ? 'Debloquer' : 'Bloquer'),
+                            icon: Icon(blocked ? Icons.lock_open_outlined : Icons.block_outlined),
+                            label: Text(blocked ? t('unblock') : t('block')),
                           ),
                         ),
                       ],
@@ -1374,6 +1297,9 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// _AdminCustomersPage — fully localized
+// ═══════════════════════════════════════════════════════════════════
 class _AdminCustomersPage extends StatefulWidget {
   const _AdminCustomersPage();
 
@@ -1407,10 +1333,7 @@ class _AdminCustomersPageState extends State<_AdminCustomersPage> {
       targetCollection: 'users',
       targetId: uid,
       summary: value ? 'Client bloque' : 'Client debloque',
-      metadata: {
-        'role': 'customer',
-        'isBlocked': value,
-      },
+      metadata: {'role': 'customer', 'isBlocked': value},
     );
   }
 
@@ -1436,14 +1359,14 @@ class _AdminCustomersPageState extends State<_AdminCustomersPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context).t;
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: FirebaseFirestore.instance.collection('users').snapshots(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return _AdminErrorPanel(
-            title: 'Customers indisponibles',
-            subtitle:
-                'La vue clients n a pas pu etre chargee. Verifiez les permissions admin et la connexion.',
+            title: t('error'),
+            subtitle: t('error'),
             details: snapshot.error.toString(),
           );
         }
@@ -1466,17 +1389,22 @@ class _AdminCustomersPageState extends State<_AdminCustomersPage> {
         return ListView(
           children: [
             _AdminPanel(
-              title: 'Customer Ops',
-              subtitle:
-                  'Gardez la main sur la base client, les blocages et les comptes sensibles.',
+              title: t('customer_ops_title'),
+              subtitle: t('customer_ops_subtitle'),
               child: Column(
                 children: [
                   TextField(
                     controller: _searchController,
                     onChanged: (_) => setState(() {}),
-                    decoration: const InputDecoration(
-                      hintText: 'Rechercher nom, telephone ou email...',
-                      prefixIcon: Icon(Icons.search),
+                    decoration: InputDecoration(
+                      hintText: t('search_customers'),
+                      prefixIcon: const Icon(Icons.search),
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(18),
+                        borderSide: BorderSide.none,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -1485,17 +1413,17 @@ class _AdminCustomersPageState extends State<_AdminCustomersPage> {
                     runSpacing: 8,
                     children: [
                       _FilterChip(
-                        label: 'Tous',
+                        label: t('filter_all'),
                         selected: _filter == 'all',
                         onTap: () => setState(() => _filter = 'all'),
                       ),
                       _FilterChip(
-                        label: 'Actifs',
+                        label: t('filter_active'),
                         selected: _filter == 'active',
                         onTap: () => setState(() => _filter = 'active'),
                       ),
                       _FilterChip(
-                        label: 'Bloques',
+                        label: t('filter_blocked'),
                         selected: _filter == 'blocked',
                         onTap: () => setState(() => _filter = 'blocked'),
                       ),
@@ -1506,14 +1434,14 @@ class _AdminCustomersPageState extends State<_AdminCustomersPage> {
                     children: [
                       Expanded(
                         child: _MiniStat(
-                          label: 'Clients',
+                          label: t('customers_clients'),
                           value: '${allCustomers.length}',
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: _MiniStat(
-                          label: 'Bloques',
+                          label: t('customers_blocked'),
                           value: '$blockedCount',
                         ),
                       ),
@@ -1524,11 +1452,10 @@ class _AdminCustomersPageState extends State<_AdminCustomersPage> {
             ),
             const SizedBox(height: 14),
             if (docs.isEmpty)
-              const _AdminPanel(
-                title: 'Aucun client',
-                subtitle:
-                    'Ajustez les filtres ou attendez de nouvelles inscriptions.',
-                child: SizedBox.shrink(),
+              _AdminPanel(
+                title: t('no_customer'),
+                subtitle: t('no_customer_sub'),
+                child: const SizedBox.shrink(),
               ),
             ...docs.map((doc) {
               final data = doc.data();
@@ -1556,9 +1483,7 @@ class _AdminCustomersPageState extends State<_AdminCustomersPage> {
                       children: [
                         CircleAvatar(
                           radius: 24,
-                          backgroundColor: blocked
-                              ? const Color(0xFFFEE2E2)
-                              : const Color(0xFFDBEAFE),
+                          backgroundColor: blocked ? const Color(0xFFFEE2E2) : const Color(0xFFDBEAFE),
                           child: Text(
                             ((data['fullName'] ?? 'CL')
                                     .toString()
@@ -1608,10 +1533,8 @@ class _AdminCustomersPageState extends State<_AdminCustomersPage> {
                       runSpacing: 8,
                       children: [
                         _StatusPill(
-                          label: blocked ? 'Bloque' : 'Actif',
-                          background: blocked
-                              ? const Color(0xFFFECACA)
-                              : const Color(0xFFDCFCE7),
+                          label: blocked ? t('status_blocked') : t('status_online'),
+                          background: blocked ? const Color(0xFFFECACA) : const Color(0xFFDCFCE7),
                         ),
                         _StatusPill(
                           label: (data['phone'] ?? '--').toString(),
@@ -1620,12 +1543,9 @@ class _AdminCustomersPageState extends State<_AdminCustomersPage> {
                       ],
                     ),
                     const SizedBox(height: 14),
+                    _InfoLine(title: t('uid_label'), value: uid),
                     _InfoLine(
-                      title: 'UID',
-                      value: uid,
-                    ),
-                    _InfoLine(
-                      title: 'Cree',
+                      title: t('created_label'),
                       value: (data['createdAtIso'] ?? '--').toString(),
                     ),
                     const SizedBox(height: 12),
@@ -1633,19 +1553,12 @@ class _AdminCustomersPageState extends State<_AdminCustomersPage> {
                       width: double.infinity,
                       child: FilledButton.icon(
                         style: FilledButton.styleFrom(
-                          backgroundColor: blocked
-                              ? const Color(0xFF16A34A)
-                              : const Color(0xFFDC2626),
+                          backgroundColor: blocked ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
                           foregroundColor: Colors.white,
                         ),
                         onPressed: () => _setBlocked(uid, !blocked),
-                        icon: Icon(
-                          blocked
-                              ? Icons.lock_open_outlined
-                              : Icons.block_outlined,
-                        ),
-                        label: Text(
-                            blocked ? 'Debloquer client' : 'Bloquer client'),
+                        icon: Icon(blocked ? Icons.lock_open_outlined : Icons.block_outlined),
+                        label: Text(blocked ? t('unblock_client') : t('block_client')),
                       ),
                     ),
                   ],
@@ -1659,14 +1572,19 @@ class _AdminCustomersPageState extends State<_AdminCustomersPage> {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// Sidebar — receives destinations from outside
+// ═══════════════════════════════════════════════════════════════════
 class _AdminSidebar extends StatelessWidget {
   const _AdminSidebar({
     required this.index,
     required this.onSelect,
+    required this.destinations,
   });
 
   final int index;
   final ValueChanged<int> onSelect;
+  final List<_AdminDestination> destinations;
 
   @override
   Widget build(BuildContext context) {
@@ -1728,10 +1646,10 @@ class _AdminSidebar extends StatelessWidget {
           const SizedBox(height: 22),
           Expanded(
             child: ListView.separated(
-              itemCount: _AdminDashboardPageState._destinations.length,
+              itemCount: destinations.length,
               separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (context, itemIndex) {
-                final item = _AdminDashboardPageState._destinations[itemIndex];
+                final item = destinations[itemIndex];
                 final selected = itemIndex == index;
 
                 return InkWell(
@@ -1739,10 +1657,7 @@ class _AdminSidebar extends StatelessWidget {
                   onTap: () => onSelect(itemIndex),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 220),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 14,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                     decoration: BoxDecoration(
                       color: selected
                           ? Colors.white
@@ -1753,17 +1668,14 @@ class _AdminSidebar extends StatelessWidget {
                       children: [
                         Icon(
                           selected ? item.selectedIcon : item.icon,
-                          color:
-                              selected ? const Color(0xFF0F172A) : Colors.white,
+                          color: selected ? const Color(0xFF0F172A) : Colors.white,
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
                             item.label,
                             style: TextStyle(
-                              color: selected
-                                  ? const Color(0xFF0F172A)
-                                  : Colors.white,
+                              color: selected ? const Color(0xFF0F172A) : Colors.white,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
@@ -1780,6 +1692,10 @@ class _AdminSidebar extends StatelessWidget {
     );
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// Helper widgets (no changes needed — they receive localized strings)
+// ═══════════════════════════════════════════════════════════════════
 
 class _AdminDestination {
   const _AdminDestination({
@@ -1827,18 +1743,12 @@ class _AdminPanel extends StatelessWidget {
         children: [
           Text(
             title,
-            style: const TextStyle(
-              fontWeight: FontWeight.w900,
-              fontSize: 20,
-            ),
+            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20),
           ),
           const SizedBox(height: 6),
           Text(
             subtitle,
-            style: const TextStyle(
-              color: Colors.black54,
-              height: 1.35,
-            ),
+            style: const TextStyle(color: Colors.black54, height: 1.35),
           ),
           const SizedBox(height: 18),
           child,
@@ -1902,34 +1812,23 @@ class _KpiCard extends StatelessWidget {
                   ),
                   const Spacer(),
                   if (onTap != null)
-                    const Icon(
-                      Icons.arrow_forward_rounded,
-                      color: Color(0xFF94A3B8),
-                    ),
+                    const Icon(Icons.arrow_forward_rounded, color: Color(0xFF94A3B8)),
                 ],
               ),
               const Spacer(),
               Text(
                 value,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 28,
-                ),
+                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 28),
               ),
               const SizedBox(height: 4),
               Text(
                 title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                ),
+                style: const TextStyle(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 2),
               Text(
                 subtitle,
-                style: const TextStyle(
-                  color: Colors.black54,
-                  fontSize: 12,
-                ),
+                style: const TextStyle(color: Colors.black54, fontSize: 12),
               ),
             ],
           ),
@@ -1940,10 +1839,7 @@ class _KpiCard extends StatelessWidget {
 }
 
 class _InsightRow extends StatelessWidget {
-  const _InsightRow({
-    required this.label,
-    required this.value,
-  });
+  const _InsightRow({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -1955,17 +1851,11 @@ class _InsightRow extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
+            child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
           ),
           Text(
             value,
-            style: const TextStyle(
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF0F172A),
-            ),
+            style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
           ),
         ],
       ),
@@ -2012,27 +1902,17 @@ class _QuickActionTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      style: const TextStyle(fontWeight: FontWeight.w800),
-                    ),
+                    Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: const TextStyle(
-                        color: Colors.black54,
-                        fontSize: 12,
-                        height: 1.35,
-                      ),
+                      style: const TextStyle(color: Colors.black54, fontSize: 12, height: 1.35),
                     ),
                   ],
                 ),
               ),
               if (onTap != null)
-                const Icon(
-                  Icons.arrow_forward_rounded,
-                  color: Color(0xFF64748B),
-                ),
+                const Icon(Icons.arrow_forward_rounded, color: Color(0xFF64748B)),
             ],
           ),
         ),
@@ -2042,10 +1922,7 @@ class _QuickActionTile extends StatelessWidget {
 }
 
 class _EmptyStateLine extends StatelessWidget {
-  const _EmptyStateLine({
-    required this.title,
-    required this.subtitle,
-  });
+  const _EmptyStateLine({required this.title, required this.subtitle});
 
   final String title;
   final String subtitle;
@@ -2062,20 +1939,11 @@ class _EmptyStateLine extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontWeight: FontWeight.w800,
-              fontSize: 15,
-            ),
-          ),
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
           const SizedBox(height: 4),
           Text(
             subtitle,
-            style: const TextStyle(
-              color: Colors.black54,
-              height: 1.35,
-            ),
+            style: const TextStyle(color: Colors.black54, height: 1.35),
           ),
         ],
       ),
@@ -2112,34 +1980,20 @@ class _ProviderApprovalPreview extends StatelessWidget {
               color: const Color(0xFFFFEDD5),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: const Icon(
-              Icons.person_search_outlined,
-              color: Color(0xFFEA580C),
-            ),
+            child: const Icon(Icons.person_search_outlined, color: Color(0xFFEA580C)),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
+                Text(name, style: const TextStyle(fontWeight: FontWeight.w800)),
                 const SizedBox(height: 3),
-                Text(
-                  phone,
-                  style: const TextStyle(color: Colors.black54),
-                ),
+                Text(phone, style: const TextStyle(color: Colors.black54)),
                 const SizedBox(height: 2),
                 Text(
                   vehicle,
-                  style: const TextStyle(
-                    color: Color(0xFF334155),
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: const TextStyle(color: Color(0xFF334155), fontWeight: FontWeight.w600),
                 ),
               ],
             ),
@@ -2159,6 +2013,8 @@ class _MissionRadarTile extends StatelessWidget {
     required this.price,
     required this.status,
     required this.statusColor,
+    required this.pickupLabel,
+    required this.destinationLabel,
   });
 
   final String title;
@@ -2168,6 +2024,8 @@ class _MissionRadarTile extends StatelessWidget {
   final String price;
   final String status;
   final Color statusColor;
+  final String pickupLabel;
+  final String destinationLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -2184,64 +2042,38 @@ class _MissionRadarTile extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15,
-                  ),
-                ),
+                child: Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
                   status,
-                  style: TextStyle(
-                    color: statusColor,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: statusColor, fontWeight: FontWeight.w800, fontSize: 12),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 8),
           Text(
-            'Pick up: $pickup',
-            style: const TextStyle(
-              color: Color(0xFF334155),
-              fontWeight: FontWeight.w600,
-            ),
+            '$pickupLabel: $pickup',
+            style: const TextStyle(color: Color(0xFF334155), fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 3),
           Text(
-            'Destination: $destination',
+            '$destinationLabel: $destination',
             style: const TextStyle(color: Colors.black54, height: 1.3),
           ),
           const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
-                child: Text(
-                  when,
-                  style: const TextStyle(
-                    color: Colors.black54,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                child: Text(when, style: const TextStyle(color: Colors.black54, fontWeight: FontWeight.w600)),
               ),
-              Text(
-                price,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF0F172A),
-                ),
-              ),
+              Text(price, style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
             ],
           ),
         ],
@@ -2263,6 +2095,7 @@ class _AdminErrorPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context).t;
     return _AdminPanel(
       title: title,
       subtitle: subtitle,
@@ -2275,14 +2108,8 @@ class _AdminErrorPanel extends StatelessWidget {
           border: Border.all(color: const Color(0xFFFECACA)),
         ),
         child: Text(
-          (details == null || details!.trim().isEmpty)
-              ? 'Aucun detail supplementaire disponible.'
-              : details!,
-          style: const TextStyle(
-            color: Color(0xFF991B1B),
-            fontWeight: FontWeight.w600,
-            height: 1.35,
-          ),
+          (details == null || details!.trim().isEmpty) ? t('admin_error_default') : details!,
+          style: const TextStyle(color: Color(0xFF991B1B), fontWeight: FontWeight.w600, height: 1.35),
         ),
       ),
     );
@@ -2318,10 +2145,7 @@ class _FilterChip extends StatelessWidget {
 }
 
 class _MiniStat extends StatelessWidget {
-  const _MiniStat({
-    required this.label,
-    required this.value,
-  });
+  const _MiniStat({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -2336,21 +2160,9 @@ class _MiniStat extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Text(
-            value,
-            style: const TextStyle(
-              fontWeight: FontWeight.w900,
-              fontSize: 20,
-            ),
-          ),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
           const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.black54,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
+          Text(label, style: const TextStyle(color: Colors.black54, fontWeight: FontWeight.w700)),
         ],
       ),
     );
@@ -2358,10 +2170,7 @@ class _MiniStat extends StatelessWidget {
 }
 
 class _StatusPill extends StatelessWidget {
-  const _StatusPill({
-    required this.label,
-    required this.background,
-  });
+  const _StatusPill({required this.label, required this.background});
 
   final String label;
   final Color background;
@@ -2376,20 +2185,14 @@ class _StatusPill extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          fontWeight: FontWeight.w800,
-          fontSize: 12,
-        ),
+        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
       ),
     );
   }
 }
 
 class _InfoLine extends StatelessWidget {
-  const _InfoLine({
-    required this.title,
-    required this.value,
-  });
+  const _InfoLine({required this.title, required this.value});
 
   final String title;
   final String value;
@@ -2401,10 +2204,7 @@ class _InfoLine extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(color: Colors.black54),
-            ),
+            child: Text(title, style: const TextStyle(color: Colors.black54)),
           ),
           Expanded(
             child: Text(

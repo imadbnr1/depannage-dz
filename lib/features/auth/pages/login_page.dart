@@ -35,20 +35,17 @@ class _LoginPageState extends State<LoginPage> {
   bool _obscure = true;
   bool _didLaunchSignup = false;
 
-  // Login mode: 'password' or 'email_otp'
   String _loginMode = 'password';
   bool _otpSent = false;
   String _emailOtpCode = '';
-  
-  // Variables for hidden admin login
+
   int _tapCount = 0;
   late DateTime _firstTapTime;
-  
+
   @override
   void initState() {
     super.initState();
     _initSharedPreferences();
-    // Initialize _firstTapTime
     _firstTapTime = DateTime.now();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted ||
@@ -70,8 +67,6 @@ class _LoginPageState extends State<LoginPage> {
     _sharedPreferences = await SharedPreferences.getInstance();
   }
 
-
-
   @override
   void dispose() {
     _identifierController.dispose();
@@ -83,9 +78,10 @@ class _LoginPageState extends State<LoginPage> {
     FocusScope.of(context).unfocus();
     if (_loading) return;
 
+    final strings = AppLocalizations.of(context);
     final email = _identifierController.text.trim();
     if (email.isEmpty || !email.contains('@')) {
-      AppFeedback.showError(context, 'Entrez un email valide.');
+      AppFeedback.showError(context, strings.t('enter_valid_email'));
       return;
     }
 
@@ -113,12 +109,11 @@ class _LoginPageState extends State<LoginPage> {
       await Future.delayed(const Duration(milliseconds: 200));
 
       generatedOtp = _sharedPreferences?.getString('email_otp_code');
-      
-      // Print OTP to console for debugging
+
       if (kDebugMode) {
-        print('DEBUG: Retrieved OTP code: $generatedOtp');
+        debugPrint('DEBUG: Retrieved OTP code: $generatedOtp');
       }
-      
+
       if (!mounted) return;
 
       await showDialog(
@@ -130,14 +125,14 @@ class _LoginPageState extends State<LoginPage> {
               children: [
                 const Icon(Icons.mark_email_read_outlined, color: Color(0xFFF59E0B)),
                 const SizedBox(width: 12),
-                const Text('Code OTP envoyé'),
+                Text(strings.t('otp_sent')),
               ],
             ),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Votre code de vérification à 6 chiffres:'),
+                Text(strings.t('your_6_digit_code')),
                 const SizedBox(height: 16),
                 Container(
                   width: double.infinity,
@@ -148,7 +143,7 @@ class _LoginPageState extends State<LoginPage> {
                     border: Border.all(color: const Color(0xFFF59E0B), width: 2),
                   ),
                   child: Text(
-                    generatedOtp ?? 'NON DISPONIBLE',
+                    generatedOtp ?? strings.t('not_available'),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 32,
@@ -159,9 +154,9 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'Copiez ce code et collez-le dans le champ ci-dessous.',
-                  style: TextStyle(color: Colors.black54, fontSize: 13),
+                Text(
+                  strings.t('copy_paste_code'),
+                  style: const TextStyle(color: Colors.black54, fontSize: 13),
                 ),
               ],
             ),
@@ -169,7 +164,7 @@ class _LoginPageState extends State<LoginPage> {
               FilledButton.icon(
                 onPressed: () => Navigator.of(dialogContext).pop(),
                 icon: const Icon(Icons.check_circle),
-                label: const Text('Compris'),
+                label: Text(strings.t('understood')),
               ),
             ],
           );
@@ -185,11 +180,12 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _verifyEmailAndLogin() async {
     if (_loading) return;
 
+    final strings = AppLocalizations.of(context);
     final email = _identifierController.text.trim();
     final otpCode = _emailOtpCode.trim();
 
     if (otpCode.length != 6) {
-      AppFeedback.showError(context, 'Veuillez entrer le code à 6 chiffres.');
+      AppFeedback.showError(context, strings.t('code_must_be_6_digits'));
       return;
     }
 
@@ -223,6 +219,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<String?> _showPasswordDialogForEmailOTP() async {
+    final strings = AppLocalizations.of(context);
     final passwordController = TextEditingController();
     String? result;
 
@@ -230,19 +227,19 @@ class _LoginPageState extends State<LoginPage> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Mot de passe'),
+          title: Text(strings.t('password')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Entrez votre mot de passe pour vous connecter:'),
+              Text(strings.t('enter_password_to_login')),
               const SizedBox(height: 16),
               TextField(
                 controller: passwordController,
                 obscureText: true,
                 autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: 'Mot de passe',
-                  prefixIcon: Icon(Icons.lock_outline),
+                decoration: InputDecoration(
+                  labelText: strings.t('password'),
+                  prefixIcon: const Icon(Icons.lock_outline),
                 ),
                 onSubmitted: (_) {
                   result = passwordController.text;
@@ -254,14 +251,14 @@ class _LoginPageState extends State<LoginPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(null),
-              child: const Text('Annuler'),
+              child: Text(strings.t('cancel')),
             ),
             FilledButton(
               onPressed: () {
                 result = passwordController.text;
                 Navigator.of(dialogContext).pop(result);
               },
-              child: const Text('Se connecter'),
+              child: Text(strings.t('signIn')),
             ),
           ],
         );
@@ -278,7 +275,7 @@ class _LoginPageState extends State<LoginPage> {
 
     final isValid = _formKey.currentState?.validate() ?? false;
     if (!isValid) {
-      AppFeedback.showError(context, 'Vérifiez vos informations.');
+      AppFeedback.showError(context, 'Vérifiez vos informations.'); // keep generic
       return;
     }
 
@@ -306,6 +303,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void _showLoginError(String message) {
+    final strings = AppLocalizations.of(context);
     final normalized = message.toLowerCase();
     final needsDialog = normalized.contains('bloque') ||
         normalized.contains('internet') ||
@@ -318,10 +316,10 @@ class _LoginPageState extends State<LoginPage> {
     }
 
     final title = normalized.contains('bloque')
-        ? 'Compte bloqué'
+        ? strings.t('blocked_account_title')
         : normalized.contains('internet')
-            ? 'Connexion indisponible'
-            : 'Accès refusé';
+            ? strings.t('no_internet_title')
+            : strings.t('access_denied_title');
 
     showDialog<void>(
       context: context,
@@ -338,7 +336,7 @@ class _LoginPageState extends State<LoginPage> {
           actions: [
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Compris'),
+              child: Text(strings.t('understood')),
             ),
           ],
         );
@@ -346,7 +344,6 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  /// Handles logo tap for hidden admin login
   void _handleLogoTap() {
     final now = DateTime.now();
     if (_tapCount == 0 || now.difference(_firstTapTime).inSeconds > 10) {
@@ -361,13 +358,10 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  /// Shows admin login interface
   void _showAdminLogin() {
-    // Clear the admin-only flag if it was set
     if (widget.adminOnly) {
       Navigator.of(context).pop();
     } else {
-      // Navigate to admin login
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (context) => LoginPage(
@@ -468,9 +462,7 @@ class _LoginPageState extends State<LoginPage> {
                         )
                       : const Icon(Icons.mark_email_read_outlined),
                   label: Text(
-                    sending
-                        ? strings.t('resetPasswordSending')
-                        : strings.t('resetPasswordSend'),
+                    sending ? strings.t('resetPasswordSending') : strings.t('resetPasswordSend'),
                   ),
                 ),
               ],
@@ -492,14 +484,9 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     final strings = AppLocalizations.of(context);
-    final title = widget.adminOnly
-        ? strings.t('adminLoginTitle')
-        : strings.t('loginTitle');
-    final subtitle = widget.adminOnly
-        ? strings.t('adminLoginSubtitle')
-        : strings.t('loginSubtitle');
-    final helperText =
-        widget.adminOnly ? strings.t('adminHelper') : strings.t('publicHelper');
+    final title = widget.adminOnly ? strings.t('adminLoginTitle') : strings.t('loginTitle');
+    final subtitle = widget.adminOnly ? strings.t('adminLoginSubtitle') : strings.t('loginSubtitle');
+    final helperText = widget.adminOnly ? strings.t('adminHelper') : strings.t('publicHelper');
 
     return Scaffold(
       body: Container(
@@ -527,24 +514,27 @@ class _LoginPageState extends State<LoginPage> {
                       onTap: _handleLogoTap,
                       child: Column(
                         children: [
-                          Image.asset('assets/logo/applogo.png', width: 600, height: 400, fit: BoxFit.contain),
-                          const SizedBox(height: 5),
-                          const Text(
-                        'Auto Rescue',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 38,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                          const Text('Assistance routière rapide en Algérie', style: TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.w500)),
-                          const SizedBox(height: 10),
+                          Image.asset('assets/logo/applogo.png', width: 500, height: 200, fit: BoxFit.contain),
+                          const SizedBox(height: 2),
+                          Text(
+                            strings.t('app_name'),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 32,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                          Text(
+                            strings.t('app_subtitle'),
+                            style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500),
+                          ),
+                          const SizedBox(height: 8),
                           const LanguageSelector(),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 5),
+                    const SizedBox(height: 8),
 
                     // Premium login card
                     Container(
@@ -591,114 +581,54 @@ class _LoginPageState extends State<LoginPage> {
                                   color: const Color(0xFFF8F5EF),
                                   borderRadius: BorderRadius.circular(14),
                                 ),
-                                child: Column(
+                                child: Row(
                                   children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: GestureDetector(
-                                            onTap: () {
-                                              setState(() {
-                                                _loginMode = 'password';
-                                              });
-                                            },
-                                            child: Container(
-                                              padding: const EdgeInsets.symmetric(
-                                                vertical: 12,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: _loginMode == 'password'
-                                                    ? Colors.white
-                                                    : Colors.transparent,
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                                boxShadow: _loginMode == 'password'
-                                                    ? [
-                                                        BoxShadow(
-                                                          color: Colors.black
-                                                              .withValues(alpha: 0.08),
-                                                          blurRadius: 8,
-                                                          offset: const Offset(0, 2),
-                                                        ),
-                                                      ]
-                                                    : null,
-                                              ),
-                                              child: Row(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.center,
-                                                children: [
-                                                  const Icon(
-                                                    Icons.password_outlined,
-                                                    size: 18,
-                                                    color: Color(0xFF1E293B),
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  const Text(
-                                                    'Mot de passe',
-                                                    style: TextStyle(
-                                                      fontWeight: FontWeight.w700,
-                                                      fontSize: 14,
-                                                      color: Color(0xFF1E293B),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
+                                    Expanded(
+                                      child: GestureDetector(
+                                        onTap: () => setState(() => _loginMode = 'password'),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(vertical: 12),
+                                          decoration: BoxDecoration(
+                                            color: _loginMode == 'password' ? Colors.white : Colors.transparent,
+                                            borderRadius: BorderRadius.circular(12),
+                                            boxShadow: _loginMode == 'password'
+                                                ? [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 2))]
+                                                : null,
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              const Icon(Icons.password_outlined, size: 18, color: Color(0xFF1E293B)),
+                                              const SizedBox(width: 8),
+                                              Text(strings.t('password_login'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF1E293B))),
+                                            ],
                                           ),
                                         ),
-                                        const SizedBox(width: 4),
-                                        Expanded(
-                                          child: GestureDetector(
-                                            onTap: () {
-                                              setState(() {
-                                                _loginMode = 'email_otp';
-                                              });
-                                            },
-                                            child: Container(
-                                              padding: const EdgeInsets.symmetric(
-                                                vertical: 12,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: _loginMode == 'email_otp'
-                                                    ? Colors.white
-                                                    : Colors.transparent,
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                                boxShadow: _loginMode == 'email_otp'
-                                                    ? [
-                                                        BoxShadow(
-                                                          color: Colors.black
-                                                              .withValues(alpha: 0.08),
-                                                          blurRadius: 8,
-                                                          offset: const Offset(0, 2),
-                                                        ),
-                                                      ]
-                                                    : null,
-                                              ),
-                                              child: Row(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.center,
-                                                children: [
-                                                  const Icon(
-                                                    Icons.email_outlined,
-                                                    size: 18,
-                                                    color: Color(0xFF1E293B),
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  const Text(
-                                                    'Email OTP',
-                                                    style: TextStyle(
-                                                      fontWeight: FontWeight.w700,
-                                                      fontSize: 14,
-                                                      color: Color(0xFF1E293B),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: GestureDetector(
+                                        onTap: () => setState(() => _loginMode = 'email_otp'),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(vertical: 12),
+                                          decoration: BoxDecoration(
+                                            color: _loginMode == 'email_otp' ? Colors.white : Colors.transparent,
+                                            borderRadius: BorderRadius.circular(12),
+                                            boxShadow: _loginMode == 'email_otp'
+                                                ? [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 2))]
+                                                : null,
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              const Icon(Icons.email_outlined, size: 18, color: Color(0xFF1E293B)),
+                                              const SizedBox(width: 8),
+                                              Text(strings.t('email_otp_login'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF1E293B))),
+                                            ],
                                           ),
                                         ),
-                                      ],
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -739,7 +669,7 @@ class _LoginPageState extends State<LoginPage> {
                                 validator: (value) {
                                   final text = (value ?? '').trim();
                                   if (text.isEmpty) {
-                                    return strings.t('enterPassword');
+                                    return strings.t('enter_password');
                                   }
                                   if (text.length < 6) {
                                     return strings.t('minPassword');
@@ -750,14 +680,8 @@ class _LoginPageState extends State<LoginPage> {
                                   labelText: strings.t('password'),
                                   prefixIcon: const Icon(Icons.lock_outline),
                                   suffixIcon: IconButton(
-                                    onPressed: () {
-                                      setState(() => _obscure = !_obscure);
-                                    },
-                                    icon: Icon(
-                                      _obscure
-                                          ? Icons.visibility_off_outlined
-                                          : Icons.visibility_outlined,
-                                    ),
+                                    onPressed: () => setState(() => _obscure = !_obscure),
+                                    icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined),
                                   ),
                                   filled: true,
                                   fillColor: const Color(0xFFF8F5EF),
@@ -771,9 +695,9 @@ class _LoginPageState extends State<LoginPage> {
                                 alignment: AlignmentDirectional.centerEnd,
                                 child: TextButton(
                                   onPressed: _loading ? null : _openPasswordResetDialog,
-                                  child: const Text(
-                                    'Mot de passe oublié ?',
-                                    style: TextStyle(fontWeight: FontWeight.w700),
+                                  child: Text(
+                                    strings.t('forgot_password'),
+                                    style: const TextStyle(fontWeight: FontWeight.w700),
                                   ),
                                 ),
                               ),
@@ -786,15 +710,15 @@ class _LoginPageState extends State<LoginPage> {
                                 validator: (value) {
                                   final text = (value ?? '').trim();
                                   if (text.isEmpty) {
-                                    return 'Entrez votre email';
+                                    return strings.t('enter_valid_email');
                                   }
                                   if (!text.contains('@')) {
-                                    return 'Email invalide';
+                                    return strings.t('enter_valid_email');
                                   }
                                   return null;
                                 },
                                 decoration: InputDecoration(
-                                  labelText: 'Email',
+                                  labelText: strings.t('email'),
                                   hintText: 'exemple@email.com',
                                   prefixIcon: const Icon(Icons.email_outlined),
                                   filled: true,
@@ -818,15 +742,15 @@ class _LoginPageState extends State<LoginPage> {
                                   validator: (value) {
                                     final text = (value ?? '').trim();
                                     if (text.isEmpty) {
-                                      return 'Entrez le code OTP';
+                                      return strings.t('code_must_be_6_digits');
                                     }
                                     if (text.length != 6) {
-                                      return 'Le code doit avoir 6 chiffres';
+                                      return strings.t('code_must_be_6_digits');
                                     }
                                     return null;
                                   },
                                   decoration: InputDecoration(
-                                    labelText: 'Code OTP (6 chiffres)',
+                                    labelText: strings.t('enter_otp_code'),
                                     hintText: '123456',
                                     prefixIcon: const Icon(Icons.pin_outlined),
                                     filled: true,
@@ -844,13 +768,9 @@ class _LoginPageState extends State<LoginPage> {
                                   child: FilledButton.icon(
                                     onPressed: _loading ? null : _verifyEmailAndLogin,
                                     icon: _loading
-                                        ? const SizedBox(
-                                            width: 18,
-                                            height: 18,
-                                            child: CircularProgressIndicator(strokeWidth: 2),
-                                          )
+                                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                                         : const Icon(Icons.login),
-                                    label: const Text('Vérifier et se connecter'),
+                                    label: Text(strings.t('verify_and_login')),
                                   ),
                                 ),
                                 const SizedBox(height: 10),
@@ -863,7 +783,7 @@ class _LoginPageState extends State<LoginPage> {
                                       });
                                     },
                                     icon: const Icon(Icons.edit_outlined, size: 18),
-                                    label: const Text('Changer d\'email'),
+                                    label: Text(strings.t('change_email')),
                                   ),
                                 ),
                               ] else ...[
@@ -872,13 +792,9 @@ class _LoginPageState extends State<LoginPage> {
                                   child: FilledButton.icon(
                                     onPressed: _loading ? null : _sendEmailOTP,
                                     icon: _loading
-                                        ? const SizedBox(
-                                            width: 18,
-                                            height: 18,
-                                            child: CircularProgressIndicator(strokeWidth: 2),
-                                          )
+                                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                                         : const Icon(Icons.email_outlined),
-                                    label: const Text('Envoyer le code OTP'),
+                                    label: Text(strings.t('send_otp_code')),
                                   ),
                                 ),
                               ],
@@ -892,26 +808,16 @@ class _LoginPageState extends State<LoginPage> {
                               decoration: BoxDecoration(
                                 color: const Color(0xFFFFF7E8),
                                 borderRadius: BorderRadius.circular(18),
-                                border: Border.all(
-                                  color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
-                                ),
+                                border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(
-                                    Icons.info_outline,
-                                    color: Color(0xFFF59E0B),
-                                    size: 22,
-                                  ),
+                                  const Icon(Icons.info_outline, color: Color(0xFFF59E0B), size: 22),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Text(
                                       helperText,
-                                      style: const TextStyle(
-                                        color: Color(0xFF6B4F1D),
-                                        height: 1.35,
-                                        fontSize: 13,
-                                      ),
+                                      style: const TextStyle(color: Color(0xFF6B4F1D), height: 1.35, fontSize: 13),
                                     ),
                                   ),
                                 ],
@@ -926,15 +832,9 @@ class _LoginPageState extends State<LoginPage> {
                                 child: FilledButton.icon(
                                   onPressed: _loading ? null : _login,
                                   icon: _loading
-                                      ? const SizedBox(
-                                          width: 18,
-                                          height: 18,
-                                          child: CircularProgressIndicator(strokeWidth: 2),
-                                        )
+                                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                                       : const Icon(Icons.login),
-                                  label: Text(
-                                    _loading ? strings.t('signingIn') : strings.t('signIn'),
-                                  ),
+                                  label: Text(_loading ? strings.t('signingIn') : strings.t('signIn')),
                                 ),
                               ),
                             const SizedBox(height: 14),
@@ -949,14 +849,12 @@ class _LoginPageState extends State<LoginPage> {
                                       : () {
                                           Navigator.of(context).push(
                                             MaterialPageRoute(
-                                              builder: (_) => SignupPage(
-                                                authService: widget.authService,
-                                              ),
+                                              builder: (_) => SignupPage(authService: widget.authService),
                                             ),
                                           );
                                         },
                                   icon: const Icon(Icons.person_add_alt_1_outlined),
-                                  label: const Text('Créer un compte'),
+                                  label: Text(strings.t('create_account')),
                                   style: OutlinedButton.styleFrom(
                                     padding: const EdgeInsets.symmetric(vertical: 14),
                                   ),
@@ -968,7 +866,7 @@ class _LoginPageState extends State<LoginPage> {
                                 child: OutlinedButton.icon(
                                   onPressed: _loading ? null : () => Navigator.of(context).pop(),
                                   icon: const Icon(Icons.arrow_back),
-                                  label: const Text('Retour à l\'entrée publique'),
+                                  label: Text(strings.t('back_to_public')),
                                 ),
                               ),
                             const SizedBox(height: 14),
@@ -982,12 +880,12 @@ class _LoginPageState extends State<LoginPage> {
                                 TextButton.icon(
                                   onPressed: () => _openLegal(LegalDocument.privacy),
                                   icon: const Icon(Icons.privacy_tip_outlined, size: 18),
-                                  label: const Text('Confidentialité'),
+                                  label: Text(strings.t('privacy_short')),
                                 ),
                                 TextButton.icon(
                                   onPressed: () => _openLegal(LegalDocument.terms),
                                   icon: const Icon(Icons.description_outlined, size: 18),
-                                  label: const Text('Conditions'),
+                                  label: Text(strings.t('terms_short')),
                                 ),
                               ],
                             ),

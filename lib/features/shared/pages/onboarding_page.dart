@@ -247,11 +247,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                                       const SizedBox(width: 12),
                                       Expanded(
                                         child: Text(
-                                          index == 0
-                                              ? items[0].hint
-                                              : index == 1
-                                                  ? items[1].hint
-                                                  : items[2].hint,
+                                          item.hint,
                                           style: const TextStyle(
                                             fontWeight: FontWeight.w700,
                                             height: 1.35,
