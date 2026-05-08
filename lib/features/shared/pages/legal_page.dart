@@ -1,3 +1,4 @@
+import 'package:auto_rescue/core/i18n/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 enum LegalDocument {
@@ -16,8 +17,9 @@ class LegalPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isPrivacy = document == LegalDocument.privacy;
-    final title =
-        isPrivacy ? 'Politique de confidentialite' : 'Conditions d utilisation';
+    final title = isPrivacy
+        ? AppLocalizations.of(context).t('privacy_policy')
+        : AppLocalizations.of(context).t('terms_of_use');
     final icon =
         isPrivacy ? Icons.privacy_tip_outlined : Icons.description_outlined;
     final sections = isPrivacy ? _privacySections : _termsSections;
