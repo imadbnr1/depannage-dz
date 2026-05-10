@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../../../core/i18n/app_localizations.dart';
 import '../../../widgets/language_selector.dart';
 
 class ProviderProfilePage extends StatefulWidget {
@@ -69,8 +70,9 @@ class _ProviderProfilePageState extends State<ProviderProfilePage> {
           providerData['isApproved'] == true || userData['isApproved'] == true;
     } catch (e) {
       if (!mounted) return;
+      final strings = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur chargement profil: $e')),
+        SnackBar(content: Text('${strings.t('profile_load_error')}: $e')),
       );
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -122,13 +124,15 @@ class _ProviderProfilePageState extends State<ProviderProfilePage> {
       }, SetOptions(merge: true));
 
       if (!mounted) return;
+      final strings = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profil provider mis a jour')),
+        SnackBar(content: Text(strings.t('profil_provider_mis_a_jour'))),
       );
     } catch (e) {
       if (!mounted) return;
+      final strings = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur sauvegarde: $e')),
+        SnackBar(content: Text('${strings.t('save_error')}: $e')),
       );
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -137,9 +141,10 @@ class _ProviderProfilePageState extends State<ProviderProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     if (_loading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Profil provider')),
+        appBar: AppBar(title: Text(strings.t('provider_profile'))),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
@@ -183,7 +188,7 @@ class _ProviderProfilePageState extends State<ProviderProfilePage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          fullName.isEmpty ? 'Provider' : fullName,
+                          fullName.isEmpty ? strings.t('provider') : fullName,
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w900,
@@ -192,7 +197,9 @@ class _ProviderProfilePageState extends State<ProviderProfilePage> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          _email.isEmpty ? 'Email non disponible' : _email,
+                          _email.isEmpty
+                              ? strings.t('email_unavailable')
+                              : _email,
                           style: const TextStyle(color: Colors.white70),
                         ),
                       ],
@@ -208,7 +215,9 @@ class _ProviderProfilePageState extends State<ProviderProfilePage> {
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(
-                      _isApproved ? 'Approuve' : 'En attente',
+                      _isApproved
+                          ? strings.t('approved')
+                          : strings.t('pending'),
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w800,
@@ -237,10 +246,10 @@ class _ProviderProfilePageState extends State<ProviderProfilePage> {
                   children: [
                     _Field(
                       controller: _fullNameController,
-                      label: 'Nom complet',
+                      label: strings.t('nom_complet'),
                       validator: (value) {
                         if ((value ?? '').trim().isEmpty) {
-                          return 'Entrez votre nom complet';
+                          return strings.t('enterFullName');
                         }
                         return null;
                       },
@@ -248,11 +257,11 @@ class _ProviderProfilePageState extends State<ProviderProfilePage> {
                     const SizedBox(height: 12),
                     _Field(
                       controller: _phoneController,
-                      label: 'Telephone',
+                      label: strings.t('telephone'),
                       keyboardType: TextInputType.phone,
                       validator: (value) {
                         if ((value ?? '').trim().isEmpty) {
-                          return 'Entrez votre telephone';
+                          return strings.t('enter_phone');
                         }
                         return null;
                       },
@@ -260,11 +269,11 @@ class _ProviderProfilePageState extends State<ProviderProfilePage> {
                     const SizedBox(height: 12),
                     _Field(
                       controller: _vehicleTypeController,
-                      label: 'Type de vehicule',
-                      hint: 'Ex: Depanneuse, camion leger...',
+                      label: strings.t('type_de_vehicule'),
+                      hint: strings.t('provider_vehicle_hint'),
                       validator: (value) {
                         if ((value ?? '').trim().isEmpty) {
-                          return 'Entrez le type de vehicule';
+                          return strings.t('enter_vehicle_type');
                         }
                         return null;
                       },
@@ -272,11 +281,11 @@ class _ProviderProfilePageState extends State<ProviderProfilePage> {
                     const SizedBox(height: 12),
                     _Field(
                       controller: _plateController,
-                      label: 'Plaque',
+                      label: strings.t('plaque'),
                       hint: 'Ex: 12345 116 16',
                       validator: (value) {
                         if ((value ?? '').trim().isEmpty) {
-                          return 'Entrez la plaque';
+                          return strings.t('enter_plate');
                         }
                         return null;
                       },
@@ -295,7 +304,9 @@ class _ProviderProfilePageState extends State<ProviderProfilePage> {
                               )
                             : const Icon(Icons.save_outlined),
                         label: Text(
-                          _saving ? 'Sauvegarde...' : 'Sauvegarder',
+                          _saving
+                              ? strings.t('sauvegarde')
+                              : strings.t('sauvegarder'),
                         ),
                       ),
                     ),

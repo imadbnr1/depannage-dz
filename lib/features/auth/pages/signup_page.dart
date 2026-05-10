@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/i18n/app_localizations.dart';
 import '../../../core/services/app_feedback.dart';
 import '../../../core/services/auth_service.dart';
-import '../../../core/i18n/app_localizations.dart';
+import '../../../widgets/language_selector.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({
@@ -26,36 +26,30 @@ class _SignupPageState extends State<SignupPage>
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  SharedPreferences? _sharedPreferences;
 
   bool _loading = false;
   bool _obscure = true;
   bool _confirmObscure = true;
   String _role = 'customer';
 
-  // OTP verification state - using email OTP now
-  bool _otpSent = false;
-  String _emailOtpCode = '';
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
-    _initSharedPreferences();
+
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
     );
+
     _fadeAnimation = CurvedAnimation(
       parent: _animationController,
       curve: Curves.easeInOut,
     );
-    _animationController.forward();
-  }
 
-  Future<void> _initSharedPreferences() async {
-    _sharedPreferences = await SharedPreferences.getInstance();
+    _animationController.forward();
   }
 
   @override
@@ -69,107 +63,11 @@ class _SignupPageState extends State<SignupPage>
     super.dispose();
   }
 
-  Future<void> _sendOTP() async {
+  Future<void> _createAccountDirectly() async {
     final strings = AppLocalizations.of(context);
+
     FocusScope.of(context).unfocus();
-    if (_loading) return;
 
-    final email = _emailController.text.trim();
-    if (email.isEmpty || !email.contains('@')) {
-      AppFeedback.showError(context, strings.t('invalidEmail'));
-      return;
-    }
-
-    setState(() => _loading = true);
-
-    try {
-      String? generatedOtp;
-
-      await widget.authService.sendEmailOTP(
-        email: email,
-        onSent: () {
-          if (!mounted) return;
-          setState(() {
-            _loading = false;
-            _otpSent = true;
-          });
-        },
-        onError: (error) {
-          if (!mounted) return;
-          setState(() => _loading = false);
-          AppFeedback.showError(context, error);
-        },
-      );
-
-      await Future.delayed(const Duration(milliseconds: 200));
-
-      generatedOtp = _sharedPreferences?.getString('email_otp_code');
-
-      if (!mounted) return;
-
-      await showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (dialogContext) {
-          return AlertDialog(
-            title: Row(
-              children: [
-                const Icon(Icons.mark_email_read_outlined, color: Color(0xFFF59E0B)),
-                const SizedBox(width: 12),
-                Text(strings.t('otp_sent')),
-              ],
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(strings.t('your_6_digit_code')),
-                const SizedBox(height: 16),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF7E8),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFF59E0B), width: 2),
-                  ),
-                  child: Text(
-                    generatedOtp ?? strings.t('not_available'),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFFF59E0B),
-                      letterSpacing: 8,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  strings.t('copy_paste_code'),
-                  style: const TextStyle(color: Colors.black54, fontSize: 13),
-                ),
-              ],
-            ),
-            actions: [
-              FilledButton.icon(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                icon: const Icon(Icons.check_circle),
-                label: Text(strings.t('understood')),
-              ),
-            ],
-          );
-        },
-      );
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _loading = false);
-      AppFeedback.showError(context, e.toString().replaceFirst('Exception: ', ''));
-    }
-  }
-
-  Future<void> _verifyAndSignup() async {
-    final strings = AppLocalizations.of(context);
     if (_loading) return;
 
     if (!(_formKey.currentState?.validate() ?? false)) {
@@ -182,34 +80,34 @@ class _SignupPageState extends State<SignupPage>
       return;
     }
 
-    if (_emailOtpCode.trim().length != 6) {
-      AppFeedback.showError(context, strings.t('enter6DigitCode'));
-      return;
-    }
-
     setState(() => _loading = true);
 
     try {
-      await widget.authService.signUpWithEmailOTP(
+      await widget.authService.signUpWithEmailPassword(
         email: _emailController.text.trim(),
-        otpCode: _emailOtpCode.trim(),
+        password: _passwordController.text.trim(),
         fullName: _fullNameController.text.trim(),
         phone: _phoneController.text.trim(),
         role: _role,
-        password: _passwordController.text.trim(),
       );
 
       if (!mounted) return;
 
-      if (_role == 'provider') {
-        AppFeedback.showSuccess(context, strings.t('providerCreated'));
-        Navigator.of(context).popUntil((route) => route.isFirst);
-      } else {
-        AppFeedback.showSuccess(context, strings.t('accountCreated'));
-      }
+      AppFeedback.showSuccess(
+        context,
+        _role == 'provider'
+            ? strings.t('providerCreated')
+            : strings.t('accountCreated'),
+      );
+
+      Navigator.of(context).popUntil((route) => route.isFirst);
     } catch (e) {
       if (!mounted) return;
-      AppFeedback.showError(context, e.toString().replaceFirst('Exception: ', ''));
+
+      AppFeedback.showError(
+        context,
+        e.toString().replaceFirst('Exception: ', ''),
+      );
     } finally {
       if (mounted) {
         setState(() => _loading = false);
@@ -224,9 +122,10 @@ class _SignupPageState extends State<SignupPage>
     required IconData icon,
   }) {
     final selected = _role == value;
+
     return InkWell(
       borderRadius: BorderRadius.circular(20),
-      onTap: _loading || _otpSent ? null : () => setState(() => _role = value),
+      onTap: _loading ? null : () => setState(() => _role = value),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.all(16),
@@ -271,7 +170,8 @@ class _SignupPageState extends State<SignupPage>
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 16,
-                      color: selected ? const Color(0xFF0F172A) : Colors.black87,
+                      color:
+                          selected ? const Color(0xFF0F172A) : Colors.black87,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -300,6 +200,24 @@ class _SignupPageState extends State<SignupPage>
   @override
   Widget build(BuildContext context) {
     final strings = AppLocalizations.of(context);
+    final screenSize = MediaQuery.sizeOf(context);
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+    final keyboardOpen = keyboardInset > 0;
+    final availableHeight = screenSize.height - keyboardInset;
+    final compact = keyboardOpen || availableHeight < 720;
+
+   final logoWidth = compact ? 420.0 : 560.0;
+
+    final scrollPadding = EdgeInsets.fromLTRB(
+      compact ? 18 : 20,
+      keyboardOpen ? 4 : 6,
+      compact ? 18 : 20,
+      compact ? 10 : 14,
+    );
+
+    final cardPadding = EdgeInsets.all(compact ? 20 : 24);
+    final heroCardGap = compact ? 4.0 : 6.0;
+
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -317,7 +235,7 @@ class _SignupPageState extends State<SignupPage>
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
+              padding: scrollPadding,
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 540),
                 child: FadeTransition(
@@ -327,7 +245,7 @@ class _SignupPageState extends State<SignupPage>
                       Row(
                         children: [
                           IconButton(
-                            onPressed: _loading || _otpSent
+                            onPressed: _loading
                                 ? null
                                 : () => Navigator.of(context).pop(),
                             icon: const Icon(
@@ -338,32 +256,24 @@ class _SignupPageState extends State<SignupPage>
                           ),
                         ],
                       ),
-                      const SizedBox(height: 2),
-                      // logo
-                      Image.asset('assets/logo/applogo.png', width: 500, height: 200, fit: BoxFit.contain),
-                      const SizedBox(height: 2),
-                      Text(
-                        strings.t('app_name'),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 32,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1.2,
-                        ),
+                      SizedBox(height: compact ? 0 : 1),
+                      Image.asset(
+                        'assets/logo/applogo.png',
+                        width: logoWidth,
+                        fit: BoxFit.contain,
                       ),
                       const SizedBox(height: 2),
                       Text(
                         strings.t('app_subtitle'),
                         style: const TextStyle(
                           color: Colors.white70,
-                          fontSize: 14,
+                          fontSize: 12,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      // Premium signup card
+                      SizedBox(height: heroCardGap),
                       Container(
-                        padding: const EdgeInsets.all(26),
+                        padding: cardPadding,
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(32),
@@ -396,6 +306,24 @@ class _SignupPageState extends State<SignupPage>
                                   fontSize: 14,
                                 ),
                               ),
+                              const SizedBox(height: 12),
+                              Align(
+                                alignment: AlignmentDirectional.centerEnd,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF8F5EF),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: const Color(0xFFE5E7EB),
+                                    ),
+                                  ),
+                                  child: const LanguageSelector(),
+                                ),
+                              ),
                               const SizedBox(height: 20),
                               _roleTile(
                                 value: 'customer',
@@ -413,11 +341,17 @@ class _SignupPageState extends State<SignupPage>
                               const SizedBox(height: 20),
                               TextFormField(
                                 controller: _fullNameController,
-                                enabled: !_otpSent,
                                 validator: (value) {
                                   final text = (value ?? '').trim();
-                                  if (text.isEmpty) return strings.t('enterFullName');
-                                  if (text.length < 3) return strings.t('nameTooShort');
+
+                                  if (text.isEmpty) {
+                                    return strings.t('enterFullName');
+                                  }
+
+                                  if (text.length < 3) {
+                                    return strings.t('nameTooShort');
+                                  }
+
                                   return null;
                                 },
                                 decoration: InputDecoration(
@@ -434,19 +368,30 @@ class _SignupPageState extends State<SignupPage>
                               const SizedBox(height: 14),
                               TextFormField(
                                 controller: _phoneController,
-                                enabled: !_otpSent,
                                 keyboardType: TextInputType.phone,
                                 inputFormatters: [
-                                  FilteringTextInputFormatter.digitsOnly,
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'[0-9+\s]'),
+                                  ),
                                 ],
                                 validator: (value) {
                                   final text = (value ?? '').trim();
-                                  if (text.isEmpty) return strings.t('enterPhone');
-                                  if (text.length < 8) return strings.t('phoneInvalid');
+
+                                  if (text.isEmpty) {
+                                    return strings.t('enterPhone');
+                                  }
+
+                                  final digits =
+                                      text.replaceAll(RegExp(r'\D'), '');
+                                  if (digits.length < 9) {
+                                    return strings.t('phoneInvalid');
+                                  }
+
                                   return null;
                                 },
                                 decoration: InputDecoration(
                                   labelText: strings.t('phone'),
+                                  hintText: '0696 93 85 26',
                                   prefixIcon: const Icon(Icons.phone_outlined),
                                   filled: true,
                                   fillColor: const Color(0xFFF8F5EF),
@@ -454,20 +399,23 @@ class _SignupPageState extends State<SignupPage>
                                     borderRadius: BorderRadius.circular(18),
                                     borderSide: BorderSide.none,
                                   ),
-                                  suffixIcon: _otpSent
-                                      ? const Icon(Icons.check_circle, color: Color(0xFF059669))
-                                      : null,
                                 ),
                               ),
                               const SizedBox(height: 14),
                               TextFormField(
                                 controller: _emailController,
-                                enabled: !_otpSent,
                                 keyboardType: TextInputType.emailAddress,
                                 validator: (value) {
                                   final text = (value ?? '').trim();
-                                  if (text.isEmpty) return strings.t('enterEmail');
-                                  if (!text.contains('@')) return strings.t('invalidEmail');
+
+                                  if (text.isEmpty) {
+                                    return strings.t('enterEmail');
+                                  }
+
+                                  if (!text.contains('@')) {
+                                    return strings.t('invalidEmail');
+                                  }
+
                                   return null;
                                 },
                                 decoration: InputDecoration(
@@ -484,19 +432,26 @@ class _SignupPageState extends State<SignupPage>
                               const SizedBox(height: 14),
                               TextFormField(
                                 controller: _passwordController,
-                                enabled: !_otpSent,
                                 obscureText: _obscure,
                                 validator: (value) {
                                   final text = (value ?? '').trim();
-                                  if (text.isEmpty) return strings.t('enterPassword');
-                                  if (text.length < 6) return strings.t('passwordTooShort');
+
+                                  if (text.isEmpty) {
+                                    return strings.t('enterPassword');
+                                  }
+
+                                  if (text.length < 6) {
+                                    return strings.t('passwordTooShort');
+                                  }
+
                                   return null;
                                 },
                                 decoration: InputDecoration(
                                   labelText: strings.t('password'),
                                   prefixIcon: const Icon(Icons.lock_outline),
                                   suffixIcon: IconButton(
-                                    onPressed: () => setState(() => _obscure = !_obscure),
+                                    onPressed: () =>
+                                        setState(() => _obscure = !_obscure),
                                     icon: Icon(
                                       _obscure
                                           ? Icons.visibility_off_outlined
@@ -514,22 +469,27 @@ class _SignupPageState extends State<SignupPage>
                               const SizedBox(height: 14),
                               TextFormField(
                                 controller: _confirmPasswordController,
-                                enabled: !_otpSent,
                                 obscureText: _confirmObscure,
                                 validator: (value) {
                                   final text = (value ?? '').trim();
-                                  if (text.isEmpty) return strings.t('confirmPassword');
+
+                                  if (text.isEmpty) {
+                                    return strings.t('confirmPassword');
+                                  }
+
                                   if (text != _passwordController.text) {
                                     return strings.t('passwordsMismatch');
                                   }
+
                                   return null;
                                 },
                                 decoration: InputDecoration(
                                   labelText: strings.t('confirmPassword'),
                                   prefixIcon: const Icon(Icons.lock_outlined),
                                   suffixIcon: IconButton(
-                                    onPressed: () =>
-                                        setState(() => _confirmObscure = !_confirmObscure),
+                                    onPressed: () => setState(
+                                      () => _confirmObscure = !_confirmObscure,
+                                    ),
                                     icon: Icon(
                                       _confirmObscure
                                           ? Icons.visibility_off_outlined
@@ -557,8 +517,11 @@ class _SignupPageState extends State<SignupPage>
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.info_outline,
-                                        color: Color(0xFFF59E0B), size: 20),
+                                    const Icon(
+                                      Icons.info_outline,
+                                      color: Color(0xFFF59E0B),
+                                      size: 20,
+                                    ),
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: Text(
@@ -576,73 +539,26 @@ class _SignupPageState extends State<SignupPage>
                                 ),
                               ),
                               const SizedBox(height: 20),
-                              if (!_otpSent)
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: FilledButton.icon(
-                                    onPressed: _loading ? null : _sendOTP,
-                                    icon: _loading
-                                        ? const SizedBox(
-                                            width: 18,
-                                            height: 18,
-                                            child: CircularProgressIndicator(strokeWidth: 2),
-                                          )
-                                        : const Icon(Icons.email_outlined),
-                                    label: Text(strings.t('sendOTP')),
-                                  ),
-                                )
-                              else ...[
-                                TextFormField(
-                                  onChanged: (value) => _emailOtpCode = value,
-                                  textInputAction: TextInputAction.done,
-                                  keyboardType: TextInputType.number,
-                                  maxLength: 6,
-                                  validator: (value) {
-                                    final text = (value ?? '').trim();
-                                    if (text.isEmpty) return strings.t('enterOTPCode');
-                                    if (text.length != 6) return strings.t('code_must_be_6_digits');
-                                    return null;
-                                  },
-                                  decoration: InputDecoration(
-                                    labelText: strings.t('enter_otp_code'),
-                                    hintText: '123456',
-                                    prefixIcon: const Icon(Icons.pin_outlined),
-                                    filled: true,
-                                    fillColor: const Color(0xFFF8F5EF),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(18),
-                                      borderSide: BorderSide.none,
-                                    ),
-                                    counterText: '',
-                                  ),
+                              SizedBox(
+                                width: double.infinity,
+                                child: FilledButton.icon(
+                                  onPressed:
+                                      _loading ? null : _createAccountDirectly,
+                                  icon: _loading
+                                      ? const SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Icon(
+                                          Icons.person_add_alt_1_outlined,
+                                        ),
+                                  label: Text(strings.t('create_account')),
                                 ),
-                                const SizedBox(height: 16),
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: FilledButton.icon(
-                                    onPressed: _loading ? null : _verifyAndSignup,
-                                    icon: const Icon(Icons.check_circle_outline),
-                                    label: Text(strings.t('verifyAndCreate')),
-                                  ),
-                                ),
-                              ],
-                              if (_otpSent) ...[
-                                const SizedBox(height: 12),
-                                Center(
-                                  child: TextButton.icon(
-                                    onPressed: () {
-                                      setState(() {
-                                        _otpSent = false;
-                                        _emailOtpCode = '';
-                                      });
-                                    },
-                                    icon: const Icon(Icons.edit_outlined, size: 18),
-                                    label: Text(strings.t('change_email')),
-                                  ),
-                                ),
-                              ],
+                              ),
                               const SizedBox(height: 14),
-                              // Already have an account button
                               SizedBox(
                                 width: double.infinity,
                                 child: OutlinedButton.icon(
@@ -652,7 +568,9 @@ class _SignupPageState extends State<SignupPage>
                                   icon: const Icon(Icons.login),
                                   label: Text(strings.t('alreadyAccount')),
                                   style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
                                   ),
                                 ),
                               ),

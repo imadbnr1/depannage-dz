@@ -59,42 +59,64 @@ class _AdminPricingPageState extends State<AdminPricingPage> {
 
   Future<void> _savePricing() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_saving) return;
 
     setState(() => _saving = true);
 
-    await FirebaseFirestore.instance
-        .collection('app_config')
-        .doc('pricing')
-        .set({
+    final pricingData = {
       'basePrice': double.parse(_basePriceController.text.trim()),
       'pricePerKm': double.parse(_pricePerKmController.text.trim()),
       'urgentFee': double.parse(_urgentFeeController.text.trim()),
       'commissionPercent': double.parse(_commissionController.text.trim()),
       'updatedAt': DateTime.now().toIso8601String(),
-    });
+    };
 
-    await _auditService.logAction(
-      action: 'update_pricing',
-      targetCollection: 'app_config',
-      targetId: 'pricing',
-      summary: 'Configuration tarifaire mise a jour',
-      metadata: {
-        'basePrice': _basePriceController.text.trim(),
-        'pricePerKm': _pricePerKmController.text.trim(),
-        'urgentFee': _urgentFeeController.text.trim(),
-        'commissionPercent': _commissionController.text.trim(),
-      },
-    );
+    try {
+      await FirebaseFirestore.instance
+          .collection('app_config')
+          .doc('pricing')
+          .set(pricingData, SetOptions(merge: true));
 
-    if (!mounted) return;
+      try {
+        await _auditService.logAction(
+          action: 'update_pricing',
+          targetCollection: 'app_config',
+          targetId: 'pricing',
+          summary: 'Configuration tarifaire mise a jour',
+          metadata: {
+            'basePrice': _basePriceController.text.trim(),
+            'pricePerKm': _pricePerKmController.text.trim(),
+            'urgentFee': _urgentFeeController.text.trim(),
+            'commissionPercent': _commissionController.text.trim(),
+          },
+        );
+      } catch (e) {
+        debugPrint('Admin audit log failed after pricing update: $e');
+      }
 
-    setState(() => _saving = false);
+      if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Tarification mise a jour'),
-      ),
-    );
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tarification mise a jour'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.toString().replaceFirst('Exception: ', ''),
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
   }
 
   @override

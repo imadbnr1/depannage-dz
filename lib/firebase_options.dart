@@ -55,6 +55,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '854916203692',
     projectId: 'depannage-dz-imad-2026',
     authDomain: 'depannage-dz-imad-2026.firebaseapp.com',
+    databaseURL:
+        'https://depannage-dz-imad-2026-default-rtdb.europe-west1.firebasedatabase.app',
     storageBucket: 'depannage-dz-imad-2026.firebasestorage.app',
     measurementId: 'G-57Q1F79W6F',
   );
@@ -64,7 +66,8 @@ class DefaultFirebaseOptions {
     appId: '1:854916203692:android:ee9f7b76494447c15e0b09',
     messagingSenderId: '854916203692',
     projectId: 'depannage-dz-imad-2026',
+    databaseURL:
+        'https://depannage-dz-imad-2026-default-rtdb.europe-west1.firebasedatabase.app',
     storageBucket: 'depannage-dz-imad-2026.firebasestorage.app',
   );
-
 }

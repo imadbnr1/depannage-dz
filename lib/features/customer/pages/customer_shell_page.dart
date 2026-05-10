@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/i18n/app_localizations.dart';
 import '../../../core/services/fcm_service.dart';
 import '../../../state/app_store.dart';
 import '../../shared/pages/chat_page.dart';
@@ -133,6 +134,7 @@ class _CustomerShellPageState extends State<CustomerShellPage> {
   }
 
   void _handleChatMetadata(String requestId, Map<String, dynamic> data) {
+    final strings = AppLocalizations.of(context);
     final senderUid = (data['lastMessageSenderUid'] ?? '').toString();
     final createdAtIso = (data['lastMessageCreatedAtIso'] ?? '').toString();
     final messageText = (data['lastMessageText'] ?? '').toString().trim();
@@ -158,7 +160,7 @@ class _CustomerShellPageState extends State<CustomerShellPage> {
         : 'Provider';
 
     widget.store.pushExternalNotification(
-      title: 'Nouveau message',
+      title: strings.t('nouveau_message'),
       body: '$senderName: $messageText',
       type: 'chat',
     );
@@ -167,15 +169,17 @@ class _CustomerShellPageState extends State<CustomerShellPage> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Nouveau message de $senderName'),
+        content: Text(
+          strings.t('new_message_from').replaceAll('{name}', senderName),
+        ),
         action: SnackBarAction(
-          label: 'Ouvrir',
+          label: strings.t('ouvrir'),
           onPressed: () {
             Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => ChatPage(
                   requestId: requestId,
-                  title: 'Chat provider',
+                  title: strings.t('chat_provider'),
                 ),
               ),
             );
@@ -187,6 +191,7 @@ class _CustomerShellPageState extends State<CustomerShellPage> {
 
   void _onFcmPayload() {
     if (!mounted) return;
+    final strings = AppLocalizations.of(context);
     final payload = FcmService.payloadNotifier.value;
     if (payload == null) return;
 
@@ -206,7 +211,7 @@ class _CustomerShellPageState extends State<CustomerShellPage> {
           MaterialPageRoute(
             builder: (_) => ChatPage(
               requestId: requestId,
-              title: 'Chat provider',
+              title: strings.t('chat_provider'),
             ),
           ),
         );
@@ -218,6 +223,7 @@ class _CustomerShellPageState extends State<CustomerShellPage> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     final pages = [
       CustomerHomePage(store: widget.store),
       CustomerRequestsPage(store: widget.store),
@@ -238,31 +244,31 @@ class _CustomerShellPageState extends State<CustomerShellPage> {
           widget.store.setCustomerTab(value);
           widget.store.setAdminNotificationDeliveryReady(value == 0);
         },
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.explore_outlined),
-            selectedIcon: Icon(Icons.explore),
-            label: 'Accueil',
+            icon: const Icon(Icons.explore_outlined),
+            selectedIcon: const Icon(Icons.explore),
+            label: strings.t('accueil'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.assignment_outlined),
-            selectedIcon: Icon(Icons.assignment),
-            label: 'Demandes',
+            icon: const Icon(Icons.assignment_outlined),
+            selectedIcon: const Icon(Icons.assignment),
+            label: strings.t('demandes'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.history_rounded),
-            selectedIcon: Icon(Icons.history),
-            label: 'Historique',
+            icon: const Icon(Icons.history_rounded),
+            selectedIcon: const Icon(Icons.history),
+            label: strings.t('historique'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.account_circle_outlined),
-            selectedIcon: Icon(Icons.account_circle),
-            label: 'Profil',
+            icon: const Icon(Icons.account_circle_outlined),
+            selectedIcon: const Icon(Icons.account_circle),
+            label: strings.t('profil'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.headset_mic_outlined),
-            selectedIcon: Icon(Icons.headset_mic),
-            label: 'Support',
+            icon: const Icon(Icons.headset_mic_outlined),
+            selectedIcon: const Icon(Icons.headset_mic),
+            label: strings.t('support'),
           ),
         ],
       ),

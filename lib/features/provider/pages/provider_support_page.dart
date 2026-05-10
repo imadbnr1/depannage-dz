@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/i18n/app_localizations.dart';
 import '../../../models/support_config.dart';
 import '../../shared/pages/legal_page.dart';
 
@@ -49,6 +50,7 @@ class ProviderSupportPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     return FutureBuilder<SupportConfig>(
       future: _loadConfig(),
       builder: (context, snapshot) {
@@ -77,26 +79,26 @@ class ProviderSupportPage extends StatelessWidget {
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(color: const Color(0xFFE8E1D5)),
                 ),
-                child: const Column(
+                child: Column(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.support_agent,
                       size: 56,
                       color: Color(0xFF059669),
                     ),
-                    SizedBox(height: 12),
+                    const SizedBox(height: 12),
                     Text(
-                      'Support provider',
-                      style: TextStyle(
+                      strings.t('support_provider_title'),
+                      style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Text(
-                      'Contactez l administration en cas de besoin ou pour un support operationnel rapide.',
+                      strings.t('support_provider_subtitle'),
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.black54),
+                      style: const TextStyle(color: Colors.black54),
                     ),
                   ],
                 ),
@@ -104,17 +106,20 @@ class ProviderSupportPage extends StatelessWidget {
               const SizedBox(height: 16),
               _SupportTile(
                 icon: Icons.call_outlined,
-                title: 'Telephone',
-                value: config.phone.isEmpty ? 'Non renseigne' : config.phone,
+                title: strings.t('telephone'),
+                value: config.phone.isEmpty
+                    ? strings.t('not_filled')
+                    : config.phone,
                 onTap: config.phone.isEmpty
                     ? null
                     : () => _openPhone(config.phone),
               ),
               _SupportTile(
                 icon: Icons.message_outlined,
-                title: 'WhatsApp',
-                value:
-                    config.whatsapp.isEmpty ? 'Non renseigne' : config.whatsapp,
+                title: strings.t('whatsapp'),
+                value: config.whatsapp.isEmpty
+                    ? strings.t('not_filled')
+                    : config.whatsapp,
                 onTap: config.whatsapp.isEmpty
                     ? null
                     : () => _openWhatsapp(config.whatsapp),
@@ -122,32 +127,37 @@ class ProviderSupportPage extends StatelessWidget {
               _SupportTile(
                 icon: Icons.email_outlined,
                 title: 'Email',
-                value: config.email.isEmpty ? 'Non renseigne' : config.email,
+                value: config.email.isEmpty
+                    ? strings.t('not_filled')
+                    : config.email,
                 onTap: config.email.isEmpty
                     ? null
                     : () => _openEmail(config.email),
               ),
               _SupportTile(
                 icon: Icons.location_on_outlined,
-                title: 'Adresse',
-                value:
-                    config.address.isEmpty ? 'Non renseignee' : config.address,
+                title: strings.t('adresse'),
+                value: config.address.isEmpty
+                    ? strings.t('not_filled_f')
+                    : config.address,
               ),
               _SupportTile(
                 icon: Icons.schedule_outlined,
-                title: 'Horaires',
-                value: config.hours.isEmpty ? 'Non renseignes' : config.hours,
+                title: strings.t('horaires'),
+                value: config.hours.isEmpty
+                    ? strings.t('not_filled_p')
+                    : config.hours,
               ),
               _SupportTile(
                 icon: Icons.privacy_tip_outlined,
-                title: 'Confidentialite',
-                value: 'Donnees, GPS et notifications',
+                title: strings.t('confidentialite'),
+                value: strings.t('privacy_support_value'),
                 onTap: () => _openLegal(context, LegalDocument.privacy),
               ),
               _SupportTile(
                 icon: Icons.description_outlined,
-                title: 'Conditions',
-                value: 'Regles d utilisation du service',
+                title: strings.t('conditions'),
+                value: strings.t('terms_support_value'),
                 onTap: () => _openLegal(context, LegalDocument.terms),
               ),
             ],

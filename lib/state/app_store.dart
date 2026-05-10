@@ -9,7 +9,6 @@ import 'package:latlong2/latlong.dart';
 import '../core/services/geocoding_service.dart';
 import '../core/services/in_app_notification_service.dart';
 import '../core/services/location_service.dart';
-import '../core/services/place_search_service.dart';
 import '../models/app_request.dart';
 import '../models/app_role.dart';
 import '../models/provider_agent.dart';
@@ -17,6 +16,7 @@ import '../models/request_status.dart';
 import '../models/service_type.dart';
 import '../repositories/request_repository.dart';
 import '../repositories/tracking_repository.dart';
+import '../core/services/provider_presence_service.dart';
 
 class AppStore extends ChangeNotifier {
   AppStore({
@@ -38,9 +38,9 @@ class AppStore extends ChangeNotifier {
   final LocationService locationService;
   final InAppNotificationService notificationService;
   final GeocodingService geocodingService;
-  final PlaceSearchService placeSearchService = PlaceSearchService();
   final FirebaseFirestore firestore;
   final FirebaseAuth auth;
+  final ProviderPresenceService presenceService = ProviderPresenceService();
 
   AppRole role = AppRole.customer;
   int customerTab = 0;
@@ -80,29 +80,100 @@ class AppStore extends ChangeNotifier {
   double pricingCommissionPercent = 10;
 
   String? currentUserRoleName;
+  String? _currentUserUid;
+  Map<String, dynamic> _currentUserProfile = const {};
   final Set<String> _seenAdminNotificationIds = {};
   Map<String, InAppNotificationItem> _activeAdminPopupItems = {};
   bool _adminNotificationDeliveryReady = false;
+  bool _providersLoaded = false;
 
   final Map<String, Timer> _dispatchTimers = {};
   final Map<String, StreamSubscription<Position>> _liveTrackingSubs = {};
   final Set<String> _dispatchFallbackInFlight = {};
 
   // ✅ Automatic dispatch chain tracking
-  final Map<String, List<String>> _dispatchChains = {}; // requestId -> [providerIds in order]
-  final Map<String, int> _dispatchChainIndex = {}; // requestId -> current index in chain
-  final Map<String, String> _currentOfferedProviderIds = {}; // requestId -> currently offered providerId
+  final Map<String, List<String>> _dispatchChains =
+      {}; // requestId -> [providerIds in order]
+  final Map<String, int> _dispatchChainIndex =
+      {}; // requestId -> current index in chain
+  final Map<String, String> _currentOfferedProviderIds =
+      {}; // requestId -> currently offered providerId
+  final Map<String, int> _scannedProviderCounts = {};
+  final Map<String, int> _currentDispatchAttempts = {};
+  final Map<String, DateTime> _noProviderPopupMutedUntil = {};
+  String? noProviderRequestId;
+  bool noProviderPopupVisible = false;
 
   // ✅ Helper methods for dispatch chain access
-  List<String>? getDispatchChain(String requestId) => _dispatchChains[requestId];
-  int? getDispatchChainIndex(String requestId) => _dispatchChainIndex[requestId];
+  List<String>? getDispatchChain(String requestId) =>
+      _dispatchChains[requestId];
+  int? getDispatchChainIndex(String requestId) =>
+      _dispatchChainIndex[requestId];
+  int scannedProviderCount(String requestId) =>
+      _scannedProviderCounts[requestId] ??
+      _dispatchChains[requestId]?.length ??
+      0;
+  int currentDispatchAttempt(String requestId) =>
+      _currentDispatchAttempts[requestId] ?? 0;
 
   void bootstrap() {
-    _requestsSub = requestRepository.watchRequests().listen((items) {
-      _requests = items;
+    _authSub = auth.authStateChanges().listen((user) async {
+      await _adminNotificationsSub?.cancel();
+      await _requestsSub?.cancel();
+      await _providersSub?.cancel();
+      await _pricingSub?.cancel();
+      _requests = [];
+      providers = [];
+      _providersLoaded = false;
+      currentUserRoleName = null;
+      _currentUserUid = null;
+      _currentUserProfile = const {};
+      _seenAdminNotificationIds.clear();
+      _activeAdminPopupItems = {};
+      _adminNotificationDeliveryReady = false;
+      _clearDispatchState();
+
+      if (user == null) {
+        notifyListeners();
+        return;
+      }
+
+      final userDoc = await firestore.collection('users').doc(user.uid).get();
+      final data = userDoc.data();
+      _currentUserUid = user.uid;
+      _currentUserProfile = data ?? const {};
+      currentUserRoleName =
+          (data?['role'] ?? 'customer').toString().trim().toLowerCase();
+
+      if (currentUserRoleName == 'provider') {
+        selectedProviderId = user.uid;
+      }
+
+      _startVisibleRequestsListener(user.uid, currentUserRoleName!);
+      _startProvidersListener();
+      _startPricingListener();
+      _startAdminNotificationsListener();
       notifyListeners();
     });
+  }
 
+  void _startVisibleRequestsListener(String uid, String role) {
+    final stream = switch (role) {
+      'admin' => requestRepository.watchRequests(),
+      'provider' => requestRepository.watchProviderRequests(uid),
+      _ => requestRepository.watchCustomerRequests(uid),
+    };
+
+    _requestsSub = stream.listen((items) {
+      _requests = items;
+      if (currentUserRoleName == 'customer' || currentUserRoleName == 'admin') {
+        _refreshSearchingDispatches();
+      }
+      notifyListeners();
+    });
+  }
+
+  void _startProvidersListener() {
     _providersSub =
         firestore.collection('providers').snapshots().listen((snap) {
       providers = snap.docs.map((doc) {
@@ -137,8 +208,10 @@ class AppStore extends ChangeNotifier {
         );
       }).toList();
 
+      _providersLoaded = true;
+
       final uid = auth.currentUser?.uid;
-      if (uid != null) {
+      if (uid != null && currentUserRoleName == 'provider') {
         selectedProviderId = uid;
       } else if (providers.isNotEmpty && selectedProviderId.isEmpty) {
         selectedProviderId = providers.first.id;
@@ -150,10 +223,14 @@ class AppStore extends ChangeNotifier {
         providerLocationMessage = 'Provider: ${current.name}';
       }
 
-      _refreshSearchingDispatches();
+      if (currentUserRoleName == 'customer' || currentUserRoleName == 'admin') {
+        _refreshSearchingDispatches();
+      }
       notifyListeners();
     });
+  }
 
+  void _startPricingListener() {
     _pricingSub = firestore
         .collection('app_config')
         .doc('pricing')
@@ -169,77 +246,80 @@ class AppStore extends ChangeNotifier {
         notifyListeners();
       }
     });
+  }
 
-    _authSub = auth.authStateChanges().listen((user) async {
-      await _adminNotificationsSub?.cancel();
-      currentUserRoleName = null;
-      _seenAdminNotificationIds.clear();
-      _activeAdminPopupItems = {};
-      _adminNotificationDeliveryReady = false;
+  void _startAdminNotificationsListener() {
+    _adminNotificationsSub = firestore
+        .collection('app_notifications')
+        .where('isActive', isEqualTo: true)
+        .snapshots()
+        .listen((snapshot) {
+      final nextActivePopupItems = <String, InAppNotificationItem>{};
 
-      if (user == null) return;
+      for (final doc in snapshot.docs) {
+        final map = doc.data();
+        final targetRole = (map['targetRole'] ?? 'all').toString();
 
-      final userDoc = await firestore.collection('users').doc(user.uid).get();
-      final data = userDoc.data();
-      currentUserRoleName =
-          (data?['role'] ?? 'customer').toString().trim().toLowerCase();
+        final role = currentUserRoleName;
+        final isEndUserRole = role == 'customer' || role == 'provider';
+        final allowed = isEndUserRole &&
+            (targetRole == 'all' || targetRole == currentUserRoleName);
 
-      _adminNotificationsSub = firestore
-          .collection('app_notifications')
-          .where('isActive', isEqualTo: true)
-          .snapshots()
-          .listen((snapshot) {
-        final nextActivePopupItems = <String, InAppNotificationItem>{};
+        if (!allowed) continue;
+        if (!_isNotificationInSchedule(map)) continue;
 
-        for (final doc in snapshot.docs) {
-          final map = doc.data();
-          final targetRole = (map['targetRole'] ?? 'all').toString();
+        final title = (map['title'] ?? 'Notification').toString();
+        final body = (map['body'] ?? '').toString();
+        final type = (map['type'] ?? 'admin_info').toString();
+        final imageUrl = (map['imageUrl'] ?? '').toString().trim();
+        final popupMode =
+            (map['popupMode'] ?? 'once_per_session').toString().trim();
+        final playSound = map['playSound'] != false;
 
-          final role = currentUserRoleName;
-          final isEndUserRole = role == 'customer' || role == 'provider';
-          final allowed = isEndUserRole &&
-              (targetRole == 'all' || targetRole == currentUserRoleName);
+        nextActivePopupItems[doc.id] = InAppNotificationItem(
+          id: doc.id,
+          title: title,
+          body: body,
+          type: type,
+          createdAt: DateTime.now(),
+          imageUrl: imageUrl.isEmpty ? null : imageUrl,
+          popupMode: popupMode,
+          playSound: playSound,
+        );
 
-          if (!allowed) continue;
-          if (!_isNotificationInSchedule(map)) continue;
-
-          final title = (map['title'] ?? 'Notification').toString();
-          final body = (map['body'] ?? '').toString();
-          final type = (map['type'] ?? 'admin_info').toString();
-          final imageUrl = (map['imageUrl'] ?? '').toString().trim();
-          final popupMode =
-              (map['popupMode'] ?? 'once_per_session').toString().trim();
-          final playSound = map['playSound'] != false;
-
-          nextActivePopupItems[doc.id] = InAppNotificationItem(
+        if (_adminNotificationDeliveryReady &&
+            !_seenAdminNotificationIds.contains(doc.id)) {
+          _seenAdminNotificationIds.add(doc.id);
+          _pushLifecycleNotification(
             id: doc.id,
             title: title,
             body: body,
             type: type,
-            createdAt: DateTime.now(),
             imageUrl: imageUrl.isEmpty ? null : imageUrl,
             popupMode: popupMode,
             playSound: playSound,
           );
-
-          if (_adminNotificationDeliveryReady &&
-              !_seenAdminNotificationIds.contains(doc.id)) {
-            _seenAdminNotificationIds.add(doc.id);
-            _pushLifecycleNotification(
-              id: doc.id,
-              title: title,
-              body: body,
-              type: type,
-              imageUrl: imageUrl.isEmpty ? null : imageUrl,
-              popupMode: popupMode,
-              playSound: playSound,
-            );
-          }
         }
+      }
 
-        _activeAdminPopupItems = nextActivePopupItems;
-      });
+      _activeAdminPopupItems = nextActivePopupItems;
     });
+  }
+
+  void _clearDispatchState() {
+    for (final timer in _dispatchTimers.values) {
+      timer.cancel();
+    }
+    _dispatchTimers.clear();
+    _dispatchFallbackInFlight.clear();
+    _dispatchChains.clear();
+    _dispatchChainIndex.clear();
+    _currentOfferedProviderIds.clear();
+    _scannedProviderCounts.clear();
+    _currentDispatchAttempts.clear();
+    _noProviderPopupMutedUntil.clear();
+    noProviderRequestId = null;
+    noProviderPopupVisible = false;
   }
 
   List<InAppNotificationItem> get activeAdminPopupNotifications =>
@@ -319,7 +399,9 @@ class AppStore extends ChangeNotifier {
     if (providerId == null) return const [];
     if (provider == null) return const [];
     if (!provider.isOnline) return const [];
-    if (provider.isBusy) return const []; // ✅ Busy providers can't see/accept new missions
+    if (provider.isBusy) {
+      return const []; // ✅ Busy providers can't see/accept new missions
+    }
 
     return _requests.where((r) {
       return r.status == RequestStatus.searching &&
@@ -390,6 +472,66 @@ class AppStore extends ChangeNotifier {
     if (expiresAt == null) return null;
     final remaining = expiresAt.difference(DateTime.now()).inSeconds;
     return remaining <= 0 ? 0 : remaining;
+  }
+
+  void dismissNoProviderPopup() {
+    noProviderPopupVisible = false;
+    noProviderRequestId = null;
+    notifyListeners();
+  }
+
+  Future<void> cancelNoProviderRequest() async {
+    final requestId = noProviderRequestId;
+    noProviderPopupVisible = false;
+    noProviderRequestId = null;
+    if (requestId == null) {
+      notifyListeners();
+      return;
+    }
+
+    await cancelRequest(requestId);
+    customerTab = 0;
+    notifyListeners();
+  }
+
+  Future<void> keepWaitingForProvider(String requestId) async {
+    final current = findRequest(requestId);
+    if (current == null || current.status != RequestStatus.searching) {
+      dismissNoProviderPopup();
+      return;
+    }
+
+    noProviderPopupVisible = false;
+    noProviderRequestId = null;
+    _dispatchTimers[requestId]?.cancel();
+    _dispatchTimers.remove(requestId);
+    _dispatchChains.remove(requestId);
+    _dispatchChainIndex.remove(requestId);
+    _currentOfferedProviderIds.remove(requestId);
+    _currentDispatchAttempts[requestId] = 0;
+    _noProviderPopupMutedUntil[requestId] =
+        DateTime.now().add(const Duration(seconds: 8));
+
+    await requestRepository.updateRequest(
+      requestId,
+      current.copyWith(
+        offeredProviderUid: null,
+        offeredAt: null,
+        offerExpiresAt: null,
+        rejectedProviderUids: const [],
+      ),
+    );
+
+    unawaited(
+      _attemptFallbackDispatch(
+        requestId,
+        customerPosition: current.customerPosition,
+        delay: const Duration(milliseconds: 500),
+        useDispatchChain: false,
+      ),
+    );
+
+    notifyListeners();
   }
 
   List<ProviderAgent> eligibleProvidersSortedByDistance(
@@ -480,8 +622,13 @@ class AppStore extends ChangeNotifier {
   }
 
   void _refreshSearchingDispatches() {
+    if (!_providersLoaded) return;
+
     for (final request in _requests) {
       if (request.status != RequestStatus.searching) continue;
+      if (noProviderPopupVisible && noProviderRequestId == request.id) {
+        continue;
+      }
 
       final offeredUid = request.offeredProviderUid;
       if (offeredUid == null || offeredUid.isEmpty) {
@@ -491,7 +638,7 @@ class AppStore extends ChangeNotifier {
           _attemptFallbackDispatch(
             request.id,
             customerPosition: request.customerPosition,
-            delay: const Duration(milliseconds: 600),
+            delay: Duration.zero,
           ),
         );
         continue;
@@ -507,6 +654,13 @@ class AppStore extends ChangeNotifier {
         _dispatchTimers[request.id]?.cancel();
         _dispatchTimers.remove(request.id);
         unawaited(_recoverStaleOfferAndRedispatch(request.id, offeredUid));
+      } else if (request.offerExpiresAt != null) {
+        _scheduleOfferTimeout(
+          request.id,
+          offeredUid,
+          request.offerExpiresAt!,
+          request.customerPosition,
+        );
       }
     }
   }
@@ -521,9 +675,13 @@ class AppStore extends ChangeNotifier {
     _dispatchFallbackInFlight.add(requestId);
 
     try {
+      if (!_providersLoaded) return;
+
       if (delay > Duration.zero) {
         await Future<void>.delayed(delay);
       }
+
+      if (noProviderPopupVisible && noProviderRequestId == requestId) return;
 
       final latest = findRequest(requestId);
       final currentStatus = latest?.status ?? RequestStatus.searching;
@@ -544,6 +702,8 @@ class AppStore extends ChangeNotifier {
         );
         _dispatchChains[requestId] = allProviders.map((p) => p.id).toList();
         _dispatchChainIndex[requestId] = 0;
+        _scannedProviderCounts[requestId] = allProviders.length;
+        _currentDispatchAttempts[requestId] = 0;
       }
 
       // ✅ Find next available provider in chain
@@ -560,6 +720,7 @@ class AppStore extends ChangeNotifier {
             provider.isVerified) {
           nextProviderId = providerId;
           _dispatchChainIndex[requestId] = i;
+          _currentDispatchAttempts[requestId] = i + 1;
           break;
         }
       }
@@ -575,28 +736,58 @@ class AppStore extends ChangeNotifier {
           return;
         }
 
+        final mutedUntil = _noProviderPopupMutedUntil[requestId];
+        if (mutedUntil != null && mutedUntil.isAfter(DateTime.now())) {
+          final retryDelay = mutedUntil.difference(DateTime.now());
+          _dispatchChains.remove(requestId);
+          _dispatchChainIndex.remove(requestId);
+          _currentOfferedProviderIds.remove(requestId);
+          Timer(retryDelay, () {
+            final retryRequest = findRequest(requestId);
+            if (retryRequest == null ||
+                retryRequest.status != RequestStatus.searching ||
+                noProviderPopupVisible) {
+              return;
+            }
+            unawaited(_attemptFallbackDispatch(
+              requestId,
+              customerPosition: retryRequest.customerPosition,
+              delay: Duration.zero,
+              useDispatchChain: false,
+            ));
+          });
+          notifyListeners();
+          return;
+        }
+
         // Only when all offers have expired and really no providers are left:
         _dispatchChains.remove(requestId);
         _dispatchChainIndex.remove(requestId);
         _currentOfferedProviderIds.remove(requestId);
-        
-        // Add final timeout delay before declaring no providers available (30 seconds total search time)
-        await Future<void>.delayed(const Duration(seconds: 8));
-        
+        _currentDispatchAttempts[requestId] =
+            _scannedProviderCounts[requestId] ?? chain.length;
+
+        await Future<void>.delayed(const Duration(seconds: 2));
+
         // Double check one last time if someone accepted in the meantime
         final finalCheckRequest = findRequest(requestId);
-        if (finalCheckRequest == null || 
+        if (finalCheckRequest == null ||
             finalCheckRequest.status != RequestStatus.searching ||
             finalCheckRequest.providerUid?.isNotEmpty == true) {
           return;
         }
-        
+
         // ✅ NOW notify customer that no providers are available
+        noProviderRequestId = requestId;
+        noProviderPopupVisible = true;
+
         _pushLifecycleNotification(
           title: 'Aucun provider disponible',
-          body: 'Aucun provider n est disponible pour le moment. Veuillez reessayer plus tard.',
+          body:
+              'Aucun provider n a accepte la mission. Vous pouvez annuler ou continuer a attendre.',
           type: 'no_providers_available',
         );
+        notifyListeners();
         return;
       }
 
@@ -604,14 +795,22 @@ class AppStore extends ChangeNotifier {
       _currentOfferedProviderIds[requestId] = nextProviderId;
 
       final now = DateTime.now();
+      final offerExpiresAt = now.add(const Duration(seconds: 20));
       final offerSuccess = await requestRepository.offerRequestToProvider(
         requestId: requestId,
         providerUid: nextProviderId,
         offeredAt: now,
-        offerExpiresAt: now.add(const Duration(seconds: 20)),
+        offerExpiresAt: offerExpiresAt,
       );
 
       if (offerSuccess) {
+        _scheduleOfferTimeout(
+          requestId,
+          nextProviderId,
+          offerExpiresAt,
+          targetPosition,
+        );
+
         // ✅ Notify customer that mission was sent to a provider
         final provider = findProviderById(nextProviderId);
         if (provider != null) {
@@ -621,12 +820,89 @@ class AppStore extends ChangeNotifier {
             type: 'mission_offered',
           );
         }
+      } else {
+        final currentIndex = _dispatchChainIndex[requestId] ?? 0;
+        _dispatchChainIndex[requestId] = currentIndex + 1;
+        _currentOfferedProviderIds.remove(requestId);
+        Timer(const Duration(milliseconds: 300), () {
+          unawaited(_attemptFallbackDispatch(
+            requestId,
+            customerPosition: targetPosition,
+            delay: Duration.zero,
+          ));
+        });
       }
 
       notifyListeners();
     } finally {
       _dispatchFallbackInFlight.remove(requestId);
     }
+  }
+
+  void _scheduleOfferTimeout(
+    String requestId,
+    String providerUid,
+    DateTime offerExpiresAt,
+    LatLng customerPosition,
+  ) {
+    _dispatchTimers[requestId]?.cancel();
+
+    final remaining = offerExpiresAt.difference(DateTime.now());
+    if (remaining <= Duration.zero) {
+      unawaited(
+        _expireOfferAndDispatchNext(
+          requestId,
+          providerUid,
+          customerPosition,
+        ),
+      );
+      return;
+    }
+
+    _dispatchTimers[requestId] = Timer(
+      remaining + const Duration(milliseconds: 250),
+      () {
+        _dispatchTimers.remove(requestId);
+        unawaited(
+          _expireOfferAndDispatchNext(
+            requestId,
+            providerUid,
+            customerPosition,
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _expireOfferAndDispatchNext(
+    String requestId,
+    String providerUid,
+    LatLng customerPosition,
+  ) async {
+    final current = findRequest(requestId);
+    if (current == null ||
+        current.status != RequestStatus.searching ||
+        current.offeredProviderUid != providerUid) {
+      return;
+    }
+
+    if (_dispatchChains.containsKey(requestId)) {
+      final currentIndex = _dispatchChainIndex[requestId] ?? 0;
+      _dispatchChainIndex[requestId] = currentIndex + 1;
+    }
+    _currentOfferedProviderIds.remove(requestId);
+
+    final rejected = await requestRepository.rejectOfferedRequest(
+      requestId: requestId,
+      providerUid: providerUid,
+    );
+    if (!rejected) return;
+
+    await _attemptFallbackDispatch(
+      requestId,
+      customerPosition: customerPosition,
+      delay: Duration.zero,
+    );
   }
 
   Future<void> _recoverStaleOfferAndRedispatch(
@@ -665,11 +941,11 @@ class AppStore extends ChangeNotifier {
             : currentProviderUid;
     if (effectiveProviderId == null || effectiveProviderId.isEmpty) return;
 
-    await firestore.collection('providers').doc(effectiveProviderId).set({
-      'isOnline': isOnline,
-      'updatedAtIso': DateTime.now().toIso8601String(),
-      'availabilityUpdatedAtIso': DateTime.now().toIso8601String(),
-    }, SetOptions(merge: true));
+    if (isOnline) {
+      await presenceService.goOnline(effectiveProviderId);
+    } else {
+      await presenceService.goOffline(effectiveProviderId);
+    }
 
     final index = providers.indexWhere((p) => p.id == effectiveProviderId);
     if (index != -1) {
@@ -816,7 +1092,8 @@ class AppStore extends ChangeNotifier {
             if (arrivedRequest.destinationPosition == null &&
                 arrivedRequest.destination.trim().isNotEmpty) {
               try {
-                final places = await geocodingService.searchPlaces(arrivedRequest.destination);
+                final places = await geocodingService
+                    .searchPlaces(arrivedRequest.destination);
                 if (places.isNotEmpty) {
                   arrivedRequest = arrivedRequest.copyWith(
                     destinationPosition: places.first.position,
@@ -1137,12 +1414,18 @@ class AppStore extends ChangeNotifier {
       throw Exception('Utilisateur non connecte.');
     }
 
+    if (_currentUserUid == uid && _currentUserProfile.isNotEmpty) {
+      return _currentUserProfile;
+    }
+
     final doc = await firestore.collection('users').doc(uid).get();
     final data = doc.data();
     if (!doc.exists || data == null) {
       throw Exception('Profil utilisateur introuvable.');
     }
 
+    _currentUserUid = uid;
+    _currentUserProfile = data;
     return data;
   }
 
@@ -1215,7 +1498,7 @@ class AppStore extends ChangeNotifier {
     }
 
     final profile = await _readCurrentUserProfile();
-    final resolvedPickupLabel = await _resolvePickupLabel(
+    final resolvedPickupLabel = _fastPickupLabel(
       pickupLabel: pickupLabel,
       customerPosition: customerPosition,
     );
@@ -1270,7 +1553,7 @@ class AppStore extends ChangeNotifier {
     );
 
     await requestRepository.addRequest(request);
-    
+
     // ✅ Dispatch immediately - no delay!
     // This ensures providers receive notification with full 20s offer duration
     unawaited(
@@ -1292,26 +1575,16 @@ class AppStore extends ChangeNotifier {
     return request.id;
   }
 
-  Future<String> _resolvePickupLabel({
+  String _fastPickupLabel({
     required String pickupLabel,
     required LatLng customerPosition,
-  }) async {
+  }) {
     final cleaned = pickupLabel.trim();
     final generic = cleaned.isEmpty ||
         cleaned.toLowerCase() == 'ma position actuelle' ||
         cleaned.toLowerCase().contains('destination carte');
 
     if (!generic) return cleaned;
-
-    try {
-      final nearestNamed =
-          await placeSearchService.reverseLookupNearestNamedPlace(
-        customerPosition,
-      );
-      if (nearestNamed != null && nearestNamed.trim().isNotEmpty) {
-        return nearestNamed.trim();
-      }
-    } catch (_) {}
 
     return cleaned.isNotEmpty
         ? cleaned
@@ -1344,7 +1617,8 @@ class AppStore extends ChangeNotifier {
     if (activeMissions.isNotEmpty) {
       _pushLifecycleNotification(
         title: 'Mission indisponible',
-        body: 'Vous avez deja une mission en cours. Terminez-la avant d\'en accepter une nouvelle.',
+        body:
+            'Vous avez deja une mission en cours. Terminez-la avant d\'en accepter une nouvelle.',
         type: 'provider_busy',
       );
       notifyListeners();
@@ -1353,6 +1627,13 @@ class AppStore extends ChangeNotifier {
 
     _dispatchTimers[requestId]?.cancel();
     _dispatchTimers.remove(requestId);
+    _scannedProviderCounts.remove(requestId);
+    _currentDispatchAttempts.remove(requestId);
+    _noProviderPopupMutedUntil.remove(requestId);
+    if (noProviderRequestId == requestId) {
+      noProviderRequestId = null;
+      noProviderPopupVisible = false;
+    }
 
     final providerStart = provider.position;
     final approachDistanceKm = estimateDistanceKm(
@@ -1623,6 +1904,16 @@ class AppStore extends ChangeNotifier {
 
     _dispatchTimers[requestId]?.cancel();
     _dispatchTimers.remove(requestId);
+    _dispatchChains.remove(requestId);
+    _dispatchChainIndex.remove(requestId);
+    _currentOfferedProviderIds.remove(requestId);
+    _scannedProviderCounts.remove(requestId);
+    _currentDispatchAttempts.remove(requestId);
+    _noProviderPopupMutedUntil.remove(requestId);
+    if (noProviderRequestId == requestId) {
+      noProviderRequestId = null;
+      noProviderPopupVisible = false;
+    }
 
     stopLiveTracking(requestId);
 
@@ -1759,6 +2050,8 @@ class AppStore extends ChangeNotifier {
       sub.cancel();
     }
     _liveTrackingSubs.clear();
+
+    presenceService.dispose();
 
     super.dispose();
   }

@@ -6,6 +6,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/i18n/app_localizations.dart';
 import '../../../core/services/realtime_tracking_service.dart';
 import '../../../core/services/route_service.dart';
 import '../../../models/app_request.dart';
@@ -60,6 +61,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
   DateTime? _lastDevTapAt;
   bool _followProvider = true;
   bool _routeIsFallback = false;
+  double _panelExtent = 0.30;
 
   @override
   void initState() {
@@ -86,20 +88,22 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
     });
 
     _mapController.mapEventStream.listen((event) {
-      if (event is MapEventMove && event.source != MapEventSource.mapController) {
+      if (event is MapEventMove &&
+          event.source != MapEventSource.mapController) {
         setState(() => _followProvider = false);
       }
     });
   }
-  
+
   Future<void> _initRealTimeTracking() async {
     _trackingService = RealtimeTrackingService();
-    
+
     // Start real-time GPS tracking if provider is on active mission
     final providerUid = widget.store.currentProviderUid;
     if (providerUid != null) {
       await _trackingService?.startTracking(providerUid);
-      debugPrint('🛰️ Real-time GPS tracking started (updates every 3 seconds)');
+      debugPrint(
+          '🛰️ Real-time GPS tracking started (updates every 3 seconds)');
     }
   }
 
@@ -119,6 +123,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
     final request = widget.store.findRequest(widget.requestId);
     if (request != null) {
       _syncAnimatedProviderPosition(request);
+      _scheduleRouteUpdate();
     }
     setState(() {});
   }
@@ -130,7 +135,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
     // During simulation, the simulation timer handles position updates
     // Don't interfere with the animation system
     if (_simulationRunning) return;
-    
+
     final tracking = widget.store.trackingFor(widget.requestId);
     final targetPosition = tracking?.providerPosition ??
         widget.store.providerCurrentPosition ??
@@ -141,7 +146,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
     // Update previous position for heading calculation
     if (_lastTargetPosition != null &&
         (_lastTargetPosition!.latitude != targetPosition.latitude ||
-         _lastTargetPosition!.longitude != targetPosition.longitude)) {
+            _lastTargetPosition!.longitude != targetPosition.longitude)) {
       _previousProviderPosition = _lastTargetPosition;
     }
     _lastTargetPosition = targetPosition;
@@ -170,15 +175,15 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
       // For real tracking: instantly update to actual GPS position (no animation)
       _providerAnimationTimer?.cancel();
       _renderedProviderPosition = targetPosition;
-      
+
       // Calculate heading from actual movement
       final bearing = _bearingRadians(currentPosition, targetPosition);
       final markerRotation = bearing + (math.pi / 2);
-      
+
       setState(() {
         _lastProviderHeadingRadians = markerRotation;
       });
-      
+
       if (_followProvider) {
         _mapController.move(
           targetPosition,
@@ -214,7 +219,8 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
         }
 
         final elapsed = DateTime.now().difference(startedAt);
-        final t = (elapsed.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
+        final t =
+            (elapsed.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
         final easedT = animationCurve.transform(t);
 
         final newPosition = _lerpLatLng(
@@ -240,7 +246,9 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
           timer.cancel();
 
           // ✅ Continue only for simulation
-          if (_simulationRunning && _routePoints.isNotEmpty && _simulationIndex < _routePoints.length - 1) {
+          if (_simulationRunning &&
+              _routePoints.isNotEmpty &&
+              _simulationIndex < _routePoints.length - 1) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) _syncAnimatedProviderPosition(request);
             });
@@ -257,14 +265,13 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
     );
   }
 
-
   void _scheduleRouteUpdate() {
     // Don't update route during simulation - route is already calculated
     // Updating during simulation causes unnecessary API calls and can result in fallback (red line)
     if (_simulationRunning) return;
-    
+
     _routeTimer?.cancel();
-    _routeTimer = Timer(const Duration(seconds: 3), _loadRoute);
+    _routeTimer = Timer(const Duration(milliseconds: 350), _loadRoute);
   }
 
   void _handleHiddenDevTap() {
@@ -355,15 +362,15 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
   }
 
   Future<void> _startNavigation(LatLng destination) async {
-  final url = Uri.parse(
-    'https://www.google.com/maps/dir/?api=1'
-    '&destination=${destination.latitude},${destination.longitude}'
-    '&travelmode=driving'
-    '&dir_action=navigate',
-  );
+    final url = Uri.parse(
+      'https://www.google.com/maps/dir/?api=1'
+      '&destination=${destination.latitude},${destination.longitude}'
+      '&travelmode=driving'
+      '&dir_action=navigate',
+    );
 
-  await launchUrl(url, mode: LaunchMode.externalApplication);
-}
+    await launchUrl(url, mode: LaunchMode.externalApplication);
+  }
 
   Future<void> _simulateTowToDestination() async {
     final request = widget.store.findRequest(widget.requestId);
@@ -433,6 +440,23 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
   Future<void> _loadRoute() async {
     final request = widget.store.findRequest(widget.requestId);
     if (request == null) return;
+
+    if (request.status == RequestStatus.completed ||
+        request.status == RequestStatus.cancelled) {
+      if (!mounted) return;
+      setState(() {
+        _routePoints = [];
+        _routeDistanceMeters = null;
+        _routeDurationSeconds = null;
+        _routeProgress = null;
+        _routeIsFallback = false;
+        _loadingRoute = false;
+        _lastRouteStart = null;
+        _lastRouteTarget = null;
+        _lastRouteStatus = request.status;
+      });
+      return;
+    }
 
     final tracking = widget.store.trackingFor(widget.requestId);
     final providerPosition = tracking?.providerPosition ??
@@ -542,7 +566,8 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
         : customerPosition;
   }
 
-  double _estimatedTotalMetersForStage(AppRequest request, RouteSnapshot route) {
+  double _estimatedTotalMetersForStage(
+      AppRequest request, RouteSnapshot route) {
     if (request.status == RequestStatus.arrived ||
         request.status == RequestStatus.inService ||
         request.status == RequestStatus.completed) {
@@ -595,8 +620,10 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
         _previousProviderPosition!,
         providerPosition,
       );
-      if (distance > 5) { // Only if moved significantly
-        return _bearingRadians(_previousProviderPosition!, providerPosition) + (math.pi / 2);
+      if (distance > 5) {
+        // Only if moved significantly
+        return _bearingRadians(_previousProviderPosition!, providerPosition) +
+            (math.pi / 2);
       }
     }
 
@@ -837,11 +864,12 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     final request = widget.store.findRequest(widget.requestId);
     if (request == null) {
-      return const Scaffold(
+      return Scaffold(
         body: Center(
-          child: Text('Mission introuvable'),
+          child: Text(strings.t('mission_introuvable')),
         ),
       );
     }
@@ -884,8 +912,8 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
       markers.add(
         Marker(
           point: customerPosition,
-          width: 50,
-          height: 50,
+          width: 82,
+          height: 82,
           child: _PinnedMarker(
             label: destinationStage ? 'Pick up' : 'Client',
             type: RoleMapMarkerType.customer,
@@ -902,8 +930,8 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
       markers.add(
         Marker(
           point: request.destinationPosition!,
-          width: 50,
-          height: 50,
+          width: 82,
+          height: 82,
           child: const _PinnedMarker(
             label: 'Dest',
             type: RoleMapMarkerType.destination,
@@ -941,7 +969,15 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
       );
     }
 
-    final topInset = MediaQuery.of(context).padding.top;
+    final safe = MediaQuery.paddingOf(context);
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final compactHeight = screenHeight < 620;
+    final minExtent = compactHeight ? 0.24 : 0.20;
+    final initialExtent = compactHeight ? 0.36 : 0.30;
+    final maxExtent = compactHeight ? 0.82 : 0.70;
+    final clampedExtent = _panelExtent.clamp(minExtent, maxExtent).toDouble();
+    final floatingBottom = (screenHeight * clampedExtent) + safe.bottom + 14;
+    final topInset = safe.top;
     return Scaffold(
       body: Stack(
         children: [
@@ -965,7 +1001,9 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
                         strokeWidth: 5,
                         color: _loadingRoute
                             ? Colors.blue
-                            : (_routeIsFallback ? Colors.red : Colors.green),
+                            : (_routeIsFallback
+                                ? const Color(0xFFFF0000)
+                                : const Color.fromRGBO(25, 167, 25, 1)),
                       ),
                     ],
                   ),
@@ -973,12 +1011,15 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
                   MarkerLayer(
                     markers: [
                       Marker(
-                        point: _routePoints.isNotEmpty ? _routePoints.first : customerPosition,
+                        point: _routePoints.isNotEmpty
+                            ? _routePoints.first
+                            : customerPosition,
                         width: 40,
                         height: 40,
                         child: const CircularProgressIndicator(
                           strokeWidth: 3,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.blue),
                         ),
                       ),
                     ],
@@ -1008,30 +1049,6 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
-                 _MapGlassButton(
-                   icon: Icons.my_location_outlined,
-                   onTap: () {
-                       final currentPos = widget.store.providerCurrentPosition ?? actualProviderPosition;
-                       if (currentPos == null) {
-                         widget.store.requestProviderLocation();
-                         return;
-                       }
-
-                       setState(() => _followProvider = true);
-
-                       // Center map exactly on provider position (like home page)
-                       _mapController.move(currentPos, 16);
-
-                       ScaffoldMessenger.of(context).showSnackBar(
-                         SnackBar(
-                           content: Text('Position: ${currentPos.latitude.toStringAsFixed(5)}, ${currentPos.longitude.toStringAsFixed(5)}'),
-                           duration: const Duration(seconds: 2),
-                           backgroundColor: Colors.green,
-                         ),
-                       );
-                        },
-                ),
               ],
             ),
           ),
@@ -1048,135 +1065,178 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
               ),
             ),
           Positioned(
-            left: 12,
-            right: 12,
-            bottom: 12,
-            child: _TrackingOverlayCard(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+            right: 12 + safe.right,
+            bottom: floatingBottom,
+            child: _MapGlassButton(
+              icon: Icons.my_location_outlined,
+              onTap: () {
+                final currentPos = widget.store.providerCurrentPosition ??
+                    actualProviderPosition;
+                if (currentPos == null) {
+                  widget.store.requestProviderLocation();
+                  return;
+                }
+
+                setState(() => _followProvider = true);
+                _mapController.move(currentPos, 16);
+              },
+            ),
+          ),
+          NotificationListener<DraggableScrollableNotification>(
+            onNotification: (notification) {
+              if ((notification.extent - _panelExtent).abs() > 0.002) {
+                setState(() => _panelExtent = notification.extent);
+              }
+              return false;
+            },
+            child: DraggableScrollableSheet(
+              minChildSize: minExtent,
+              initialChildSize: initialExtent,
+              maxChildSize: maxExtent,
+              snap: true,
+              snapSizes: [minExtent, initialExtent, maxExtent],
+              builder: (context, scrollController) {
+                return _TrackingOverlayCard(
+                  child: ListView(
+                    controller: scrollController,
+                    padding: EdgeInsets.only(bottom: safe.bottom + 4),
                     children: [
-                      Expanded(
-                        child: _InfoBox(
-                          title: 'Distance',
-                          value: _formatDistance(),
-                          accent: const Color(0xFF2563EB),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _InfoBox(
-                          title: 'ETA',
-                          value: _formatEta(),
-                          accent: const Color(0xFF16A34A),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _InfoBox(
-                          title: 'Action',
-                          value: _canAdvance(request.status)
-                              ? 'Disponible'
-                              : 'Bloquee',
-                          accent: const Color(0xFFF59E0B),
-                        ),
+                      const _SheetHandle(),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _InfoBox(
+                                  title: strings.t('distance'),
+                                  value: _formatDistance(),
+                                  accent: const Color(0xFF2563EB),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _InfoBox(
+                                  title: strings.t('eta'),
+                                  value: _formatEta(),
+                                  accent: const Color(0xFF16A34A),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _InfoBox(
+                                  title: strings.t('action'),
+                                  value: _canAdvance(request.status)
+                                      ? strings.t('available')
+                                      : strings.t('blocked'),
+                                  accent: const Color(0xFFF59E0B),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (_routeProgress != null) ...[
+                            const SizedBox(height: 8),
+                            _CompactProgressCard(progress: _routeProgress!),
+                          ],
+                          const SizedBox(height: 8),
+                          _SummaryInlineRow(
+                            icon: Icons.place_rounded,
+                            title: strings.t('pick_up'),
+                            value: request.pickupLabel,
+                          ),
+                          const SizedBox(height: 6),
+                          _SummaryInlineRow(
+                            icon: Icons.route_rounded,
+                            title: _routeStageTitle(request),
+                            value: _routeStageValue(request),
+                          ),
+                          const SizedBox(height: 6),
+                          _SummaryInlineRow(
+                            icon: Icons.phone_outlined,
+                            title: strings.t('client'),
+                            value: request.customerPhone,
+                          ),
+                          if ((request.providerApproachFee ?? 0) > 0) ...[
+                            const SizedBox(height: 6),
+                            _SummaryInlineRow(
+                              icon: Icons.payments_outlined,
+                              title: strings.t('access_fee'),
+                              value:
+                                  '${request.providerApproachFee!.toStringAsFixed(0)} DA',
+                            ),
+                          ],
+                          if (_loadingRoute && _routePoints.isEmpty)
+                            Padding(
+                              padding: EdgeInsets.only(top: 6),
+                              child: Text(
+                                strings.t('calculating_route'),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.black45,
+                                ),
+                              ),
+                            ),
+                          const SizedBox(height: 10),
+                          Column(
+                            children: [
+                              Row(
+                                children: [
+                                  _BottomActionIconButton(
+                                    icon: Icons.phone_outlined,
+                                    onPressed: request.customerPhone
+                                            .trim()
+                                            .isEmpty
+                                        ? null
+                                        : () =>
+                                            _callClient(request.customerPhone),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _BottomActionIconButton(
+                                    icon: Icons.chat_bubble_outline,
+                                    onPressed: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) => ChatPage(
+                                            requestId: request.id,
+                                            title: strings.t('chat_client'),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      onPressed: () =>
+                                          _startNavigation(routeTarget),
+                                      icon:
+                                          const Icon(Icons.navigation_outlined),
+                                      label:
+                                          Text(strings.t('open_google_maps')),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                width: double.infinity,
+                                child: FilledButton.icon(
+                                  onPressed: _canAdvance(request.status)
+                                      ? () => widget.store
+                                          .advanceMission(widget.requestId)
+                                      : null,
+                                  icon: const Icon(Icons.flag_outlined),
+                                  label: Text(_actionLabel(request.status)),
+                                ),
+                              ),
+                            ],
+                          )
+                        ],
                       ),
                     ],
                   ),
-                  if (_routeProgress != null) ...[
-                    const SizedBox(height: 8),
-                    _CompactProgressCard(progress: _routeProgress!),
-                  ],
-                  const SizedBox(height: 8),
-                  _SummaryInlineRow(
-                    icon: Icons.place_rounded,
-                    title: 'Pick up',
-                    value: request.pickupLabel,
-                  ),
-                  const SizedBox(height: 6),
-                  _SummaryInlineRow(
-                    icon: Icons.route_rounded,
-                    title: _routeStageTitle(request),
-                    value: _routeStageValue(request),
-                  ),
-                  const SizedBox(height: 6),
-                  _SummaryInlineRow(
-                    icon: Icons.phone_outlined,
-                    title: 'Client',
-                    value: request.customerPhone,
-                  ),
-                  if ((request.providerApproachFee ?? 0) > 0) ...[
-                    const SizedBox(height: 6),
-                    _SummaryInlineRow(
-                      icon: Icons.payments_outlined,
-                      title: 'Frais acces',
-                      value:
-                          '${request.providerApproachFee!.toStringAsFixed(0)} DA',
-                    ),
-                  ],
-                  if (_loadingRoute && _routePoints.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 6),
-                      child: Text(
-                        'Calcul de l itineraire...',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.black45,
-                        ),
-                      ),
-                    ),
-                  const SizedBox(height: 10),
-                  Column(
-  children: [
-    Row(
-      children: [
-        _BottomActionIconButton(
-          icon: Icons.phone_outlined,
-          onPressed: request.customerPhone.trim().isEmpty
-              ? null
-              : () => _callClient(request.customerPhone),
-        ),
-        const SizedBox(width: 8),
-        _BottomActionIconButton(
-          icon: Icons.chat_bubble_outline,
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => ChatPage(
-                  requestId: request.id,
-                  title: 'Chat client',
-                ),
-              ),
-            );
-          },
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: () => _startNavigation(routeTarget),
-            icon: const Icon(Icons.navigation_outlined),
-            label: const Text('Ouvrir Google Maps'),
-          ),
-        ),
-      ],
-    ),
-    const SizedBox(height: 8),
-    SizedBox(
-      width: double.infinity,
-      child: FilledButton.icon(
-        onPressed: _canAdvance(request.status)
-            ? () => widget.store.advanceMission(widget.requestId)
-            : null,
-        icon: const Icon(Icons.flag_outlined),
-        label: Text(_actionLabel(request.status)),
-      ),
-    ),
-  ],
-)
-                ],
-              ),
+                );
+              },
             ),
           ),
         ],
@@ -1208,17 +1268,26 @@ class _PinnedMarker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final marker = SizedBox(
+      width: 70,
+      height: 70,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: RoleMapMarker(
+          label: label,
+          type: type,
+          fallbackIcon: icon,
+          color: color,
+          size: 46,
+          rotationRadians: rotationRadians,
+          compactLabel: compactLabel,
+        ),
+      ),
+    );
+
     return Transform.translate(
       offset: offset,
-      child: RoleMapMarker(
-        label: label,
-        type: type,
-        fallbackIcon: icon,
-        color: color,
-        size: 80,
-        rotationRadians: rotationRadians,
-        compactLabel: compactLabel,
-      ),
+      child: marker,
     );
   }
 }
@@ -1351,6 +1420,25 @@ class _CompactProgressCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SheetHandle extends StatelessWidget {
+  const _SheetHandle();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        width: 42,
+        height: 4,
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: Colors.black26,
+          borderRadius: BorderRadius.circular(10),
+        ),
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/i18n/app_localizations.dart';
 import '../../../core/services/app_feedback.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../widgets/app_loading_view.dart';
@@ -59,7 +60,8 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
       _email = (data['email'] ?? '').toString();
     } catch (e) {
       if (!mounted) return;
-      AppFeedback.showError(context, 'Erreur chargement profil: $e');
+      final strings = AppLocalizations.of(context);
+      AppFeedback.showError(context, '${strings.t('profile_load_error')}: $e');
     } finally {
       if (mounted) {
         setState(() => _loading = false);
@@ -87,13 +89,15 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
 
     final isValid = _formKey.currentState?.validate() ?? false;
     if (!isValid) {
-      AppFeedback.showError(context, 'Verifiez les informations du profil.');
+      final strings = AppLocalizations.of(context);
+      AppFeedback.showError(context, strings.t('check_profile_info'));
       return;
     }
 
     final uid = _uid;
     if (uid == null) {
-      AppFeedback.showError(context, 'Utilisateur non connecte.');
+      final strings = AppLocalizations.of(context);
+      AppFeedback.showError(context, strings.t('user_not_connected'));
       return;
     }
 
@@ -107,10 +111,12 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
       }, SetOptions(merge: true));
 
       if (!mounted) return;
-      AppFeedback.showSuccess(context, 'Profil customer mis a jour');
+      final strings = AppLocalizations.of(context);
+      AppFeedback.showSuccess(context, strings.t('customer_profile_updated'));
     } catch (e) {
       if (!mounted) return;
-      AppFeedback.showError(context, 'Erreur sauvegarde: $e');
+      final strings = AppLocalizations.of(context);
+      AppFeedback.showError(context, '${strings.t('save_error')}: $e');
     } finally {
       if (mounted) {
         setState(() => _saving = false);
@@ -127,16 +133,18 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
       await AuthService().signOut();
     } catch (e) {
       if (!mounted) return;
-      AppFeedback.showError(context, 'Erreur deconnexion: $e');
+      final strings = AppLocalizations.of(context);
+      AppFeedback.showError(context, '${strings.t('signout_error')}: $e');
       setState(() => _signingOut = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     if (_loading) {
-      return const AppLoadingView(
-        message: 'Chargement du profil...',
+      return AppLoadingView(
+        message: strings.t('loading_profile'),
       );
     }
 
@@ -177,7 +185,7 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        fullName.isEmpty ? 'Customer' : fullName,
+                        fullName.isEmpty ? strings.t('customer') : fullName,
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w900,
@@ -186,7 +194,9 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _email.isEmpty ? 'Email non disponible' : _email,
+                        _email.isEmpty
+                            ? strings.t('email_unavailable')
+                            : _email,
                         style: const TextStyle(color: Colors.white70),
                       ),
                     ],
@@ -218,15 +228,15 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
                     validator: (value) {
                       final text = (value ?? '').trim();
                       if (text.isEmpty) {
-                        return 'Entrez votre nom complet';
+                        return strings.t('enterFullName');
                       }
                       if (text.length < 3) {
-                        return 'Nom trop court';
+                        return strings.t('nameTooShort');
                       }
                       return null;
                     },
                     decoration: InputDecoration(
-                      labelText: 'Nom complet',
+                      labelText: strings.t('nom_complet'),
                       prefixIcon: const Icon(Icons.person_outline),
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
@@ -245,15 +255,15 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
                     validator: (value) {
                       final text = (value ?? '').trim();
                       if (text.isEmpty) {
-                        return 'Entrez votre telephone';
+                        return strings.t('enter_phone');
                       }
                       if (text.length < 8) {
-                        return 'Numero invalide';
+                        return strings.t('invalid_number');
                       }
                       return null;
                     },
                     decoration: InputDecoration(
-                      labelText: 'Telephone',
+                      labelText: strings.t('telephone'),
                       prefixIcon: const Icon(Icons.phone_outlined),
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
@@ -276,7 +286,11 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.save_outlined),
-                      label: Text(_saving ? 'Sauvegarde...' : 'Sauvegarder'),
+                      label: Text(
+                        _saving
+                            ? strings.t('sauvegarde')
+                            : strings.t('sauvegarder'),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -292,7 +306,10 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
                             )
                           : const Icon(Icons.logout),
                       label: Text(
-                          _signingOut ? 'Deconnexion...' : 'Se deconnecter'),
+                        _signingOut
+                            ? strings.t('signing_out')
+                            : strings.t('sign_out'),
+                      ),
                     ),
                   ),
                 ],

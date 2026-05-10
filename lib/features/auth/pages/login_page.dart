@@ -1,6 +1,4 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/i18n/app_localizations.dart';
 import '../../../core/services/app_feedback.dart';
@@ -29,15 +27,10 @@ class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _identifierController = TextEditingController();
   final _passwordController = TextEditingController();
-  SharedPreferences? _sharedPreferences;
 
   bool _loading = false;
   bool _obscure = true;
   bool _didLaunchSignup = false;
-
-  String _loginMode = 'password';
-  bool _otpSent = false;
-  String _emailOtpCode = '';
 
   int _tapCount = 0;
   late DateTime _firstTapTime;
@@ -45,8 +38,8 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void initState() {
     super.initState();
-    _initSharedPreferences();
     _firstTapTime = DateTime.now();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted ||
           widget.adminOnly ||
@@ -54,6 +47,7 @@ class _LoginPageState extends State<LoginPage> {
           _didLaunchSignup) {
         return;
       }
+
       _didLaunchSignup = true;
       Navigator.of(context).push(
         MaterialPageRoute(
@@ -63,210 +57,11 @@ class _LoginPageState extends State<LoginPage> {
     });
   }
 
-  Future<void> _initSharedPreferences() async {
-    _sharedPreferences = await SharedPreferences.getInstance();
-  }
-
   @override
   void dispose() {
     _identifierController.dispose();
     _passwordController.dispose();
     super.dispose();
-  }
-
-  Future<void> _sendEmailOTP() async {
-    FocusScope.of(context).unfocus();
-    if (_loading) return;
-
-    final strings = AppLocalizations.of(context);
-    final email = _identifierController.text.trim();
-    if (email.isEmpty || !email.contains('@')) {
-      AppFeedback.showError(context, strings.t('enter_valid_email'));
-      return;
-    }
-
-    setState(() => _loading = true);
-
-    try {
-      String? generatedOtp;
-
-      await widget.authService.sendEmailOTP(
-        email: email,
-        onSent: () {
-          if (!mounted) return;
-          setState(() {
-            _loading = false;
-            _otpSent = true;
-          });
-        },
-        onError: (error) {
-          if (!mounted) return;
-          setState(() => _loading = false);
-          AppFeedback.showError(context, error);
-        },
-      );
-
-      await Future.delayed(const Duration(milliseconds: 200));
-
-      generatedOtp = _sharedPreferences?.getString('email_otp_code');
-
-      if (kDebugMode) {
-        debugPrint('DEBUG: Retrieved OTP code: $generatedOtp');
-      }
-
-      if (!mounted) return;
-
-      await showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (dialogContext) {
-          return AlertDialog(
-            title: Row(
-              children: [
-                const Icon(Icons.mark_email_read_outlined, color: Color(0xFFF59E0B)),
-                const SizedBox(width: 12),
-                Text(strings.t('otp_sent')),
-              ],
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(strings.t('your_6_digit_code')),
-                const SizedBox(height: 16),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF7E8),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFF59E0B), width: 2),
-                  ),
-                  child: Text(
-                    generatedOtp ?? strings.t('not_available'),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFFF59E0B),
-                      letterSpacing: 8,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  strings.t('copy_paste_code'),
-                  style: const TextStyle(color: Colors.black54, fontSize: 13),
-                ),
-              ],
-            ),
-            actions: [
-              FilledButton.icon(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                icon: const Icon(Icons.check_circle),
-                label: Text(strings.t('understood')),
-              ),
-            ],
-          );
-        },
-      );
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _loading = false);
-      AppFeedback.showError(context, e.toString().replaceFirst('Exception: ', ''));
-    }
-  }
-
-  Future<void> _verifyEmailAndLogin() async {
-    if (_loading) return;
-
-    final strings = AppLocalizations.of(context);
-    final email = _identifierController.text.trim();
-    final otpCode = _emailOtpCode.trim();
-
-    if (otpCode.length != 6) {
-      AppFeedback.showError(context, strings.t('code_must_be_6_digits'));
-      return;
-    }
-
-    setState(() => _loading = true);
-
-    try {
-      final password = await _showPasswordDialogForEmailOTP();
-      if (password == null || password.isEmpty) {
-        setState(() => _loading = false);
-        return;
-      }
-
-      await widget.authService.loginWithEmailOTP(
-        email: email,
-        otpCode: otpCode,
-        password: password,
-      );
-
-      if (!mounted) return;
-      if (widget.adminOnly && Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
-      }
-    } catch (e) {
-      if (!mounted) return;
-      AppFeedback.showError(context, e.toString().replaceFirst('Exception: ', ''));
-    } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
-    }
-  }
-
-  Future<String?> _showPasswordDialogForEmailOTP() async {
-    final strings = AppLocalizations.of(context);
-    final passwordController = TextEditingController();
-    String? result;
-
-    await showDialog<String>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: Text(strings.t('password')),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(strings.t('enter_password_to_login')),
-              const SizedBox(height: 16),
-              TextField(
-                controller: passwordController,
-                obscureText: true,
-                autofocus: true,
-                decoration: InputDecoration(
-                  labelText: strings.t('password'),
-                  prefixIcon: const Icon(Icons.lock_outline),
-                ),
-                onSubmitted: (_) {
-                  result = passwordController.text;
-                  Navigator.of(dialogContext).pop(result);
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(null),
-              child: Text(strings.t('cancel')),
-            ),
-            FilledButton(
-              onPressed: () {
-                result = passwordController.text;
-                Navigator.of(dialogContext).pop(result);
-              },
-              child: Text(strings.t('signIn')),
-            ),
-          ],
-        );
-      },
-    );
-
-    passwordController.dispose();
-    return result;
   }
 
   Future<void> _login() async {
@@ -275,7 +70,7 @@ class _LoginPageState extends State<LoginPage> {
 
     final isValid = _formKey.currentState?.validate() ?? false;
     if (!isValid) {
-      AppFeedback.showError(context, 'Vérifiez vos informations.'); // keep generic
+      AppFeedback.showError(context, 'Vérifiez vos informations.');
       return;
     }
 
@@ -288,7 +83,9 @@ class _LoginPageState extends State<LoginPage> {
         allowAdmin: widget.adminOnly,
         adminOnly: widget.adminOnly,
       );
+
       if (!mounted) return;
+
       if (widget.adminOnly && Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
       }
@@ -346,31 +143,35 @@ class _LoginPageState extends State<LoginPage> {
 
   void _handleLogoTap() {
     final now = DateTime.now();
+
     if (_tapCount == 0 || now.difference(_firstTapTime).inSeconds > 10) {
       _tapCount = 1;
       _firstTapTime = now;
-    } else {
-      _tapCount++;
-      if (_tapCount >= 7) {
-        _showAdminLogin();
-        _tapCount = 0;
-      }
+      return;
+    }
+
+    _tapCount++;
+
+    if (_tapCount >= 7) {
+      _tapCount = 0;
+      _showAdminLogin();
     }
   }
 
   void _showAdminLogin() {
     if (widget.adminOnly) {
       Navigator.of(context).pop();
-    } else {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => LoginPage(
-            authService: widget.authService,
-            adminOnly: true,
-          ),
-        ),
-      );
+      return;
     }
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => LoginPage(
+          authService: widget.authService,
+          adminOnly: true,
+        ),
+      ),
+    );
   }
 
   Future<void> _openPasswordResetDialog() async {
@@ -381,6 +182,7 @@ class _LoginPageState extends State<LoginPage> {
     final initialEmail = _identifierController.text.trim().contains('@')
         ? _identifierController.text.trim()
         : '';
+
     final controller = TextEditingController(text: initialEmail);
     var sending = false;
     String? errorText;
@@ -393,6 +195,7 @@ class _LoginPageState extends State<LoginPage> {
           builder: (context, setDialogState) {
             Future<void> sendReset() async {
               final email = controller.text.trim();
+
               if (email.isEmpty || !email.contains('@')) {
                 setDialogState(() {
                   errorText = strings.t('resetPasswordInvalidEmail');
@@ -407,11 +210,17 @@ class _LoginPageState extends State<LoginPage> {
 
               try {
                 await widget.authService.sendPasswordResetEmail(email: email);
+
                 if (!mounted || !dialogContext.mounted) return;
+
                 Navigator.of(dialogContext).pop();
-                AppFeedback.showSuccess(context, strings.t('resetPasswordSent'));
+                AppFeedback.showSuccess(
+                  context,
+                  strings.t('resetPasswordSent'),
+                );
               } catch (e) {
                 if (!dialogContext.mounted) return;
+
                 setDialogState(() {
                   sending = false;
                   errorText = e.toString().replaceFirst('Exception: ', '');
@@ -449,7 +258,8 @@ class _LoginPageState extends State<LoginPage> {
               ),
               actions: [
                 TextButton(
-                  onPressed: sending ? null : () => Navigator.of(dialogContext).pop(),
+                  onPressed:
+                      sending ? null : () => Navigator.of(dialogContext).pop(),
                   child: Text(strings.t('cancel')),
                 ),
                 FilledButton.icon(
@@ -462,7 +272,9 @@ class _LoginPageState extends State<LoginPage> {
                         )
                       : const Icon(Icons.mark_email_read_outlined),
                   label: Text(
-                    sending ? strings.t('resetPasswordSending') : strings.t('resetPasswordSend'),
+                    sending
+                        ? strings.t('resetPasswordSending')
+                        : strings.t('resetPasswordSend'),
                   ),
                 ),
               ],
@@ -484,9 +296,33 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     final strings = AppLocalizations.of(context);
-    final title = widget.adminOnly ? strings.t('adminLoginTitle') : strings.t('loginTitle');
-    final subtitle = widget.adminOnly ? strings.t('adminLoginSubtitle') : strings.t('loginSubtitle');
-    final helperText = widget.adminOnly ? strings.t('adminHelper') : strings.t('publicHelper');
+
+    final title = widget.adminOnly
+        ? strings.t('adminLoginTitle')
+        : strings.t('loginTitle');
+    final subtitle = widget.adminOnly
+        ? strings.t('adminLoginSubtitle')
+        : strings.t('loginSubtitle');
+    final helperText =
+        widget.adminOnly ? strings.t('adminHelper') : strings.t('publicHelper');
+
+    final screenSize = MediaQuery.sizeOf(context);
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+    final keyboardOpen = keyboardInset > 0;
+    final availableHeight = screenSize.height - keyboardInset;
+    final compact = keyboardOpen || availableHeight < 700;
+
+    final logoWidth = compact ? 420.0 : 560.0;
+
+    final scrollPadding = EdgeInsets.fromLTRB(
+      compact ? 18 : 20,
+      keyboardOpen ? 4 : 6,
+      compact ? 18 : 20,
+      compact ? 10 : 14,
+    );
+
+    final cardPadding = EdgeInsets.all(compact ? 20 : 24);
+    final heroCardGap = compact ? 4.0 : 6.0;
 
     return Scaffold(
       body: Container(
@@ -505,7 +341,7 @@ class _LoginPageState extends State<LoginPage> {
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
+              padding: scrollPadding,
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 500),
                 child: Column(
@@ -514,31 +350,26 @@ class _LoginPageState extends State<LoginPage> {
                       onTap: _handleLogoTap,
                       child: Column(
                         children: [
-                          Image.asset('assets/logo/applogo.png', width: 500, height: 200, fit: BoxFit.contain),
+                          Image.asset(
+                            'assets/logo/applogo.png',
+                            width: logoWidth,
+                            fit: BoxFit.contain,
+                          ),
                           const SizedBox(height: 2),
                           Text(
-                            strings.t('app_name'),
+                            strings.t('app_subtitle'),
                             style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 32,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1.2,
+                              color: Colors.white70,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                          Text(
-                            strings.t('app_subtitle'),
-                            style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500),
-                          ),
-                          const SizedBox(height: 8),
-                          const LanguageSelector(),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 8),
-
-                    // Premium login card
+                    SizedBox(height: heroCardGap),
                     Container(
-                      padding: const EdgeInsets.all(26),
+                      padding: cardPadding,
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(32),
@@ -571,275 +402,154 @@ class _LoginPageState extends State<LoginPage> {
                                 fontSize: 14,
                               ),
                             ),
-                            const SizedBox(height: 24),
-
-                            // Login mode toggle (only for non-admin)
-                            if (!widget.adminOnly) ...[
-                              Container(
-                                padding: const EdgeInsets.all(4),
+                            const SizedBox(height: 12),
+                            Align(
+                              alignment: AlignmentDirectional.centerEnd,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFF8F5EF),
-                                  borderRadius: BorderRadius.circular(14),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: const Color(0xFFE5E7EB),
+                                  ),
                                 ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: GestureDetector(
-                                        onTap: () => setState(() => _loginMode = 'password'),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(vertical: 12),
-                                          decoration: BoxDecoration(
-                                            color: _loginMode == 'password' ? Colors.white : Colors.transparent,
-                                            borderRadius: BorderRadius.circular(12),
-                                            boxShadow: _loginMode == 'password'
-                                                ? [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 2))]
-                                                : null,
-                                          ),
-                                          child: Row(
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            children: [
-                                              const Icon(Icons.password_outlined, size: 18, color: Color(0xFF1E293B)),
-                                              const SizedBox(width: 8),
-                                              Text(strings.t('password_login'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF1E293B))),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Expanded(
-                                      child: GestureDetector(
-                                        onTap: () => setState(() => _loginMode = 'email_otp'),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(vertical: 12),
-                                          decoration: BoxDecoration(
-                                            color: _loginMode == 'email_otp' ? Colors.white : Colors.transparent,
-                                            borderRadius: BorderRadius.circular(12),
-                                            boxShadow: _loginMode == 'email_otp'
-                                                ? [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 2))]
-                                                : null,
-                                          ),
-                                          child: Row(
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            children: [
-                                              const Icon(Icons.email_outlined, size: 18, color: Color(0xFF1E293B)),
-                                              const SizedBox(width: 8),
-                                              Text(strings.t('email_otp_login'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF1E293B))),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                                child: const LanguageSelector(),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            TextFormField(
+                              controller: _identifierController,
+                              textInputAction: TextInputAction.next,
+                              keyboardType: TextInputType.emailAddress,
+                              validator: (value) {
+                                if ((value ?? '').trim().isEmpty) {
+                                  return strings.t('enterIdentifier');
+                                }
+                                return null;
+                              },
+                              decoration: InputDecoration(
+                                labelText: strings.t('identifierShort'),
+                                hintText: '0550 12 34 56',
+                                prefixIcon: const Icon(Icons.person_outline),
+                                filled: true,
+                                fillColor: const Color(0xFFF8F5EF),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                  borderSide: BorderSide.none,
                                 ),
                               ),
-                              const SizedBox(height: 20),
-                            ],
+                            ),
+                            const SizedBox(height: 14),
+                            TextFormField(
+                              controller: _passwordController,
+                              obscureText: _obscure,
+                              textInputAction: TextInputAction.done,
+                              onFieldSubmitted: (_) => _login(),
+                              validator: (value) {
+                                final text = (value ?? '').trim();
 
-                            // Password login form
-                            if (_loginMode == 'password') ...[
-                              TextFormField(
-                                controller: _identifierController,
-                                textInputAction: TextInputAction.next,
-                                keyboardType: TextInputType.emailAddress,
-                                validator: (value) {
-                                  if ((value ?? '').trim().isEmpty) {
-                                    return strings.t('enterIdentifier');
-                                  }
-                                  return null;
-                                },
-                                decoration: InputDecoration(
-                                  labelText: strings.t('identifierShort'),
-                                  hintText: '0550 12 34 56',
-                                  prefixIcon: const Icon(Icons.person_outline),
-                                  filled: true,
-                                  fillColor: const Color(0xFFF8F5EF),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(18),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-                              TextFormField(
-                                controller: _passwordController,
-                                obscureText: _obscure,
-                                textInputAction: TextInputAction.done,
-                                onFieldSubmitted: (_) => _login(),
-                                validator: (value) {
-                                  final text = (value ?? '').trim();
-                                  if (text.isEmpty) {
-                                    return strings.t('enter_password');
-                                  }
-                                  if (text.length < 6) {
-                                    return strings.t('minPassword');
-                                  }
-                                  return null;
-                                },
-                                decoration: InputDecoration(
-                                  labelText: strings.t('password'),
-                                  prefixIcon: const Icon(Icons.lock_outline),
-                                  suffixIcon: IconButton(
-                                    onPressed: () => setState(() => _obscure = !_obscure),
-                                    icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined),
-                                  ),
-                                  filled: true,
-                                  fillColor: const Color(0xFFF8F5EF),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(18),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                ),
-                              ),
-                              Align(
-                                alignment: AlignmentDirectional.centerEnd,
-                                child: TextButton(
-                                  onPressed: _loading ? null : _openPasswordResetDialog,
-                                  child: Text(
-                                    strings.t('forgot_password'),
-                                    style: const TextStyle(fontWeight: FontWeight.w700),
-                                  ),
-                                ),
-                              ),
-                            ] else if (_loginMode == 'email_otp') ...[
-                              TextFormField(
-                                controller: _identifierController,
-                                enabled: !_otpSent,
-                                textInputAction: TextInputAction.send,
-                                keyboardType: TextInputType.emailAddress,
-                                validator: (value) {
-                                  final text = (value ?? '').trim();
-                                  if (text.isEmpty) {
-                                    return strings.t('enter_valid_email');
-                                  }
-                                  if (!text.contains('@')) {
-                                    return strings.t('enter_valid_email');
-                                  }
-                                  return null;
-                                },
-                                decoration: InputDecoration(
-                                  labelText: strings.t('email'),
-                                  hintText: 'exemple@email.com',
-                                  prefixIcon: const Icon(Icons.email_outlined),
-                                  filled: true,
-                                  fillColor: const Color(0xFFF8F5EF),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(18),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  suffixIcon: _otpSent
-                                      ? const Icon(Icons.check_circle, color: Color(0xFF059669))
-                                      : null,
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-                              if (_otpSent) ...[
-                                TextFormField(
-                                  onChanged: (value) => _emailOtpCode = value,
-                                  textInputAction: TextInputAction.done,
-                                  keyboardType: TextInputType.number,
-                                  maxLength: 6,
-                                  validator: (value) {
-                                    final text = (value ?? '').trim();
-                                    if (text.isEmpty) {
-                                      return strings.t('code_must_be_6_digits');
-                                    }
-                                    if (text.length != 6) {
-                                      return strings.t('code_must_be_6_digits');
-                                    }
-                                    return null;
-                                  },
-                                  decoration: InputDecoration(
-                                    labelText: strings.t('enter_otp_code'),
-                                    hintText: '123456',
-                                    prefixIcon: const Icon(Icons.pin_outlined),
-                                    filled: true,
-                                    fillColor: const Color(0xFFF8F5EF),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(18),
-                                      borderSide: BorderSide.none,
-                                    ),
-                                    counterText: '',
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: FilledButton.icon(
-                                    onPressed: _loading ? null : _verifyEmailAndLogin,
-                                    icon: _loading
-                                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                                        : const Icon(Icons.login),
-                                    label: Text(strings.t('verify_and_login')),
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                Center(
-                                  child: TextButton.icon(
-                                    onPressed: () {
-                                      setState(() {
-                                        _otpSent = false;
-                                        _emailOtpCode = '';
-                                      });
-                                    },
-                                    icon: const Icon(Icons.edit_outlined, size: 18),
-                                    label: Text(strings.t('change_email')),
-                                  ),
-                                ),
-                              ] else ...[
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: FilledButton.icon(
-                                    onPressed: _loading ? null : _sendEmailOTP,
-                                    icon: _loading
-                                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                                        : const Icon(Icons.email_outlined),
-                                    label: Text(strings.t('send_otp_code')),
-                                  ),
-                                ),
-                              ],
-                            ],
-                            const SizedBox(height: 18),
+                                if (text.isEmpty) {
+                                  return strings.t('enter_password');
+                                }
 
-                            // Helper box
+                                if (text.length < 6) {
+                                  return strings.t('minPassword');
+                                }
+
+                                return null;
+                              },
+                              decoration: InputDecoration(
+                                labelText: strings.t('password'),
+                                prefixIcon: const Icon(Icons.lock_outline),
+                                suffixIcon: IconButton(
+                                  onPressed: () =>
+                                      setState(() => _obscure = !_obscure),
+                                  icon: Icon(
+                                    _obscure
+                                        ? Icons.visibility_off_outlined
+                                        : Icons.visibility_outlined,
+                                  ),
+                                ),
+                                filled: true,
+                                fillColor: const Color(0xFFF8F5EF),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                  borderSide: BorderSide.none,
+                                ),
+                              ),
+                            ),
+                            Align(
+                              alignment: AlignmentDirectional.centerEnd,
+                              child: TextButton(
+                                onPressed:
+                                    _loading ? null : _openPasswordResetDialog,
+                                child: Text(
+                                  strings.t('forgot_password'),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
                             Container(
                               width: double.infinity,
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFFFF7E8),
                                 borderRadius: BorderRadius.circular(18),
-                                border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
+                                border: Border.all(
+                                  color: const Color(0xFFF59E0B)
+                                      .withValues(alpha: 0.3),
+                                ),
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.info_outline, color: Color(0xFFF59E0B), size: 22),
+                                  const Icon(
+                                    Icons.info_outline,
+                                    color: Color(0xFFF59E0B),
+                                    size: 22,
+                                  ),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Text(
                                       helperText,
-                                      style: const TextStyle(color: Color(0xFF6B4F1D), height: 1.35, fontSize: 13),
+                                      style: const TextStyle(
+                                        color: Color(0xFF6B4F1D),
+                                        height: 1.35,
+                                        fontSize: 13,
+                                      ),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
                             const SizedBox(height: 20),
-
-                            // Login button
-                            if (_loginMode == 'password')
-                              SizedBox(
-                                width: double.infinity,
-                                child: FilledButton.icon(
-                                  onPressed: _loading ? null : _login,
-                                  icon: _loading
-                                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                                      : const Icon(Icons.login),
-                                  label: Text(_loading ? strings.t('signingIn') : strings.t('signIn')),
+                            SizedBox(
+                              width: double.infinity,
+                              child: FilledButton.icon(
+                                onPressed: _loading ? null : _login,
+                                icon: _loading
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(Icons.login),
+                                label: Text(
+                                  _loading
+                                      ? strings.t('signingIn')
+                                      : strings.t('signIn'),
                                 ),
                               ),
+                            ),
                             const SizedBox(height: 14),
-
-                            // Create account button
                             if (!widget.adminOnly)
                               SizedBox(
                                 width: double.infinity,
@@ -849,14 +559,20 @@ class _LoginPageState extends State<LoginPage> {
                                       : () {
                                           Navigator.of(context).push(
                                             MaterialPageRoute(
-                                              builder: (_) => SignupPage(authService: widget.authService),
+                                              builder: (_) => SignupPage(
+                                                authService: widget.authService,
+                                              ),
                                             ),
                                           );
                                         },
-                                  icon: const Icon(Icons.person_add_alt_1_outlined),
+                                  icon: const Icon(
+                                    Icons.person_add_alt_1_outlined,
+                                  ),
                                   label: Text(strings.t('create_account')),
                                   style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
                                   ),
                                 ),
                               )
@@ -864,27 +580,35 @@ class _LoginPageState extends State<LoginPage> {
                               SizedBox(
                                 width: double.infinity,
                                 child: OutlinedButton.icon(
-                                  onPressed: _loading ? null : () => Navigator.of(context).pop(),
+                                  onPressed: _loading
+                                      ? null
+                                      : () => Navigator.of(context).pop(),
                                   icon: const Icon(Icons.arrow_back),
                                   label: Text(strings.t('back_to_public')),
                                 ),
                               ),
                             const SizedBox(height: 14),
-
-                            // Legal links
                             Wrap(
                               alignment: WrapAlignment.center,
                               spacing: 8,
                               runSpacing: 4,
                               children: [
                                 TextButton.icon(
-                                  onPressed: () => _openLegal(LegalDocument.privacy),
-                                  icon: const Icon(Icons.privacy_tip_outlined, size: 18),
+                                  onPressed: () =>
+                                      _openLegal(LegalDocument.privacy),
+                                  icon: const Icon(
+                                    Icons.privacy_tip_outlined,
+                                    size: 18,
+                                  ),
                                   label: Text(strings.t('privacy_short')),
                                 ),
                                 TextButton.icon(
-                                  onPressed: () => _openLegal(LegalDocument.terms),
-                                  icon: const Icon(Icons.description_outlined, size: 18),
+                                  onPressed: () =>
+                                      _openLegal(LegalDocument.terms),
+                                  icon: const Icon(
+                                    Icons.description_outlined,
+                                    size: 18,
+                                  ),
                                   label: Text(strings.t('terms_short')),
                                 ),
                               ],

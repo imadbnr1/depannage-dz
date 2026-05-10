@@ -1,6 +1,9 @@
+import 'package:auto_rescue/core/services/route_service.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
+import 'dart:async' show unawaited;
 
+import '../../../core/i18n/app_localizations.dart';
 import '../../../models/service_type.dart';
 import '../../../state/app_store.dart';
 import 'pick_destination_page.dart';
@@ -96,12 +99,13 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
   }
 
   Future<void> _pickDestination() async {
+    final strings = AppLocalizations.of(context);
     if (_vehicleTypeController.text.trim().isEmpty ||
         _brandModelController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'Renseignez d abord le type de vehicule et le modele de la voiture.',
+            strings.t('vehicle_info_required_before_destination'),
           ),
         ),
       );
@@ -127,12 +131,13 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
   }
 
   Future<void> _submit() async {
+    final strings = AppLocalizations.of(context);
     if (!_formKey.currentState!.validate()) return;
 
     if (_pickupPoint == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Choisissez un point de depart valide.'),
+        SnackBar(
+          content: Text(strings.t('choisissez_un_point_de_depart_valide')),
         ),
       );
       return;
@@ -140,9 +145,7 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
 
     if (_destinationPoint == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Choisissez une destination valide.'),
-        ),
+        SnackBar(content: Text(strings.t('choisissez_une_destination_valide'))),
       );
       return;
     }
@@ -150,11 +153,22 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
     setState(() => _isSubmitting = true);
 
     try {
+      // ✅ Kick off route pre-fetch in background immediately — don't await it.
+      // RouteService has a static cache, so CustomerTrackingPage will get
+      // the result instantly (or near-instantly) when it requests the same route.
+      unawaited(
+        RouteService().buildDrivingRoute(
+          origin: _pickupPoint!,
+          destination: _destinationPoint!,
+        ),
+      );
+
+      // ✅ Create the Firestore request — this is lightweight and fast.
       final requestId = await widget.store.createRequest(
         service: widget.service,
         customerPosition: _pickupPoint!,
         pickupLabel: _pickupController.text.trim(),
-        pickupSubtitle: 'Point de depart',
+        pickupSubtitle: strings.t('departure_point'),
         vehicleType: _vehicleTypeController.text.trim(),
         brandModel: _brandModelController.text.trim(),
         payment: 'Especes',
@@ -168,6 +182,8 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
 
       if (!mounted) return;
 
+      // ✅ Navigate instantly — route will already be cached or still loading
+      //    in the background when the tracking page needs it.
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) => CustomerTrackingPage(
@@ -184,9 +200,7 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
         ),
       );
     } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -212,7 +226,7 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
           onTap: onTap,
           validator: (value) {
             if ((value ?? '').trim().isEmpty) {
-              return 'Champ obligatoire';
+              return AppLocalizations.of(context).t('required_field');
             }
             return null;
           },
@@ -250,7 +264,7 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
           controller: controller,
           validator: (value) {
             if ((value ?? '').trim().isEmpty) {
-              return 'Champ obligatoire';
+              return AppLocalizations.of(context).t('required_field');
             }
             return null;
           },
@@ -270,9 +284,10 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Votre trajet'),
+        title: Text(strings.t('your_trip')),
       ),
       body: SafeArea(
         child: Form(
@@ -290,29 +305,29 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
                 child: Column(
                   children: [
                     _buildReadOnlyPicker(
-                      label: 'Depart',
+                      label: strings.t('depart'),
                       controller: _pickupController,
                       onTap: _pickPickup,
-                      hint: 'Choisir le point de depart',
+                      hint: strings.t('choose_departure_point'),
                     ),
                     const SizedBox(height: 14),
                     _buildTextField(
-                      label: 'Type de vehicule',
+                      label: strings.t('type_de_vehicule'),
                       controller: _vehicleTypeController,
-                      hint: 'Ex: Berline, SUV, Utilitaire',
+                      hint: strings.t('vehicle_type_hint'),
                     ),
                     const SizedBox(height: 14),
                     _buildTextField(
-                      label: 'Modele / marque',
+                      label: strings.t('brand_model'),
                       controller: _brandModelController,
-                      hint: 'Ex: Clio 4, i10, Symbol',
+                      hint: strings.t('brand_model_hint'),
                     ),
                     const SizedBox(height: 14),
                     _buildReadOnlyPicker(
-                      label: 'Destination',
+                      label: strings.t('destination'),
                       controller: _destinationController,
                       onTap: _pickDestination,
-                      hint: 'Choisir la destination',
+                      hint: strings.t('choisir_destination'),
                     ),
                   ],
                 ),
@@ -328,9 +343,9 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Estimation',
-                      style: TextStyle(
+                    Text(
+                      strings.t('estimation'),
+                      style: const TextStyle(
                         fontWeight: FontWeight.w900,
                         fontSize: 18,
                         color: Color(0xFF166534),
@@ -349,7 +364,7 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
                               SizedBox(
                                 width: (constraints.maxWidth - 10) / 2,
                                 child: _EstimateBox(
-                                  title: 'Distance',
+                                  title: strings.t('distance'),
                                   value:
                                       '${_estimatedDistanceKm.toStringAsFixed(1)} km',
                                 ),
@@ -357,14 +372,14 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
                               SizedBox(
                                 width: (constraints.maxWidth - 10) / 2,
                                 child: _EstimateBox(
-                                  title: 'ETA',
+                                  title: strings.t('eta'),
                                   value: '$_estimatedEtaMinutes min',
                                 ),
                               ),
                               SizedBox(
                                 width: constraints.maxWidth,
                                 child: _EstimateBox(
-                                  title: 'Prix',
+                                  title: strings.t('prix'),
                                   value:
                                       '${_estimatedPrice.toStringAsFixed(0)} DA',
                                 ),
@@ -377,7 +392,7 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
                           children: [
                             Expanded(
                               child: _EstimateBox(
-                                title: 'Distance',
+                                title: strings.t('distance'),
                                 value:
                                     '${_estimatedDistanceKm.toStringAsFixed(1)} km',
                               ),
@@ -385,14 +400,14 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
                             const SizedBox(width: 10),
                             Expanded(
                               child: _EstimateBox(
-                                title: 'ETA',
+                                title: strings.t('eta'),
                                 value: '$_estimatedEtaMinutes min',
                               ),
                             ),
                             const SizedBox(width: 10),
                             Expanded(
                               child: _EstimateBox(
-                                title: 'Prix',
+                                title: strings.t('prix'),
                                 value:
                                     '${_estimatedPrice.toStringAsFixed(0)} DA',
                               ),
@@ -415,7 +430,9 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
                       )
                     : const Icon(Icons.check_circle_outline),
                 label: Text(
-                  _isSubmitting ? 'Creation...' : 'Confirmer la demande',
+                  _isSubmitting
+                      ? strings.t('creating')
+                      : strings.t('confirm_request'),
                 ),
               ),
             ],

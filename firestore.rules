@@ -1,4 +1,5 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -10,75 +11,32 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
+    function role() {
+      return userDoc().data.role;
+    }
+
     function isAdmin() {
-      return isSignedIn() && userDoc().data.role == 'admin';
+      return isSignedIn() && role() == 'admin';
     }
 
     function isCustomer() {
-      return isSignedIn() && userDoc().data.role == 'customer';
+      return isSignedIn() && role() == 'customer';
     }
 
     function isProvider() {
-      return isSignedIn() && userDoc().data.role == 'provider';
+      return isSignedIn() && role() == 'provider';
     }
 
     function isOwner(uid) {
-      return request.auth.uid == uid;
-    }
-
-    function isPublicRole(role) {
-      return role == 'customer' || role == 'provider';
-    }
-
-    function isValidSelfUserCreate(userId) {
-      return isOwner(userId) &&
-        request.resource.data.uid == userId &&
-        isPublicRole(request.resource.data.role) &&
-        request.resource.data.email is string &&
-        request.resource.data.fullName is string &&
-        request.resource.data.phone is string &&
-        request.resource.data.isBlocked != true &&
-        (
-          (request.resource.data.role == 'customer' &&
-            request.resource.data.isApproved == true) ||
-          (request.resource.data.role == 'provider' &&
-            request.resource.data.isApproved == false)
-        );
-    }
-
-    function isSafeSelfUserUpdate(userId) {
-      return isOwner(userId) &&
-        request.resource.data.uid == resource.data.uid &&
-        request.resource.data.email == resource.data.email &&
-        request.resource.data.role == resource.data.role &&
-        request.resource.data.isApproved == resource.data.isApproved &&
-        request.resource.data.isBlocked == resource.data.isBlocked;
-    }
-
-    function isValidSelfProviderCreate(providerId) {
-      return isOwner(providerId) &&
-        request.resource.data.uid == providerId &&
-        request.resource.data.isApproved == false &&
-        request.resource.data.isBlocked != true;
-    }
-
-    function isSafeSelfProviderUpdate(providerId) {
-      return isOwner(providerId) &&
-        request.resource.data.uid == resource.data.uid &&
-        request.resource.data.isApproved == resource.data.isApproved &&
-        request.resource.data.isBlocked == resource.data.isBlocked;
+      return isSignedIn() && request.auth.uid == uid;
     }
 
     function requestDoc(id) {
       return get(/databases/$(database)/documents/requests/$(id));
     }
 
-    function validProviderTransition(from, to) {
-      return (from == 'accepted' && to == 'onTheWay') ||
-        (from == 'onTheWay' && to == 'arrived') ||
-        (from == 'arrived' && to == 'inService') ||
-        (from == 'inService' && to == 'completed') ||
-        from == to;
+    function onlyChanged(keys) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
     }
 
     function canReadRequest(data) {
@@ -90,85 +48,174 @@ service cloud.firestore {
         ));
     }
 
-    // USERS
-    match /users/{userId} {
-      allow read: if isSignedIn() && (isOwner(userId) || isAdmin());
-      allow create: if isSignedIn() && (isValidSelfUserCreate(userId) || isAdmin());
-      allow update: if isSignedIn() && (isSafeSelfUserUpdate(userId) || isAdmin());
-      allow delete: if isAdmin();
+    function currentProviderIsAvailable() {
+      let providerDoc = get(/databases/$(database)/documents/providers/$(request.auth.uid));
+
+      return providerDoc.data.isApproved == true &&
+        providerDoc.data.isOnline == true &&
+        providerDoc.data.isBusy != true;
     }
 
-    // PROVIDERS
-    match /providers/{providerId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && (isValidSelfProviderCreate(providerId) || isAdmin());
-      allow update: if isSignedIn() && (isSafeSelfProviderUpdate(providerId) || isAdmin());
-      allow delete: if isAdmin();
+    function offeredProviderIsAvailable() {
+      let providerId = request.resource.data.offeredProviderUid;
+      let providerDoc = get(/databases/$(database)/documents/providers/$(providerId));
+
+      return providerId is string &&
+        providerDoc.data.isApproved == true &&
+        providerDoc.data.isOnline == true &&
+        providerDoc.data.isBusy != true;
     }
 
-    // REQUESTS (CRITICAL)
-    match /requests/{requestId} {
+    function customerCanCancelOwnRequest() {
+      return isCustomer() &&
+        resource.data.customerUid == request.auth.uid &&
+        resource.data.status == 'searching' &&
+        request.resource.data.status == 'cancelled';
+    }
 
-      allow read: if isSignedIn() && canReadRequest(resource.data);
+    function customerCanDispatchOwnRequest() {
+      return isCustomer() &&
+        resource.data.customerUid == request.auth.uid &&
+        resource.data.status == 'searching' &&
+        request.resource.data.status == 'searching' &&
+        offeredProviderIsAvailable() &&
+        onlyChanged([
+          'offeredProviderUid',
+          'offeredAt',
+          'offerExpiresAt',
+          'rejectedProviderUids',
+          'updatedAt',
+          'updatedAtIso'
+        ]);
+    }
 
-      // only customer creates request
-      allow create: if isCustomer() &&
+    function customerCanRetrySearchingRequest() {
+      return isCustomer() &&
+        resource.data.customerUid == request.auth.uid &&
         request.resource.data.customerUid == request.auth.uid &&
+        resource.data.status == 'searching' &&
         request.resource.data.status == 'searching' &&
         request.resource.data.providerUid == null &&
-        request.resource.data.offeredProviderUid == null;
+        request.resource.data.offeredProviderUid == null &&
+        request.resource.data.offeredAt == null &&
+        request.resource.data.offerExpiresAt == null &&
+        onlyChanged([
+          'offeredProviderUid',
+          'offeredAt',
+          'offerExpiresAt',
+          'rejectedProviderUids',
+          'updatedAt',
+          'updatedAtIso'
+        ]);
+    }
 
-      // UPDATE RULES
-      allow update: if isSignedIn() && (
-        isAdmin()
+    function customerCanRateProvider() {
+      return isCustomer() &&
+        resource.data.customerUid == request.auth.uid &&
+        resource.data.status == 'completed' &&
+        request.resource.data.status == 'completed' &&
+        onlyChanged([
+          'clientRatingForProvider',
+          'clientReviewForProvider',
+          'isClientRated',
+          'clientRatedAtIso',
+          'updatedAt',
+          'updatedAtIso'
+        ]);
+    }
 
-        // customer can only cancel own request
-        || (isCustomer() &&
-            resource.data.customerUid == request.auth.uid &&
-            resource.data.status != 'completed' &&
-            resource.data.status != 'cancelled' &&
-            request.resource.data.status == 'cancelled')
+    function providerCanRateClient() {
+      return isProvider() &&
+        resource.data.providerUid == request.auth.uid &&
+        resource.data.status == 'completed' &&
+        request.resource.data.status == 'completed' &&
+        onlyChanged([
+          'providerRatingForClient',
+          'providerReviewForClient',
+          'isProviderRated',
+          'providerRatedAtIso',
+          'updatedAt',
+          'updatedAtIso'
+        ]);
+    }
 
-        // offered provider can reject current offer
-        || (isProvider() && (
-          (
-            resource.data.status == 'searching' &&
-            resource.data.offeredProviderUid == request.auth.uid &&
-            request.resource.data.status == 'searching' &&
-            request.resource.data.providerUid == null &&
-            request.resource.data.offeredProviderUid == null
-          ) ||
-          (
-            resource.data.status == 'searching' &&
-            resource.data.offeredProviderUid == request.auth.uid &&
-            request.resource.data.status == 'accepted' &&
-            request.resource.data.providerUid == request.auth.uid &&
-            request.resource.data.offeredProviderUid == null
-          ) ||
-          (
-            resource.data.providerUid == request.auth.uid &&
-            request.resource.data.providerUid == request.auth.uid &&
-            validProviderTransition(
-              resource.data.status,
-              request.resource.data.status,
-            )
-          )
-        ))
+    function providerCanUpdateOfferedOrAssignedRequest() {
+      return isProvider() && (
+        (
+          resource.data.status == 'searching' &&
+          resource.data.offeredProviderUid == request.auth.uid &&
+          request.resource.data.status == 'accepted' &&
+          currentProviderIsAvailable()
+        ) ||
+        (
+          resource.data.providerUid == request.auth.uid &&
+          resource.data.status != 'completed' &&
+          resource.data.status != 'cancelled'
+        )
       );
+    }
+
+    function customerCanUpdateProviderRatingOnly() {
+      return isCustomer() &&
+        onlyChanged([
+          'rating',
+          'ratingCount',
+          'updatedAtIso'
+        ]);
+    }
+
+    match /phone_lookup/{phone} {
+      allow read: if true;
+      allow create, update: if isSignedIn();
+      allow delete: if isAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow create: if isOwner(userId) || isAdmin();
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /providers/{providerId} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(providerId) || isAdmin();
+
+      allow update: if isAdmin() ||
+        isOwner(providerId) ||
+        customerCanUpdateProviderRatingOnly();
 
       allow delete: if isAdmin();
     }
 
-    // TRACKING (STRICT)
-    match /tracking/{requestId} {
-      allow read: if isSignedIn() &&
-        canReadRequest(requestDoc(requestId).data);
+    match /requests/{requestId} {
+      allow read: if isSignedIn() && canReadRequest(resource.data);
 
-      allow write: if isProvider() &&
+      allow create: if isCustomer() &&
+        request.resource.data.customerUid == request.auth.uid &&
+        request.resource.data.status == 'searching';
+
+      allow update: if isAdmin() ||
+        customerCanCancelOwnRequest() ||
+        customerCanDispatchOwnRequest() ||
+        customerCanRetrySearchingRequest() ||
+        customerCanRateProvider() ||
+        providerCanUpdateOfferedOrAssignedRequest() ||
+        providerCanRateClient();
+
+      allow delete: if isAdmin();
+    }
+
+    match /tracking/{requestId} {
+      allow read: if isSignedIn() && canReadRequest(requestDoc(requestId).data);
+
+      allow create, update: if isProvider() &&
+        requestDoc(requestId).data.providerUid == request.auth.uid;
+
+      allow delete: if isProvider() &&
         requestDoc(requestId).data.providerUid == request.auth.uid;
     }
 
-    // ADMIN CONFIG
     match /app_config/{docId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
@@ -177,6 +224,22 @@ service cloud.firestore {
     match /app_notifications/{docId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
+    }
+
+    match /admin_activity_logs/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /admin_audit_logs/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /admin_audit/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /audit_logs/{docId} {
+      allow read, write: if isAdmin();
     }
 
     match /request_chats/{requestId} {
@@ -189,7 +252,6 @@ service cloud.firestore {
       }
     }
 
-    // CHAT fallback
     match /chats/{chatId} {
       allow read, write: if isSignedIn();
     }

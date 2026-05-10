@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -23,14 +25,79 @@ class FirestoreRequestRepository implements RequestRepository {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) {
-      final items = snapshot.docs.map(AppRequest.fromDoc).toList();
-      _cache = items;
-      return items;
+      return _cacheAndSort(snapshot.docs.map(AppRequest.fromDoc));
     });
   }
 
   @override
+  Stream<List<AppRequest>> watchCustomerRequests(String customerUid) {
+    return _requests
+        .where('customerUid', isEqualTo: customerUid)
+        .snapshots()
+        .map((snapshot) {
+      return _cacheAndSort(snapshot.docs.map(AppRequest.fromDoc));
+    });
+  }
+
+  @override
+  Stream<List<AppRequest>> watchProviderRequests(String providerUid) {
+    late final StreamController<List<AppRequest>> controller;
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? offeredSub;
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? assignedSub;
+    var offered = <String, AppRequest>{};
+    var assigned = <String, AppRequest>{};
+
+    void emit() {
+      final merged = <String, AppRequest>{...offered, ...assigned};
+      controller.add(_cacheAndSort(merged.values));
+    }
+
+    controller = StreamController<List<AppRequest>>(
+      onListen: () {
+        offeredSub = _requests
+            .where('offeredProviderUid', isEqualTo: providerUid)
+            .snapshots()
+            .listen(
+          (snapshot) {
+            offered = {
+              for (final doc in snapshot.docs) doc.id: AppRequest.fromDoc(doc),
+            };
+            emit();
+          },
+          onError: controller.addError,
+        );
+
+        assignedSub = _requests
+            .where('providerUid', isEqualTo: providerUid)
+            .snapshots()
+            .listen(
+          (snapshot) {
+            assigned = {
+              for (final doc in snapshot.docs) doc.id: AppRequest.fromDoc(doc),
+            };
+            emit();
+          },
+          onError: controller.addError,
+        );
+      },
+      onCancel: () async {
+        await offeredSub?.cancel();
+        await assignedSub?.cancel();
+      },
+    );
+
+    return controller.stream;
+  }
+
+  @override
   List<AppRequest> currentRequests() => List.unmodifiable(_cache);
+
+  List<AppRequest> _cacheAndSort(Iterable<AppRequest> requests) {
+    final items = requests.toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    _cache = items;
+    return items;
+  }
 
   @override
   Future<void> addRequest(AppRequest request) async {
@@ -45,13 +112,13 @@ class FirestoreRequestRepository implements RequestRepository {
   @override
   Future<void> updateRequest(String requestId, AppRequest request) async {
     await _requests.doc(requestId).set(
-          {
-            ...request.toMap(),
-            'updatedAt': FieldValue.serverTimestamp(),
-            'updatedAtIso': DateTime.now().toIso8601String(),
-          },
-          SetOptions(merge: true),
-        );
+      {
+        ...request.toMap(),
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedAtIso': DateTime.now().toIso8601String(),
+      },
+      SetOptions(merge: true),
+    );
   }
 
   @override
@@ -89,13 +156,16 @@ class FirestoreRequestRepository implements RequestRepository {
       if (currentOfferedUid.isNotEmpty) return false;
       if (rejected.contains(providerUid)) return false;
 
-      tx.set(ref, {
-        'offeredProviderUid': providerUid,
-        'offeredAt': offeredAt.toIso8601String(),
-        'offerExpiresAt': offerExpiresAt.toIso8601String(),
-        'updatedAt': FieldValue.serverTimestamp(),
-        'updatedAtIso': DateTime.now().toIso8601String(),
-      }, SetOptions(merge: true));
+      tx.set(
+          ref,
+          {
+            'offeredProviderUid': providerUid,
+            'offeredAt': offeredAt.toIso8601String(),
+            'offerExpiresAt': offerExpiresAt.toIso8601String(),
+            'updatedAt': FieldValue.serverTimestamp(),
+            'updatedAtIso': DateTime.now().toIso8601String(),
+          },
+          SetOptions(merge: true));
       return true;
     });
   }
@@ -123,14 +193,17 @@ class FirestoreRequestRepository implements RequestRepository {
         rejected.add(providerUid);
       }
 
-      tx.set(ref, {
-        'offeredProviderUid': null,
-        'offeredAt': null,
-        'offerExpiresAt': null,
-        'rejectedProviderUids': rejected,
-        'updatedAt': FieldValue.serverTimestamp(),
-        'updatedAtIso': DateTime.now().toIso8601String(),
-      }, SetOptions(merge: true));
+      tx.set(
+          ref,
+          {
+            'offeredProviderUid': null,
+            'offeredAt': null,
+            'offerExpiresAt': null,
+            'rejectedProviderUids': rejected,
+            'updatedAt': FieldValue.serverTimestamp(),
+            'updatedAtIso': DateTime.now().toIso8601String(),
+          },
+          SetOptions(merge: true));
       return true;
     });
   }
@@ -159,24 +232,27 @@ class FirestoreRequestRepository implements RequestRepository {
       if (offeredUid != providerUid) return false;
       if (currentProviderUid.isNotEmpty) return false;
 
-      tx.set(ref, {
-        'status': RequestStatus.accepted.name,
-        'providerUid': providerUid,
-        'providerName': providerName,
-        'providerPhone': providerPhone,
-        'providerVehicle': providerVehicle,
-        'providerPlate': providerPlate,
-        'providerPosition': {
-          'lat': providerPosition.latitude,
-          'lng': providerPosition.longitude,
-        },
-        'offeredProviderUid': null,
-        'offeredAt': null,
-        'offerExpiresAt': null,
-        'acceptedAt': DateTime.now().toIso8601String(),
-        'updatedAt': FieldValue.serverTimestamp(),
-        'updatedAtIso': DateTime.now().toIso8601String(),
-      }, SetOptions(merge: true));
+      tx.set(
+          ref,
+          {
+            'status': RequestStatus.accepted.name,
+            'providerUid': providerUid,
+            'providerName': providerName,
+            'providerPhone': providerPhone,
+            'providerVehicle': providerVehicle,
+            'providerPlate': providerPlate,
+            'providerPosition': {
+              'lat': providerPosition.latitude,
+              'lng': providerPosition.longitude,
+            },
+            'offeredProviderUid': null,
+            'offeredAt': null,
+            'offerExpiresAt': null,
+            'acceptedAt': DateTime.now().toIso8601String(),
+            'updatedAt': FieldValue.serverTimestamp(),
+            'updatedAtIso': DateTime.now().toIso8601String(),
+          },
+          SetOptions(merge: true));
       return true;
     });
   }

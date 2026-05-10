@@ -1,396 +1,734 @@
-# 🚗 DEPANINY - Depannage DZ Pro
+# Auto Rescue
 
-A comprehensive **real-time roadside assistance platform** built with **Flutter + Firebase** for Algeria's automotive emergency services. This graduation project implements a full-featured marketplace connecting distressed vehicle owners with certified service providers through intelligent dispatch, live GPS tracking, and route optimization.
+A production-style Flutter + Firebase roadside assistance platform for Algeria, built as a final graduation project.
 
-## 📋 Project Overview
-
-**DEPANINY** is a production-ready mobile application that revolutionizes roadside assistance in Algeria by providing instant access to towing, battery jump-start, tire repair, and mechanical services. The platform features real-time provider matching, live tracking, and a complete admin dashboard for system management.
-
-**Developed by:** Imad Benrouane  
-**Institution:** [Your University/Institution Name]  
-**Graduation Year:** 2026  
-**Technologies:** Flutter, Firebase, Dart  
-**Web App:** https://depannage-dz-imad-2026.web.app  
-**Last Updated:** April 30, 2026
+Auto Rescue connects customers who need towing or roadside help with verified nearby providers in real time. The platform includes customer ordering, provider dispatch, live mission tracking, multilingual UI, admin operations, pricing management, notifications, audit logs, and Firebase-backed security rules.
 
 ---
 
-## ✨ Key Features
+## Overview
 
-### 👤 Customer Application
-- **Emergency Service Requests**: Quick access to towing, battery, tire, and repair services
-- **Intelligent Location Selection**: GPS-based pickup location with manual destination setting
-- **Automotive-Focused Search**: Nearby garages, mechanics, tire shops, gas stations via Overpass API
-- **Real-time Provider Matching**: Automatic assignment of nearest available provider with fallback system
-- **Live GPS Tracking**: Watch provider approach with route visualization, distance, and ETA
-- **Service Monitoring**: Track provider status through complete mission lifecycle
-- **Rating & Review System**: Rate providers and services post-completion
-- **Request History**: Complete archive of past services with details
-- **Multi-language Support**: French, English, and Arabic localization
-- **Email OTP Authentication**: Secure login/signup with 6-digit verification code
-- **Profile Management**: Saved addresses, payment preferences, and account settings
+Auto Rescue is a mobile-first roadside assistance and towing platform designed around three operational roles:
 
-### 🚚 Provider Application
-- **Mission Notifications**: Instant alerts for nearby service requests with timeout system
-- **Smart Dispatch Logic**: Intelligent provider selection with rejection queue fallback
-- **Real-time GPS Tracking**: Continuous position streaming for customer visibility
-- **Turn-by-turn Navigation**: Integration with Google Maps and Waze
-- **Mission Lifecycle Management**: Complete workflow from acceptance to completion
-- **Earnings Dashboard**: Real-time revenue tracking with commission calculations
-- **Performance Analytics**: Rating history, completion statistics, and earnings reports
-- **Vehicle & Profile Management**: Service credentials, vehicle details, and availability status
-- **Customer Rating System**: Rate customers post-service
+- **Customer**: creates assistance requests, tracks provider arrival, chats, cancels requests, and rates completed missions.
+- **Provider**: receives mission offers, accepts or rejects requests, updates mission lifecycle, shares live position, tracks earnings, and rates customers.
+- **Admin**: supervises platform activity, validates providers, manages users, configures pricing/support, sends notifications, exports analytics, and reviews audit logs.
 
-### 🛠️ Admin Dashboard
-- **System Command Center**: Real-time overview with key performance indicators
-- **Request Monitoring**: Live tracking of all active requests with filtering capabilities
-- **Provider Management**: Approval workflow, performance monitoring, and account controls
-- **Customer Oversight**: User management and support coordination
-- **Dynamic Pricing Configuration**: Base rates, per-kilometer charges, and commission settings
-- **Analytics & Reporting**: Revenue metrics, user activity, and mission statistics (CSV export)
-- **Broadcast Notifications**: System-wide announcements and promotional messaging
-- **Support Configuration**: FAQ management and contact information setup
-- **Audit Trail**: Complete logging of administrative actions for compliance
+The application is built with Flutter and Firebase using a Provider/ChangeNotifier architecture, Firestore realtime streams, OpenStreetMap maps, routing fallbacks, and role-based security rules.
 
 ---
 
-## 🏗️ System Architecture
+## Features
 
-### **Technology Stack**
-- **Frontend**: Flutter (Dart) with Material Design 3
-- **Backend**: Firebase (Authentication, Firestore, Storage, Messaging)
-- **Mapping**: Flutter Map with OpenStreetMap tiles
-- **Routing**: Multi-provider fallback system (OSRM → GraphHopper → Mapbox)
-- **Location Services**: Geolocator for GPS tracking
-- **Place Search**: Overpass API for automotive-focused suggestions
-- **Notifications**: Firebase Cloud Messaging + Local Notifications
-- **State Management**: ChangeNotifier pattern with centralized AppStore
-- **Data Persistence**: SharedPreferences for local storage
-- **Web Deployment**: Firebase Hosting
+### Customer App
 
-### **Architecture Pattern**
-- **Feature-First Clean Architecture**: Modular organization with clear separation of concerns
-- **Repository Pattern**: Abstraction layer for data operations
-- **Service Layer**: Business logic encapsulation
-- **Reactive UI**: ChangeNotifier-based state management for real-time updates
+- Create roadside assistance requests with:
+  - pickup location
+  - destination
+  - vehicle type
+  - brand/model
+  - service type
+  - estimated distance, ETA, and price
+- Realtime request tracking on map
+- Animated provider searching indicators
+- Provider scan count and dispatch attempt visibility
+- No-provider-accepted popup with:
+  - cancel request
+  - continue waiting / rescan providers
+- Live provider route, ETA, and distance
+- Mission chat
+- Active requests page
+- Mission history
+- Provider rating after completion
+- Customer profile and support pages
+- Multilingual UI support
 
-### **Database Schema (Firestore)**
+### Provider App
+
+- Provider dashboard with live availability controls
+- Online/offline and busy-state handling
+- Mission offers scoped to the offered provider
+- Accept/reject mission flow
+- Current mission tracking page
+- Live GPS tracking
+- Mission lifecycle actions:
+  - accepted
+  - on the way
+  - arrived
+  - in service
+  - completed
+- Google Maps navigation launch
+- Customer chat
+- Earnings page
+- Mission history
+- Customer rating after completion
+- Provider profile and support pages
+
+### Admin App
+
+- Admin dashboard with operational overview
+- Provider management:
+  - approve providers
+  - block/unblock providers
+  - inspect provider status
+- Customer/user management
+- Requests monitoring
+- Pricing management
+- Admin notification management
+- Activity/audit logs
+- Analytics and CSV export
+- Support configuration management
+- Role-based admin access
+
+---
+
+## Architecture
+
+The project follows a feature-first Flutter architecture with centralized application state.
+
+```text
+lib/
+  app/                  Application shell and configuration
+  core/
+    i18n/               Localization and language persistence
+    models/             Shared core models
+    services/           Firebase, routing, location, notification, audit services
+    utils/              Utility helpers
+  features/
+    admin/pages/        Admin dashboard, analytics, pricing, notifications
+    auth/pages/         Login, signup, auth gate
+    customer/pages/     Customer home, order, tracking, profile, support
+    provider/pages/     Provider dashboard, missions, tracking, earnings
+    shared/pages/       Chat, legal, onboarding, splash, permissions
+  models/               Domain models
+  repositories/         Firestore repository layer
+  state/
+    app_store.dart      Central ChangeNotifier app state
+  widgets/              Reusable UI widgets
 ```
-users/           # User profiles with role-based access
-requests/        # Service requests with full lifecycle tracking
-providers/       # Provider profiles with real-time positions
-app_config/      # System configuration (pricing, settings)
-notifications/   # Admin broadcast messages
-support_categories/ # Support configuration
-email_otps/      # Email OTP codes for authentication
+
+### State Management
+
+The app uses the `provider` package with a central `AppStore` based on `ChangeNotifier`.
+
+`AppStore` coordinates:
+
+- authentication-aware stream subscriptions
+- request streams
+- provider streams
+- pricing configuration
+- dispatch chain state
+- provider busy state
+- live tracking state
+- customer/provider tabs
+- notifications
+- mission lifecycle transitions
+
+---
+
+## Tech Stack
+
+- **Flutter**
+- **Dart**
+- **Firebase Auth**
+- **Cloud Firestore**
+- **Firebase Storage**
+- **Firebase Cloud Messaging**
+- **Firebase Realtime Database**
+- **Provider / ChangeNotifier**
+- **Flutter Map**
+- **OpenStreetMap**
+- **Geolocator**
+- **OSRM / GraphHopper / Mapbox / OpenRouteService routing fallbacks**
+- **SharedPreferences**
+- **Flutter Local Notifications**
+- **URL Launcher**
+- **File Picker**
+- **CSV export support**
+
+---
+
+## Firebase Services Used
+
+### Firebase Authentication
+
+Used for customer, provider, and admin authentication.
+
+### Cloud Firestore
+
+Primary database for:
+
+- users
+- providers
+- requests
+- request chats
+- app configuration
+- pricing configuration
+- support configuration
+- admin notifications
+- activity logs
+- audit logs
+
+### Firebase Storage
+
+Used for image uploads such as provider/admin-managed assets.
+
+### Firebase Cloud Messaging
+
+Used for push notification payload handling and realtime notification flows.
+
+### Firebase Realtime Database
+
+Used by the provider presence system.
+
+### Firebase Hosting
+
+Configured for Flutter web builds through `firebase.json`.
+
+---
+
+## Authentication System
+
+The app includes a role-based authentication system with:
+
+- customer login/signup
+- provider signup
+- provider approval requirement before receiving missions
+- admin-only login flow
+- Firebase Auth integration
+- Firestore user profile lookup
+- role-based routing through `AuthGate`
+- persisted language selection across auth pages
+
+Supported roles:
+
+```text
+customer
+provider
+admin
+```
+
+Provider accounts are not fully active until approved by an admin.
+
+---
+
+## Realtime Dispatch System
+
+The dispatch system is implemented in `AppStore` and the request repository layer.
+
+When a customer creates a request:
+
+1. The request is created in Firestore with status `searching`.
+2. Eligible providers are scanned using existing provider data.
+3. Providers are filtered by:
+   - `isOnline == true`
+   - `isBusy != true`
+   - `isApproved == true`
+4. Eligible providers are sorted by distance from the customer.
+5. A dispatch chain is built.
+6. The request is offered to one provider at a time.
+7. Each provider receives an offer timeout window.
+8. If the provider rejects or times out, the next provider is offered.
+9. If all providers reject or time out, the customer receives a no-provider-accepted popup.
+10. The customer can cancel or continue waiting, which rebuilds the dispatch chain.
+
+Dispatch state includes:
+
+- provider chain
+- current chain index
+- current offered provider
+- scanned provider count
+- current dispatch attempt
+- offer expiration time
+- rejected provider list
+- no-provider popup state
+
+This avoids silent infinite searching and gives the customer clearer feedback.
+
+---
+
+## Provider / Customer / Admin Roles
+
+### Customer
+
+Customers can:
+
+- request help
+- view active requests
+- track provider movement
+- cancel searching requests
+- chat with provider
+- rate provider
+- view history
+- update profile
+- access support information
+
+### Provider
+
+Providers can:
+
+- go online/offline
+- receive mission offers
+- accept/reject requests
+- update mission lifecycle
+- share live GPS location
+- open navigation
+- chat with customers
+- view earnings
+- view history
+- rate customers
+
+### Admin
+
+Admins can:
+
+- approve/block providers
+- monitor users and requests
+- configure pricing
+- send app notifications
+- manage support settings
+- inspect analytics
+- export CSV reports
+- review activity logs
+
+---
+
+## Maps & Navigation
+
+The map system uses:
+
+- `flutter_map`
+- OpenStreetMap tiles
+- `latlong2`
+- Geolocator
+- external Google Maps launch through URL Launcher
+
+Tracking pages include:
+
+- customer position marker
+- provider position marker
+- destination marker
+- route polyline
+- ETA and distance
+- route progress indicator
+- draggable information sheet
+- safe-area-aware floating buttons
+
+Route behavior:
+
+```text
+accepted / onTheWay:
+  routeStart = providerPosition
+  routeEnd   = customerPosition
+
+arrived / inService:
+  routeStart = providerPosition
+  routeEnd   = destinationPosition
+
+completed:
+  active route is cleared
+```
+
+Routing is handled by `RouteService`, which supports multiple routing providers and fallback behavior.
+
+---
+
+## Notifications
+
+The project includes several notification layers:
+
+- Firebase Cloud Messaging payload handling
+- local notifications
+- admin broadcast notifications
+- in-app lifecycle notifications
+- chat notifications
+- mission lifecycle alerts
+- provider offer notifications
+- no-provider-available notifications
+
+Admin notifications can be configured with:
+
+- audience
+- type
+- popup behavior
+- schedule
+- optional image
+- sound behavior
+
+---
+
+## Localization
+
+Auto Rescue supports:
+
+- French
+- English
+- Arabic
+
+The localization system includes:
+
+- `AppLocalizations`
+- language selector widget
+- persisted language choice using `SharedPreferences`
+- RTL direction support for Arabic
+- localized auth, home, tracking, support, profile, admin, and shared UI strings
+
+Default language behavior is managed by `AppLanguageController`.
+
+---
+
+## Project Structure
+
+```text
+.
+├── android/
+├── assets/
+│   ├── logo/
+│   └── sounds/
+├── lib/
+│   ├── app/
+│   ├── core/
+│   │   ├── i18n/
+│   │   ├── models/
+│   │   ├── services/
+│   │   └── utils/
+│   ├── features/
+│   │   ├── admin/
+│   │   ├── auth/
+│   │   ├── customer/
+│   │   ├── provider/
+│   │   └── shared/
+│   ├── models/
+│   ├── repositories/
+│   ├── state/
+│   ├── widgets/
+│   ├── firebase_options.dart
+│   └── main.dart
+├── scripts/
+├── test/
+├── web/
+├── firebase.json
+├── firestore.rules
+├── storage.rules
+├── pubspec.yaml
+└── README.md
 ```
 
 ---
 
-## 🔄 Core System Logic
+## Installation
 
-### **Intelligent Dispatch Algorithm**
-1. **Request Submission**: Customer creates service request with location and details
-2. **Immediate Dispatch**: Zero-delay dispatch to preserve full 20-second offer duration
-3. **Provider Selection**: System calculates nearest available providers by distance
-4. **Offer Distribution**: Sequential offers with 20-second timeouts
-5. **Fallback System**: Rejected offers automatically route to next provider in queue
-6. **Assignment Lock**: Once accepted, request locked to assigned provider
+### Prerequisites
 
-### **Real-time Tracking Pipeline**
-1. **GPS Streaming**: Provider position updates every few seconds
-2. **Firestore Sync**: Real-time database updates with position data
-3. **Customer Subscription**: Live stream of provider location
-4. **Route Calculation**: Dynamic distance and ETA computation
-5. **Map Visualization**: Real-time marker movement with route overlay (50x50px uniform markers)
+Install:
 
-### **Multi-Provider Routing System**
-1. **Primary**: OSRM public servers (3 mirrors)
-2. **Fallback 1**: GraphHopper API (500 req/day free)
-3. **Fallback 2**: Mapbox Directions API (100k req/month free)
-4. **Last Resort**: Direct line (red polyline)
-5. **Auto-Retry**: Failed requests automatically retry alternative providers
-
-### **Pricing Engine**
-```
-Base Price: 1,500 DZD
-Per Kilometer: 80 DZD/km
-Urgent Fee: 500 DZD
-Commission: 10%
-
-Total = Base + (Distance × Per Km) + Urgent Fee (if applicable)
-Provider Earnings = Total × (1 - Commission %)
-```
-
----
-
-## 🚀 Getting Started
-
-### **Prerequisites**
-- Flutter SDK (3.3.0+)
-- Dart SDK (3.0+)
+- Flutter SDK
+- Dart SDK
 - Firebase CLI
-- Android Studio / VS Code
-- Active Firebase project
+- FlutterFire CLI
+- Android Studio or VS Code
+- Android SDK
+- A Firebase project
 
-### **Installation**
+Check Flutter setup:
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/yourusername/depaniny.git
-   cd depaniny
-   ```
-
-2. **Install dependencies**
-   ```bash
-   flutter pub get
-   ```
-
-3. **Firebase Configuration**
-   - Create a Firebase project at [console.firebase.google.com](https://console.firebase.google.com)
-   - Enable Authentication, Firestore, Storage, and Messaging
-   - Download `google-services.json` and place in `android/app/`
-   - Update `lib/firebase_options.dart` with your project configuration
-
-4. **Environment Setup**
-   - Configure Firestore security rules (see `firestore.rules`)
-   - Set up routing API keys (GraphHopper, Mapbox) in `lib/core/services/route_service.dart`
-
-5. **Run the application**
-   ```bash
-   flutter run
-   ```
-
-### **Build for Production**
 ```bash
-# Android APK
-flutter build apk --release
+flutter doctor
+```
 
-# Android App Bundle
-flutter build appbundle --release
+Install dependencies:
 
-# Web Deployment
+```bash
+flutter pub get
+```
+
+---
+
+## Firebase Setup
+
+The project is configured for Firebase project:
+
+```text
+depannage-dz-imad-2026
+```
+
+Firebase configuration files used by the app:
+
+```text
+lib/firebase_options.dart
+android/app/google-services.json
+firebase.json
+firestore.rules
+storage.rules
+```
+
+If setting up a new Firebase project, run:
+
+```bash
+dart pub global activate flutterfire_cli
+flutterfire configure
+```
+
+Enable the following Firebase services:
+
+- Authentication
+- Cloud Firestore
+- Firebase Storage
+- Firebase Cloud Messaging
+- Realtime Database
+- Firebase Hosting, if building for web
+
+Deploy Firestore and Storage rules:
+
+```bash
+firebase deploy --only firestore:rules
+firebase deploy --only storage
+```
+
+Deploy web hosting after building:
+
+```bash
 flutter build web --release
 firebase deploy --only hosting
 ```
 
 ---
 
-## 🌐 Web Application
+## Environment Configuration
 
-The web version is **live and ready for testing** on all devices including iPhone:
+The project currently includes generated Firebase options for:
 
-**URL:** https://depannage-dz-imad-2026.web.app
+- Android
+- Web
 
-### Features Supported:
-- ✅ Full authentication (Email OTP)
-- ✅ GPS location (browser permissions)
-- ✅ Push notifications (FCM Web)
-- ✅ Real-time tracking
-- ✅ All customer and provider features
-- ✅ Admin dashboard
+iOS, macOS, Windows, and Linux are not configured in `firebase_options.dart` and will throw an unsupported platform error until configured with FlutterFire CLI.
 
-### Testing on iPhone:
-1. Open Safari on iPhone
-2. Visit the web app URL
-3. Tap Share → "Add to Home Screen"
-4. App installs like native app
-5. No Apple Developer account required!
+Important configuration files:
 
----
+```text
+lib/firebase_options.dart
+android/app/google-services.json
+firebase.json
+firestore.rules
+storage.rules
+web/firebase-messaging-sw.js
+```
 
-## 🔐 Authentication System
-
-### **Email OTP Flow** (Current Implementation)
-1. User enters email address
-2. System generates 6-digit OTP code
-3. OTP stored in Firestore with 5-minute expiration
-4. Code displayed in prominent dialog (debug mode)
-5. User enters OTP to verify
-6. Account created or logged in
-
-### **Production Email Sending** (Future)
-- Firebase Extensions (Trigger Email)
-- SendGrid/Mailgun API integration
-- Cloud Functions for email delivery
+For production, keep service account files out of client builds and do not expose admin SDK credentials in public repositories.
 
 ---
 
-## 📱 Screenshots
+## Running Locally
 
-### Customer Interface
-- Service selection and request creation
-- Live tracking with route visualization
-- Provider rating and review system
-- Automotive-focused destination search
+Run on a connected Android device or emulator:
 
-### Provider Interface
-- Mission dashboard and notifications
-- Real-time navigation integration
-- Earnings and performance analytics
-- Simulation mode for testing
+```bash
+flutter run
+```
 
-### Admin Dashboard
-- System monitoring and analytics
-- Provider management and approval
-- Pricing configuration and notifications
-- CSV export for reports
+Run on web:
 
-*(Screenshots will be added during presentation)*
+```bash
+flutter run -d chrome
+```
 
----
+Fetch dependencies:
 
-## 🔒 Security & Compliance
+```bash
+flutter pub get
+```
 
-- **Role-based Access Control**: Granular permissions for customers, providers, and admins
-- **Firebase Security Rules**: Database-level access control and validation
-- **Account Management**: Provider approval workflow and account blocking capabilities
-- **Audit Logging**: Complete trail of administrative actions
-- **Data Encryption**: Secure transmission via HTTPS and Firebase protocols
-- **OTP Expiration**: 5-minute validity for verification codes
+Analyze code:
 
----
+```bash
+flutter analyze
+```
 
-## 🧪 Testing & Quality Assurance
+Run tests:
 
-- **Code Quality**: `flutter analyze` with zero issues
-- **Project Structure**: Clean, organized, minimal unused files
-- **Error Handling**: Comprehensive try-catch blocks and graceful fallbacks
-- **Debug Features**: OTP codes shown in dialogs for testing
-- **Simulation Mode**: Provider GPS simulation for testing without movement
+```bash
+flutter test
+```
 
 ---
 
-## 📊 Performance Metrics
+## Build Commands
 
-- **Real-time Latency**: <2 seconds for position updates
-- **Dispatch Speed**: Immediate dispatch (zero delay)
-- **Offer Duration**: Full 20-second countdown for providers
-- **Map Rendering**: Smooth 60fps performance
-- **Offline Capability**: Graceful degradation with cached data
-- **Battery Optimization**: Efficient GPS usage with background controls
-- **Routing Success**: Multi-provider fallback ensures high availability
+Build Android APK:
 
----
+```bash
+flutter build apk --release
+```
 
-## 🎯 Project Achievements
+Build Flutter web:
 
-### **Technical Accomplishments**
-- ✅ Full-stack Firebase integration with real-time synchronization
-- ✅ Complex dispatch algorithm with atomic transactions
-- ✅ Live GPS tracking with route optimization (3 fallback providers)
-- ✅ Multi-role authentication and authorization
-- ✅ Internationalization (French, English, Arabic)
-- ✅ Production-ready architecture and security
-- ✅ Rich user experience with real-time notifications
-- ✅ Web deployment for cross-platform testing
-- ✅ Automotive-focused place search (Overpass API)
-- ✅ Email OTP authentication with debug mode
-- ✅ Uniform 50x50px map markers
-- ✅ Clean project structure (17 cleanup tasks completed)
+```bash
+flutter build web --release
+```
 
-### **Business Logic Implementation**
-- ✅ Intelligent provider matching and fallback system
-- ✅ Dynamic pricing with commission calculations
-- ✅ Complete mission lifecycle management
-- ✅ Rating and review ecosystem
-- ✅ Admin oversight and analytics
-- ✅ CSV export for reporting
+Format code:
+
+```bash
+dart format .
+```
+
+Analyze code:
+
+```bash
+flutter analyze
+```
+
+Run tests:
+
+```bash
+flutter test
+```
 
 ---
 
-## 📝 Recent Updates (April 30, 2026)
+## Production Notes
 
-### Task 17: Project Folder Cleanup
-- Removed 9 unused folders (/src, /functions, /docs, /windows, /build, /.firebase, /.dart_tool, /.continue, /.idea)
-- Updated firebase.json to remove unused Functions configuration
-- Project structure now clean and focused
+Before production deployment:
 
-### Task 16: DEPANINY Branding Standardization
-- Updated package name: `depannage_dz_pro_structured` → `depaniny`
-- Standardized app name to "DEPANINY" across all UI, code, and legal documents
-- Fixed import paths for new package name
-
-### Task 15: Email OTP Display Fix
-- OTP codes now shown in prominent dialog (32pt font, orange highlight)
-- Multiple fallback sources ensure code always displays
-- Debug mode stores codes in SharedPreferences
-
-### Task 14: Flutter Analyze Errors Fixed
-- Fixed 10 issues (3 errors, 3 warnings, 4 info)
-- Removed unused code and imports
-- Fixed BuildContext async gaps
-
-### Task 13: Premium Authentication UI
-- Redesigned login/signup pages with premium branding
-- OTP verification with 6-digit code input
-- Provider approval workflow with auto-logout
+- Deploy latest `firestore.rules`.
+- Deploy latest `storage.rules`.
+- Verify Firebase Authentication providers.
+- Verify Firestore indexes if queries require them.
+- Validate provider approval workflow.
+- Test dispatch with multiple real provider accounts.
+- Test background/foreground notification delivery.
+- Test location permissions on physical Android devices.
+- Verify Realtime Database presence behavior.
+- Verify route fallback behavior in poor network conditions.
+- Remove debug-only logs where necessary.
+- Protect admin/service account credentials.
 
 ---
 
-## 🔮 Future Enhancements
+## Security Notes
 
-- [ ] Production email sending (SendGrid/Mailgun)
-- [ ] Payment gateway integration (Stripe, PayPal, CIB/Edahabia)
-- [ ] Advanced analytics with data visualization
-- [ ] Smart dispatch with traffic-aware routing
-- [ ] Offline mode with sync capabilities
-- [ ] Provider earnings and payout management
-- [ ] Customer loyalty program
-- [ ] iOS native app (if funding available)
-- [ ] Production API keys for routing services
+Security is enforced through Firebase Authentication and Firestore rules.
 
----
+Implemented protections include:
 
-## 👨‍💻 Author
+- role-based access control
+- customer-only request creation
+- customer-owned request cancellation
+- provider-only mission acceptance/update flows
+- provider availability checks
+- admin-only app configuration writes
+- admin-only audit/activity access
+- scoped request read access
+- scoped chat access based on request visibility
+- image upload limits in Storage rules
 
-**Imad Benrouane**
-- Email: [your.email@example.com]
-- LinkedIn: [Your LinkedIn Profile]
-- GitHub: [Your GitHub Profile]
-
-**Supervisor:** [Supervisor Name]  
-**Department:** [Your Department]  
-**University:** [Your University]
+Client-side role checks improve UX, but Firebase rules remain the primary security boundary.
 
 ---
 
-## 📄 License
+## Firestore Rules
 
-This project is developed as part of a graduation thesis. All rights reserved.
+The project includes `firestore.rules` with role-aware access for:
 
----
+- `users`
+- `providers`
+- `requests`
+- `tracking`
+- `app_config`
+- `app_notifications`
+- `admin_activity_logs`
+- `admin_audit_logs`
+- `request_chats`
+- `chats`
 
-## 🙏 Acknowledgments
+Important request permissions include:
 
-- **Flutter Team** for the amazing framework
-- **Firebase Team** for comprehensive backend services
-- **OpenStreetMap** for mapping data
-- **OSRM Project** for routing capabilities
-- **GraphHopper & Mapbox** for routing fallback
-- **Supervisor and Faculty** for guidance and support
+- customers can create their own searching requests
+- customers can cancel their own searching requests
+- customers can dispatch their own request to available providers
+- providers can accept offered requests
+- providers can update assigned active missions
+- admins can manage platform data
 
----
+Deploy rules with:
 
-## 📞 Support
-
-For questions or support regarding this project:
-- Email: [support.email@example.com]
-- Documentation: See `docs/` folder
-- Issues: GitHub Issues
-- Web App: https://depannage-dz-imad-2026.web.app
-
----
-
-## 📊 Project Statistics
-
-- **Total Tasks Completed:** 17 major task groups
-- **Files Modified:** 50+ files
-- **Lines of Code:** ~10,000+ Dart lines
-- **Deployment:** ✅ Live on Firebase Hosting
-- **Code Quality:** ✅ Zero analyzer issues
-- **Project Status:** ✅ Production-ready
+```bash
+firebase deploy --only firestore:rules
+```
 
 ---
 
-*This project represents a complete implementation of a real-world marketplace application with enterprise-level features and production-ready architecture.*
+## Realtime Database Presence System
+
+The project includes a provider presence service using Firebase Realtime Database.
+
+Presence path:
+
+```text
+presence/providers/{providerUid}
+```
+
+The service mirrors provider online state into Firestore provider documents, allowing dispatch to consider realtime availability through provider fields such as:
+
+```text
+isOnline
+isBusy
+isApproved
+lastSeenAtIso
+```
+
+This supports faster provider availability checks and more accurate dispatch behavior.
+
+---
+
+## Screenshots
+
+Add product screenshots here before publication.
+
+```text
+docs/screenshots/customer-home.png
+docs/screenshots/create-order.png
+docs/screenshots/customer-tracking.png
+docs/screenshots/provider-dashboard.png
+docs/screenshots/provider-tracking.png
+docs/screenshots/admin-dashboard.png
+docs/screenshots/admin-analytics.png
+```
+
+Example layout:
+
+| Customer | Provider | Admin |
+|---|---|---|
+| ![Customer Home](docs/screenshots/customer-home.png) | ![Provider Dashboard](docs/screenshots/provider-dashboard.png) | ![Admin Dashboard](docs/screenshots/admin-dashboard.png) |
+
+---
+
+## Known Limitations / Future Improvements
+
+- iOS, macOS, Windows, and Linux Firebase options are not configured yet.
+- Some admin and secondary screens may still need full localization coverage.
+- No-provider popup text should be moved fully into localization keys.
+- Dispatch currently depends on Firestore provider availability fields being fresh.
+- Production deployment should include complete Firebase indexes and monitoring.
+- Automated integration tests for dispatch, cancellation, and tracking should be expanded.
+- A dedicated backend or Cloud Functions layer could further harden dispatch logic.
+- Realtime Database security rules should be reviewed and deployed with production constraints.
+- Route services depend on external routing APIs and network availability.
+
+---
+
+## License
+
+This project is currently provided for academic and portfolio evaluation purposes.
+
+A production license should be defined before commercial distribution.
+
+---
+
+## Author
+
+Developed as a final graduation project.
+
+**Project:** Auto Rescue  
+**Type:** Flutter + Firebase roadside assistance platform  
+**Region focus:** Algeria

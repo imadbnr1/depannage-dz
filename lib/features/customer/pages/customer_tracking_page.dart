@@ -6,12 +6,14 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/i18n/app_localizations.dart';
 import '../../../core/services/route_service.dart';
 import '../../../models/app_request.dart';
 import '../../../models/request_status.dart';
 import '../../../models/route_snapshot.dart';
 import '../../../state/app_store.dart';
 import '../../../widgets/role_map_marker.dart';
+import 'create_order_page.dart';
 import '../../shared/pages/chat_page.dart';
 
 class CustomerTrackingPage extends StatefulWidget {
@@ -53,14 +55,13 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
   LatLng? _lastTargetPosition;
   bool _followProvider = true;
   bool _routeIsFallback = false;
+  double _panelExtent = 0.30;
 
   // ✅ Track rejected provider for animation
   // ignore: unused_field
   String? _lastRejectedProviderId;
   // ignore: unused_field
   DateTime? _rejectionAnimationStartTime;
-  bool _showNoProvidersPopup = false;
-
   @override
   void initState() {
     super.initState();
@@ -82,7 +83,6 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
 
       if (request?.status == RequestStatus.searching &&
           request?.offeredProviderUid != null) {
-
         // ✅ When offer expires, automatically reject and dispatch to next provider
         final remaining = widget.store.offerSecondsRemaining(request!.id);
         if (remaining != null && remaining <= 0) {
@@ -93,9 +93,11 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
               _lastRejectedProviderId = offeredUid;
               _rejectionAnimationStartTime = DateTime.now();
             });
-            await widget.store.rejectRequestForProvider(request.id, offeredUid, fromTimeout: true);
+            await widget.store.rejectRequestForProvider(request.id, offeredUid,
+                fromTimeout: true);
             // ✅ Start rejection animation timer
-            _rejectionAnimationTimer = Timer(const Duration(milliseconds: 2000), () {
+            _rejectionAnimationTimer =
+                Timer(const Duration(milliseconds: 2000), () {
               if (mounted) {
                 setState(() {
                   _lastRejectedProviderId = null;
@@ -120,7 +122,8 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
     });
 
     _mapController.mapEventStream.listen((event) {
-      if (event is MapEventMove && event.source != MapEventSource.mapController) {
+      if (event is MapEventMove &&
+          event.source != MapEventSource.mapController) {
         setState(() => _followProvider = false);
       }
     });
@@ -142,32 +145,7 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
     final request = widget.store.findRequest(widget.requestId);
     if (request != null) {
       _syncAnimatedProviderPosition(request);
-
-      // ✅ Check if no providers are available in the dispatch chain
-      // Only show popup if:
-      // 1. Request is still searching
-      // 2. No more providers in chain to try
-      // 3. No provider has been offered/accepted yet
-      // 4. Dispatch has actually completed (not just started)
-      final dispatchChain = widget.store.getDispatchChain(request.id);
-      final dispatchIndex = widget.store.getDispatchChainIndex(request.id) ?? 0;
-      final hasMoreProviders = dispatchChain != null && dispatchIndex < dispatchChain.length;
-      final hasOfferedProvider = request.offeredProviderUid != null;
-      final hasAcceptedProvider = _hasAcceptedProvider(request.status);
-
-      // ✅ Only show popup if dispatch chain is exhausted AND we've tried at least one provider
-      // This prevents popup from showing before providers even receive notifications
-      final hasTriedProviders = dispatchIndex > 0 || (dispatchChain != null && dispatchChain.isNotEmpty);
-      
-      if (!hasMoreProviders &&
-          hasTriedProviders &&
-          request.status == RequestStatus.searching &&
-          !hasOfferedProvider &&
-          !hasAcceptedProvider) {
-        setState(() {
-          _showNoProvidersPopup = true;
-        });
-      }
+      _scheduleRouteUpdate();
     }
     _fitWaitingProviders();
     setState(() {});
@@ -186,7 +164,7 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
     // Update previous position for heading calculation
     if (_lastTargetPosition != null &&
         (_lastTargetPosition!.latitude != targetPosition.latitude ||
-         _lastTargetPosition!.longitude != targetPosition.longitude)) {
+            _lastTargetPosition!.longitude != targetPosition.longitude)) {
       _previousProviderPosition = _lastTargetPosition;
     }
     _lastTargetPosition = targetPosition;
@@ -233,7 +211,8 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
         }
 
         final elapsed = DateTime.now().difference(startedAt);
-        final t = (elapsed.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
+        final t =
+            (elapsed.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
         final easedT = animationCurve.transform(t);
 
         final newPosition = _lerpLatLng(
@@ -268,10 +247,9 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
     );
   }
 
-
   void _scheduleRouteUpdate() {
     _routeTimer?.cancel();
-    _routeTimer = Timer(const Duration(seconds: 3), _loadRoute);
+    _routeTimer = Timer(const Duration(milliseconds: 350), _loadRoute);
   }
 
   void _fitWaitingProviders() {
@@ -303,6 +281,23 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
   Future<void> _loadRoute() async {
     final request = widget.store.findRequest(widget.requestId);
     if (request == null) return;
+
+    if (request.status == RequestStatus.completed ||
+        request.status == RequestStatus.cancelled) {
+      if (!mounted) return;
+      setState(() {
+        _routePoints = [];
+        _routeDistanceMeters = null;
+        _routeDurationSeconds = null;
+        _routeProgress = null;
+        _routeIsFallback = false;
+        _loadingRoute = false;
+        _lastRouteStart = null;
+        _lastRouteTarget = null;
+        _lastRouteStatus = request.status;
+      });
+      return;
+    }
 
     final tracking = widget.store.trackingFor(widget.requestId);
     final providerPosition =
@@ -411,7 +406,8 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
         : customerPosition;
   }
 
-  double _estimatedTotalMetersForStage(AppRequest request, RouteSnapshot route) {
+  double _estimatedTotalMetersForStage(
+      AppRequest request, RouteSnapshot route) {
     if (request.status == RequestStatus.arrived ||
         request.status == RequestStatus.inService ||
         request.status == RequestStatus.completed) {
@@ -435,7 +431,6 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
     );
     _didAutoFitRoute = true;
   }
-
 
   double? _providerHeadingRadians({
     required LatLng providerPosition,
@@ -465,8 +460,10 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
         _previousProviderPosition!,
         providerPosition,
       );
-      if (distance > 5) { // Only if moved significantly
-        return _bearingRadians(_previousProviderPosition!, providerPosition) + (math.pi / 2);
+      if (distance > 5) {
+        // Only if moved significantly
+        return _bearingRadians(_previousProviderPosition!, providerPosition) +
+            (math.pi / 2);
       }
     }
 
@@ -713,11 +710,12 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     final request = widget.store.findRequest(widget.requestId);
     if (request == null) {
-      return const Scaffold(
+      return Scaffold(
         body: Center(
-          child: Text('Mission introuvable'),
+          child: Text(strings.t('mission_introuvable')),
         ),
       );
     }
@@ -739,6 +737,8 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
         : const [];
     final offeredProviderId = widget.store.currentOfferedProviderId(request.id);
     final offerSecondsLeft = widget.store.offerSecondsRemaining(request.id);
+    final scannedProviderCount = widget.store.scannedProviderCount(request.id);
+    final dispatchAttempt = widget.store.currentDispatchAttempt(request.id);
     final acceptedProvider = _hasAcceptedProvider(request.status);
     final destinationStage = request.status == RequestStatus.arrived ||
         request.status == RequestStatus.inService ||
@@ -768,8 +768,8 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
     markers.add(
       Marker(
         point: customerPosition,
-        width: 50,
-        height: 50,
+        width: 82,
+        height: 82,
         child: _PinnedMarker(
           label: destinationStage ? 'Pick up' : 'Client',
           type: RoleMapMarkerType.customer,
@@ -777,6 +777,7 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
           color: Colors.red,
           compactLabel: true,
           offset: customerMarkerOffset,
+          pulse: request.status == RequestStatus.searching,
         ),
       ),
     );
@@ -785,8 +786,8 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
       markers.add(
         Marker(
           point: request.destinationPosition!,
-          width: 50,
-          height: 50,
+          width: 82,
+          height: 82,
           child: const _PinnedMarker(
             label: 'Dest',
             type: RoleMapMarkerType.destination,
@@ -796,6 +797,24 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
           ),
         ),
       );
+    }
+
+    if (request.status == RequestStatus.searching) {
+      for (final provider in nearbyProviders) {
+        if (provider.id == offeredProviderId) continue;
+        markers.add(
+          Marker(
+            point: provider.position,
+            width: 96,
+            height: 96,
+            child: _SearchingProviderMarker(
+              label: provider.name.trim().isEmpty
+                  ? strings.t('provider')
+                  : provider.name,
+            ),
+          ),
+        );
+      }
     }
 
     if (providerPosition != null) {
@@ -825,21 +844,35 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
     } else {
       // ONLY SHOW MARKER FOR PROVIDER CURRENTLY BEING OFFERED
       if (offeredProviderId != null) {
-        final offeredProvider = widget.store.findProviderById(offeredProviderId);
+        final offeredProvider =
+            widget.store.findProviderById(offeredProviderId);
         if (offeredProvider != null) {
           markers.add(
             Marker(
               point: offeredProvider.position,
-              width: 50,
-              height: 50,
-              child: const Icon(Icons.directions_car, color: Color(0xFFF59E0B), size: 24),
+              width: 112,
+              height: 112,
+              child: _AnimatedOfferMarker(
+                label: offeredProvider.name.trim().isEmpty
+                    ? strings.t('provider')
+                    : offeredProvider.name,
+                color: const Color(0xFFF59E0B),
+              ),
             ),
           );
         }
       }
     }
 
-    final topInset = MediaQuery.of(context).padding.top;
+    final safe = MediaQuery.paddingOf(context);
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final compactHeight = screenHeight < 620;
+    final minExtent = compactHeight ? 0.22 : 0.18;
+    final initialExtent = compactHeight ? 0.34 : 0.30;
+    final maxExtent = compactHeight ? 0.78 : 0.66;
+    final clampedExtent = _panelExtent.clamp(minExtent, maxExtent).toDouble();
+    final floatingBottom = (screenHeight * clampedExtent) + safe.bottom + 14;
+    final topInset = safe.top;
     return Scaffold(
       body: Stack(
         children: [
@@ -863,7 +896,9 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
                         strokeWidth: 5,
                         color: _loadingRoute
                             ? Colors.blue
-                            : (_routeIsFallback ? Colors.red : Colors.green),
+                            : (_routeIsFallback
+                                ? const Color(0xFFFF0000)
+                                : const Color.fromRGBO(25, 167, 25, 1)),
                       ),
                     ],
                   ),
@@ -871,12 +906,15 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
                   MarkerLayer(
                     markers: [
                       Marker(
-                        point: _routePoints.isNotEmpty ? _routePoints.first : customerPosition,
+                        point: _routePoints.isNotEmpty
+                            ? _routePoints.first
+                            : customerPosition,
                         width: 40,
                         height: 40,
                         child: const CircularProgressIndicator(
                           strokeWidth: 3,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.blue),
                         ),
                       ),
                     ],
@@ -900,179 +938,211 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
                   child: _TopTrackingBanner(
                     title: acceptedProvider
                         ? _acceptedProviderMapLabel(request.providerName)
-                        : 'Recherche du depanneur',
+                        : strings.t('searching_provider'),
                     status: _statusLabel(request.status),
                     color: _statusColor(request.status),
                   ),
-                ),
-                const SizedBox(width: 10),
-                _MapGlassButton(
-                  icon: Icons.my_location_outlined,
-                  onTap: () async {
-                    // ✅ Center map on customer location
-                    final request = widget.store.findRequest(widget.requestId);
-                    if (request != null) {
-                      final customerPos = request.customerPosition;
-                      // Move camera to customer location with smooth animation
-                      _mapController.move(customerPos, 15);
-                      // ✅ Disable provider following to stay on customer location
-                      setState(() => _followProvider = false);
-                      return;
-                    }
-
-                    // Fallback: request fresh location if not available
-                    await widget.store.requestCustomerLocation();
-                    final updatedRequest = widget.store.findRequest(widget.requestId);
-                    if (updatedRequest != null) {
-                      _mapController.move(updatedRequest.customerPosition, 15);
-                      setState(() => _followProvider = false);
-                    }
-                  },
                 ),
               ],
             ),
           ),
           Positioned(
-            left: 12,
-            right: 12,
-            bottom: 12,
-            child: _TrackingOverlayCard(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _InfoBox(
-                          title: 'Distance',
-                          value: _formatDistance(),
-                          accent: const Color(0xFF2563EB),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _InfoBox(
-                          title: 'ETA',
-                          value: _formatEta(),
-                          accent: const Color(0xFF16A34A),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _InfoBox(
-                          title: acceptedProvider ? 'Etat' : 'Offre',
-                          value: acceptedProvider
-                              ? 'Confirmee'
-                              : '${offerSecondsLeft ?? '--'} s',
-                          accent: const Color(0xFFF59E0B),
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (_routeProgress != null) ...[
-                    const SizedBox(height: 8),
-                    _CompactProgressCard(progress: _routeProgress!),
-                  ],
-                  const SizedBox(height: 8),
-                  _SummaryInlineRow(
-                    icon: Icons.place_rounded,
-                    title: 'Pick up',
-                    value: request.pickupLabel,
-                  ),
-                  const SizedBox(height: 6),
-                  _SummaryInlineRow(
-                    icon: Icons.route_rounded,
-                    title: _routeStageTitle(request),
-                    value: _routeStageValue(request),
-                  ),
-                  // Show provider info when mission is accepted
-                  if (acceptedProvider) ...[
-                    const SizedBox(height: 6),
-                    _SummaryInlineRow(
-                      icon: Icons.person_rounded,
-                      title: 'Provider',
-                      value: _acceptedProviderMapLabel(request.providerName),
-                    ),
-                    if (request.providerVehicle != null ||
-                        request.providerPlate != null) ...[
-                      const SizedBox(height: 6),
-                      _SummaryInlineRow(
-                        icon: Icons.directions_car_rounded,
-                        title: 'Vehicule',
-                        value: [
-                          if (request.providerVehicle != null)
-                            request.providerVehicle!,
-                          if (request.providerPlate != null)
-                            '(${request.providerPlate!})',
-                        ].join(' ').trim(),
-                      ),
-                    ],
-                  ],
-                  if (_loadingRoute && _routePoints.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 6),
-                      child: Text(
-                        'Calcul de l itineraire...',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.black45,
-                        ),
-                      ),
-                    ),
-                  const SizedBox(height: 10),
-                  if (!acceptedProvider)
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: () async {
-                          await widget.store.cancelRequest(request.id);
-                          if (!context.mounted) return;
-                          Navigator.of(context).pop();
-                        },
-                        icon: const Icon(Icons.close),
-                        label: const Text('Annuler la demande'),
-                      ),
-                    )
-                  else
-                    Row(
-                      children: [
-                        _BottomActionIconButton(
-                          icon: Icons.phone_outlined,
-                          onPressed:
-                              (request.providerPhone ?? '').trim().isEmpty
-                                  ? null
-                                  : () => _callProvider(request.providerPhone!),
-                        ),
-                        const SizedBox(width: 8),
-                        _BottomActionIconButton(
-                          icon: Icons.chat_bubble_outline,
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => ChatPage(
-                                  requestId: request.id,
-                                  title: 'Chat provider',
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: FilledButton.icon(
-                            onPressed: () => _startNavigation(routeTarget),
-                            icon: const Icon(Icons.navigation_outlined),
-                            label: const Text('Ouvrir Maps'),
-                          ),
-                        ),
-                      ],
-                    ),
-                ],
-              ),
+            right: 12 + safe.right,
+            bottom: floatingBottom,
+            child: _MapGlassButton(
+              icon: Icons.my_location_outlined,
+              onTap: () async {
+                final current = widget.store.findRequest(widget.requestId);
+                if (current != null) {
+                  _mapController.move(current.customerPosition, 15);
+                  setState(() => _followProvider = false);
+                  return;
+                }
+
+                await widget.store.requestCustomerLocation();
+                final updatedRequest =
+                    widget.store.findRequest(widget.requestId);
+                if (updatedRequest != null) {
+                  _mapController.move(updatedRequest.customerPosition, 15);
+                  setState(() => _followProvider = false);
+                }
+              },
             ),
           ),
-          if (_showNoProvidersPopup)
+          NotificationListener<DraggableScrollableNotification>(
+            onNotification: (notification) {
+              if ((notification.extent - _panelExtent).abs() > 0.002) {
+                setState(() => _panelExtent = notification.extent);
+              }
+              return false;
+            },
+            child: DraggableScrollableSheet(
+              minChildSize: minExtent,
+              initialChildSize: initialExtent,
+              maxChildSize: maxExtent,
+              snap: true,
+              snapSizes: [minExtent, initialExtent, maxExtent],
+              builder: (context, scrollController) {
+                return _TrackingOverlayCard(
+                  child: ListView(
+                    controller: scrollController,
+                    padding: EdgeInsets.only(bottom: safe.bottom + 4),
+                    children: [
+                      const _SheetHandle(),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _InfoBox(
+                                  title: strings.t('distance'),
+                                  value: _formatDistance(),
+                                  accent: const Color(0xFF2563EB),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _InfoBox(
+                                  title: strings.t('eta'),
+                                  value: _formatEta(),
+                                  accent: const Color(0xFF16A34A),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _InfoBox(
+                                  title: acceptedProvider
+                                      ? strings.t('state')
+                                      : strings.t('offer'),
+                                  value: acceptedProvider
+                                      ? strings.t('confirmed')
+                                      : '${offerSecondsLeft ?? '--'} s',
+                                  accent: const Color(0xFFF59E0B),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (_routeProgress != null) ...[
+                            const SizedBox(height: 8),
+                            _CompactProgressCard(progress: _routeProgress!),
+                          ],
+                          if (request.status == RequestStatus.searching) ...[
+                            const SizedBox(height: 8),
+                            _SearchingScanCard(
+                              scannedCount: scannedProviderCount,
+                              currentAttempt: dispatchAttempt,
+                              secondsLeft: offerSecondsLeft,
+                            ),
+                          ],
+                          const SizedBox(height: 8),
+                          _SummaryInlineRow(
+                            icon: Icons.place_rounded,
+                            title: strings.t('pick_up'),
+                            value: request.pickupLabel,
+                          ),
+                          const SizedBox(height: 6),
+                          _SummaryInlineRow(
+                            icon: Icons.route_rounded,
+                            title: _routeStageTitle(request),
+                            value: _routeStageValue(request),
+                          ),
+                          // Show provider info when mission is accepted
+                          if (acceptedProvider) ...[
+                            const SizedBox(height: 6),
+                            _SummaryInlineRow(
+                              icon: Icons.person_rounded,
+                              title: strings.t('provider'),
+                              value: _acceptedProviderMapLabel(
+                                  request.providerName),
+                            ),
+                            if (request.providerVehicle != null ||
+                                request.providerPlate != null) ...[
+                              const SizedBox(height: 6),
+                              _SummaryInlineRow(
+                                icon: Icons.directions_car_rounded,
+                                title: strings.t('vehicule'),
+                                value: [
+                                  if (request.providerVehicle != null)
+                                    request.providerVehicle!,
+                                  if (request.providerPlate != null)
+                                    '(${request.providerPlate!})',
+                                ].join(' ').trim(),
+                              ),
+                            ],
+                          ],
+                          if (_loadingRoute && _routePoints.isEmpty)
+                            Padding(
+                              padding: EdgeInsets.only(top: 6),
+                              child: Text(
+                                strings.t('calculating_route'),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.black45,
+                                ),
+                              ),
+                            ),
+                          const SizedBox(height: 10),
+                          if (!acceptedProvider)
+                            SizedBox(
+                              width: double.infinity,
+                              child: FilledButton.icon(
+                                onPressed: () async {
+                                  await widget.store.cancelRequest(request.id);
+                                  if (!context.mounted) return;
+                                  Navigator.of(context).pop();
+                                },
+                                icon: const Icon(Icons.close),
+                                label: Text(strings.t('annuler_la_demande')),
+                              ),
+                            )
+                          else
+                            Row(
+                              children: [
+                                _BottomActionIconButton(
+                                  icon: Icons.phone_outlined,
+                                  onPressed: (request.providerPhone ?? '')
+                                          .trim()
+                                          .isEmpty
+                                      ? null
+                                      : () =>
+                                          _callProvider(request.providerPhone!),
+                                ),
+                                const SizedBox(width: 8),
+                                _BottomActionIconButton(
+                                  icon: Icons.chat_bubble_outline,
+                                  onPressed: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => ChatPage(
+                                          requestId: request.id,
+                                          title: strings.t('chat_provider'),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: FilledButton.icon(
+                                    onPressed: () =>
+                                        _startNavigation(routeTarget),
+                                    icon: const Icon(Icons.navigation_outlined),
+                                    label: Text(strings.t('ouvrir_Maps')),
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          if (widget.store.noProviderPopupVisible &&
+              widget.store.noProviderRequestId == request.id)
             Positioned.fill(
               child: IgnorePointer(
                 ignoring: false,
@@ -1083,13 +1153,20 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
                     ),
                     Center(
                       child: _NoProvidersPopup(
-                        onDismiss: () {
-                          setState(() => _showNoProvidersPopup = false);
+                        onKeepWaiting: () {
+                          widget.store.keepWaitingForProvider(request.id);
                         },
                         onCancelMission: () async {
-                          await widget.store.cancelRequest(request.id);
+                          await widget.store.cancelNoProviderRequest();
                           if (!context.mounted) return;
-                          Navigator.of(context).pop();
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(
+                              builder: (_) => CreateOrderPage(
+                                store: widget.store,
+                                service: request.service,
+                              ),
+                            ),
+                          );
                         },
                       ),
                     ),
@@ -1111,6 +1188,7 @@ class _PinnedMarker extends StatelessWidget {
     required this.color,
     this.compactLabel = false,
     this.offset = Offset.zero,
+    this.pulse = false,
     // ignore: unused_element_parameter
     this.rotationRadians,
   });
@@ -1123,20 +1201,95 @@ class _PinnedMarker extends StatelessWidget {
   final double? rotationRadians;
   final bool compactLabel;
   final Offset offset;
+  final bool pulse;
 
   @override
   Widget build(BuildContext context) {
+    final marker = SizedBox(
+      width: 70,
+      height: 70,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: RoleMapMarker(
+          label: label,
+          type: type,
+          fallbackIcon: icon,
+          color: color,
+          size: 46,
+          rotationRadians: rotationRadians,
+          compactLabel: compactLabel,
+        ),
+      ),
+    );
+
     return Transform.translate(
       offset: offset,
-      child: RoleMapMarker(
-        label: label,
-        type: type,
-        fallbackIcon: icon,
-        color: color,
-        size: 80,
-        rotationRadians: rotationRadians,
-        compactLabel: compactLabel,
-      ),
+      child:
+          pulse ? _SearchingPulseMarker(color: color, child: marker) : marker,
+    );
+  }
+}
+
+class _SearchingPulseMarker extends StatefulWidget {
+  const _SearchingPulseMarker({
+    required this.color,
+    required this.child,
+  });
+
+  final Color color;
+  final Widget child;
+
+  @override
+  State<_SearchingPulseMarker> createState() => _SearchingPulseMarkerState();
+}
+
+class _SearchingPulseMarkerState extends State<_SearchingPulseMarker>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      child: widget.child,
+      builder: (context, child) {
+        final t = Curves.easeOut.transform(_controller.value);
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            Transform.scale(
+              scale: 0.72 + (t * 0.42),
+              child: Container(
+                width: 68,
+                height: 68,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: widget.color.withValues(alpha: (1 - t) * 0.45),
+                    width: 3,
+                  ),
+                ),
+              ),
+            ),
+            child!,
+          ],
+        );
+      },
     );
   }
 }
@@ -1178,6 +1331,25 @@ class _CompactProgressCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SheetHandle extends StatelessWidget {
+  const _SheetHandle();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        width: 42,
+        height: 4,
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: Colors.black26,
+          borderRadius: BorderRadius.circular(10),
+        ),
       ),
     );
   }
@@ -1411,6 +1583,195 @@ class _InfoBox extends StatelessWidget {
 }
 
 // ✅ Animated marker for provider being notified of a mission
+class _SearchingScanCard extends StatelessWidget {
+  const _SearchingScanCard({
+    required this.scannedCount,
+    required this.currentAttempt,
+    required this.secondsLeft,
+  });
+
+  final int scannedCount;
+  final int currentAttempt;
+  final int? secondsLeft;
+
+  @override
+  Widget build(BuildContext context) {
+    final safeAttempt = currentAttempt.clamp(0, scannedCount);
+    final progress =
+        scannedCount <= 0 ? null : (safeAttempt / scannedCount).clamp(0.0, 1.0);
+    final subtitle = scannedCount <= 0
+        ? 'Recherche de providers eligibles...'
+        : secondsLeft == null
+            ? '$scannedCount providers eligibles trouves'
+            : 'Provider $safeAttempt / $scannedCount - ${secondsLeft}s restantes';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7E8),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFFF59E0B).withValues(alpha: 0.24),
+        ),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(
+            width: 28,
+            height: 28,
+            child: CircularProgressIndicator(
+              strokeWidth: 3,
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFF59E0B)),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Recherche en cours',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF6B4F1D),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.black54,
+                  ),
+                ),
+                if (progress != null) ...[
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(999),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      minHeight: 5,
+                      backgroundColor: const Color(0xFFEAD7B8),
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        Color(0xFFF59E0B),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SearchingProviderMarker extends StatefulWidget {
+  const _SearchingProviderMarker({
+    required this.label,
+  });
+
+  final String label;
+
+  @override
+  State<_SearchingProviderMarker> createState() =>
+      _SearchingProviderMarkerState();
+}
+
+class _SearchingProviderMarkerState extends State<_SearchingProviderMarker>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final pulse = Curves.easeOut.transform(_controller.value);
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            Transform.scale(
+              scale: 0.8 + (pulse * 0.8),
+              child: Container(
+                width: 54,
+                height: 54,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xFFF59E0B).withValues(
+                    alpha: (1 - pulse) * 0.28,
+                  ),
+                ),
+              ),
+            ),
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: const Color(0xFFF59E0B),
+                  width: 2,
+                ),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 8,
+                    offset: Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.radar_rounded,
+                color: Color(0xFFF59E0B),
+                size: 21,
+              ),
+            ),
+            Positioned(
+              bottom: 0,
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 86),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.94),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  widget.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
 class _AnimatedOfferMarker extends StatefulWidget {
   const _AnimatedOfferMarker({
     required this.label,
@@ -1469,7 +1830,8 @@ class _AnimatedOfferMarkerState extends State<_AnimatedOfferMarker>
                 height: 60,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: widget.color.withValues(alpha: _opacityAnimation.value),
+                  color:
+                      widget.color.withValues(alpha: _opacityAnimation.value),
                   border: Border.all(
                     color: widget.color.withValues(alpha: 0.4),
                     width: 2,
@@ -1485,7 +1847,8 @@ class _AnimatedOfferMarkerState extends State<_AnimatedOfferMarker>
                 height: 60,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: widget.color.withValues(alpha: _opacityAnimation.value * 0.6),
+                  color: widget.color
+                      .withValues(alpha: _opacityAnimation.value * 0.6),
                 ),
               ),
             ),
@@ -1518,7 +1881,8 @@ class _AnimatedOfferMarkerState extends State<_AnimatedOfferMarker>
             Positioned(
               bottom: -8,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
@@ -1552,7 +1916,8 @@ class _AnimatedRejectionMarker extends StatefulWidget {
   final DateTime? startTime;
 
   @override
-  State<_AnimatedRejectionMarker> createState() => _AnimatedRejectionMarkerState();
+  State<_AnimatedRejectionMarker> createState() =>
+      _AnimatedRejectionMarkerState();
 }
 
 class _AnimatedRejectionMarkerState extends State<_AnimatedRejectionMarker>
@@ -1616,7 +1981,8 @@ class _AnimatedRejectionMarkerState extends State<_AnimatedRejectionMarker>
                 height: 60,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.red.withValues(alpha: _opacityAnimation.value * 0.6),
+                  color: Colors.red
+                      .withValues(alpha: _opacityAnimation.value * 0.6),
                   border: Border.all(
                     color: Colors.red,
                     width: 3,
@@ -1656,7 +2022,8 @@ class _AnimatedRejectionMarkerState extends State<_AnimatedRejectionMarker>
             Positioned(
               bottom: -8,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
@@ -1682,11 +2049,11 @@ class _AnimatedRejectionMarkerState extends State<_AnimatedRejectionMarker>
 // ✅ Popup widget for "no providers available"
 class _NoProvidersPopup extends StatelessWidget {
   const _NoProvidersPopup({
-    required this.onDismiss,
+    required this.onKeepWaiting,
     required this.onCancelMission,
   });
 
-  final VoidCallback onDismiss;
+  final VoidCallback onKeepWaiting;
   final VoidCallback onCancelMission;
 
   @override
@@ -1734,8 +2101,7 @@ class _NoProvidersPopup extends StatelessWidget {
               const SizedBox(height: 12),
               // ✅ Body text
               const Text(
-                'Tous les providers a proximite ont refuse ou n ont pas repondu a votre mission. '
-                'Il semble qu\'il n\'y ait plus de providers disponibles pour le moment.',
+                'Aucun provider n’a accepté la mission. Voulez-vous annuler ou continuer à attendre ?',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 15,
@@ -1750,7 +2116,7 @@ class _NoProvidersPopup extends StatelessWidget {
                 child: FilledButton.icon(
                   onPressed: onCancelMission,
                   icon: const Icon(Icons.cancel_outlined),
-                  label: const Text('Annuler la mission'),
+                  label: const Text('Annuler la demande'),
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
@@ -1761,12 +2127,12 @@ class _NoProvidersPopup extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
-                  onPressed: onDismiss,
+                  onPressed: onKeepWaiting,
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     side: const BorderSide(color: Colors.grey),
                   ),
-                  child: const Text('Fermer'),
+                  child: const Text('Continuer à attendre'),
                 ),
               ),
             ],

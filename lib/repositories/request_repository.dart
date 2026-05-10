@@ -5,6 +5,8 @@ import '../models/request_status.dart';
 
 abstract class RequestRepository {
   Stream<List<AppRequest>> watchRequests();
+  Stream<List<AppRequest>> watchCustomerRequests(String customerUid);
+  Stream<List<AppRequest>> watchProviderRequests(String providerUid);
   List<AppRequest> currentRequests();
 
   Future<void> addRequest(AppRequest request);

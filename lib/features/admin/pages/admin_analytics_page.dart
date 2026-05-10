@@ -153,33 +153,33 @@ class _AdminAnalyticsPageState extends State<AdminAnalyticsPage> {
     required double averageTicket,
     required double completionRate,
   }) {
-     final rows = <List<Object?>>[
-       ['Auto Rescue admin analytics report'],
-       ['Generated at', _formatDateTime(DateTime.now())],
-       ['Period', window.rangeLabel(_formatDateTime)],
-       const [],
-       ['Metric', 'Value'],
-       ['Total requests', filteredDocs.length],
-       ['Active requests', activeDocs.length],
-       ['Completed requests', completedDocs.length],
-       ['Cancelled requests', cancelledDocs.length],
-       ['Revenue DA', totalRevenue.toStringAsFixed(0)],
-       ['Platform commission DA', totalCommission.toStringAsFixed(0)],
-       ['Average ticket DA', averageTicket.toStringAsFixed(0)],
-       ['Completion rate %', completionRate.toStringAsFixed(1)],
-       const [],
-       [
-         'Request ID',
-         'Status',
-         'Date',
-         'Customer',
-         'Provider',
-         'Pickup',
-         'Destination',
-         'Price DA',
-         'Service',
-       ],
-     ];
+    final rows = <List<Object?>>[
+      ['Auto Rescue admin analytics report'],
+      ['Generated at', _formatDateTime(DateTime.now())],
+      ['Period', window.rangeLabel(_formatDateTime)],
+      const [],
+      ['Metric', 'Value'],
+      ['Total requests', filteredDocs.length],
+      ['Active requests', activeDocs.length],
+      ['Completed requests', completedDocs.length],
+      ['Cancelled requests', cancelledDocs.length],
+      ['Revenue DA', totalRevenue.toStringAsFixed(0)],
+      ['Platform commission DA', totalCommission.toStringAsFixed(0)],
+      ['Average ticket DA', averageTicket.toStringAsFixed(0)],
+      ['Completion rate %', completionRate.toStringAsFixed(1)],
+      const [],
+      [
+        'Request ID',
+        'Status',
+        'Date',
+        'Customer',
+        'Provider',
+        'Pickup',
+        'Destination',
+        'Price DA',
+        'Service',
+      ],
+    ];
 
     final sortedDocs = [...filteredDocs]..sort((a, b) {
         final aDate =
@@ -696,11 +696,16 @@ class _AnalyticsFilterPanel extends StatelessWidget {
                 onPressed: onClearCustom,
                 icon: const Icon(Icons.restart_alt_rounded),
               ),
-              const SizedBox(width: 6),
-              FilledButton.icon(
-                onPressed: onExport,
-                icon: const Icon(Icons.download_outlined),
-                label: const Text('CSV'),
+              const SizedBox(width: 4),
+              Flexible(
+                child: FilledButton.icon(
+                  onPressed: onExport,
+                  icon: const Icon(Icons.download_outlined),
+                  label: const Text(
+                    'CSV',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ),
             ],
           ),

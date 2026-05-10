@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../core/i18n/app_localizations.dart';
 import '../../../core/services/alert_service.dart';
 import '../../../core/services/fcm_service.dart';
 import '../../../models/app_request.dart';
@@ -113,6 +114,7 @@ class _ProviderShellPageState extends State<ProviderShellPage> {
   }
 
   void _handleChatMetadata(String requestId, Map<String, dynamic> data) {
+    final strings = AppLocalizations.of(context);
     final senderUid = (data['lastMessageSenderUid'] ?? '').toString();
     final createdAtIso = (data['lastMessageCreatedAtIso'] ?? '').toString();
     final messageText = (data['lastMessageText'] ?? '').toString().trim();
@@ -138,7 +140,7 @@ class _ProviderShellPageState extends State<ProviderShellPage> {
         : 'Client';
 
     widget.store.pushExternalNotification(
-      title: 'Nouveau message',
+      title: strings.t('nouveau_message'),
       body: '$senderName: $messageText',
       type: 'chat',
     );
@@ -147,15 +149,17 @@ class _ProviderShellPageState extends State<ProviderShellPage> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Nouveau message de $senderName'),
+        content: Text(
+          strings.t('new_message_from').replaceAll('{name}', senderName),
+        ),
         action: SnackBarAction(
-          label: 'Ouvrir',
+          label: strings.t('ouvrir'),
           onPressed: () {
             Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => ChatPage(
                   requestId: requestId,
-                  title: 'Chat client',
+                  title: strings.t('chat_client'),
                 ),
               ),
             );
@@ -167,6 +171,7 @@ class _ProviderShellPageState extends State<ProviderShellPage> {
 
   void _onFcmPayload() {
     if (!mounted) return;
+    final strings = AppLocalizations.of(context);
     final payload = FcmService.payloadNotifier.value;
     if (payload == null) return;
 
@@ -191,7 +196,7 @@ class _ProviderShellPageState extends State<ProviderShellPage> {
           MaterialPageRoute(
             builder: (_) => ChatPage(
               requestId: requestId,
-              title: 'Chat client',
+              title: strings.t('chat_client'),
             ),
           ),
         );
@@ -355,6 +360,7 @@ class _ProviderShellPageState extends State<ProviderShellPage> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     final pages = [
       ProviderDashboardPage(store: widget.store),
       ProviderRequestsPage(store: widget.store),
@@ -375,31 +381,31 @@ class _ProviderShellPageState extends State<ProviderShellPage> {
           widget.store.setProviderTab(value);
           widget.store.setAdminNotificationDeliveryReady(value == 0);
         },
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.explore_outlined),
-            selectedIcon: Icon(Icons.explore),
-            label: 'Accueil',
+            icon: const Icon(Icons.explore_outlined),
+            selectedIcon: const Icon(Icons.explore),
+            label: strings.t('accueil'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.car_repair_outlined),
-            selectedIcon: Icon(Icons.car_repair),
-            label: 'Missions',
+            icon: const Icon(Icons.car_repair_outlined),
+            selectedIcon: const Icon(Icons.car_repair),
+            label: strings.t('missions_label'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.history_rounded),
-            selectedIcon: Icon(Icons.history),
-            label: 'Historique',
+            icon: const Icon(Icons.history_rounded),
+            selectedIcon: const Icon(Icons.history),
+            label: strings.t('historique'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.account_circle_outlined),
-            selectedIcon: Icon(Icons.account_circle),
-            label: 'Profil',
+            icon: const Icon(Icons.account_circle_outlined),
+            selectedIcon: const Icon(Icons.account_circle),
+            label: strings.t('profil'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.headset_mic_outlined),
-            selectedIcon: Icon(Icons.headset_mic),
-            label: 'Support',
+            icon: const Icon(Icons.headset_mic_outlined),
+            selectedIcon: const Icon(Icons.headset_mic),
+            label: strings.t('support'),
           ),
         ],
       ),
@@ -514,6 +520,7 @@ class _MissionOfferDialogState extends State<_MissionOfferDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     final request =
         widget.store.findRequest(widget.requestId) ?? widget.initialRequest;
     final providerPosition = widget.store.selectedProviderOrNull?.position ??
@@ -574,10 +581,10 @@ class _MissionOfferDialogState extends State<_MissionOfferDialog> {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      const Expanded(
+                      Expanded(
                         child: Text(
-                          'Nouvelle mission',
-                          style: TextStyle(
+                          strings.t('new_mission'),
+                          style: const TextStyle(
                             fontWeight: FontWeight.w900,
                             fontSize: 20,
                           ),
@@ -597,7 +604,9 @@ class _MissionOfferDialogState extends State<_MissionOfferDialog> {
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Text(
-                        'Temps restant: ${_secondsLeft}s',
+                        strings
+                            .t('time_remaining_seconds')
+                            .replaceAll('{seconds}', '$_secondsLeft'),
                         style: const TextStyle(
                           fontWeight: FontWeight.w900,
                           color: Color(0xFF4338CA),
@@ -636,28 +645,31 @@ class _MissionOfferDialogState extends State<_MissionOfferDialog> {
                         _OfferBadge(
                           icon: Icons.near_me_outlined,
                           label:
-                              'Vers client ${distanceKm.toStringAsFixed(1)} km',
+                              '${strings.t('to_client')} ${distanceKm.toStringAsFixed(1)} km',
                         ),
                       if (approachDurationMinutes != null)
                         _OfferBadge(
                           icon: Icons.timer_outlined,
-                          label: 'Client ~$approachDurationMinutes min',
+                          label:
+                              '${strings.t('client')} ~$approachDurationMinutes min',
                         ),
                       if (request.estimatedDurationMinutes != null)
                         _OfferBadge(
                           icon: Icons.route_outlined,
                           label:
-                              'Mission ${request.estimatedDurationMinutes} min',
+                              '${strings.t('mission')} ${request.estimatedDurationMinutes} min',
                         ),
                       if (request.estimatedPrice != null)
                         _OfferBadge(
                           icon: Icons.payments_rounded,
-                          label: 'Prix ${missionPrice.toStringAsFixed(0)} DA',
+                          label:
+                              '${strings.t('prix')} ${missionPrice.toStringAsFixed(0)} DA',
                         ),
                       if (approachFee != null && approachFee > 0)
                         _OfferBadge(
                           icon: Icons.add_road_outlined,
-                          label: 'Frais ${approachFee.toStringAsFixed(0)} DA',
+                          label:
+                              '${strings.t('fees')} ${approachFee.toStringAsFixed(0)} DA',
                         ),
                       _OfferBadge(
                         icon: Icons.handyman_rounded,
@@ -666,32 +678,36 @@ class _MissionOfferDialogState extends State<_MissionOfferDialog> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  _InfoLine(label: 'Pick up', value: request.pickupLabel),
                   _InfoLine(
-                    label: 'Vehicule',
+                      label: strings.t('pick_up'), value: request.pickupLabel),
+                  _InfoLine(
+                    label: strings.t('vehicule'),
                     value:
                         '${request.vehicleType}${request.brandModel.trim().isEmpty ? '' : ' · ${request.brandModel}'}',
                   ),
                   if (request.destination.isNotEmpty)
-                    _InfoLine(label: 'Destination', value: request.destination),
+                    _InfoLine(
+                      label: strings.t('destination'),
+                      value: request.destination,
+                    ),
                   if (approachDurationMinutes != null)
                     _InfoLine(
-                      label: 'Temps vers client',
+                      label: strings.t('time_to_client'),
                       value: '$approachDurationMinutes min',
                     ),
                   if (request.estimatedDurationMinutes != null)
                     _InfoLine(
-                      label: 'Temps mission',
+                      label: strings.t('mission_time'),
                       value: '${request.estimatedDurationMinutes} min',
                     ),
                   if (request.estimatedPrice != null)
                     _InfoLine(
-                      label: 'Prix mission',
+                      label: strings.t('mission_price'),
                       value: '${missionPrice.toStringAsFixed(0)} DA',
                     ),
                   if (approachFee != null && approachFee > 0)
                     _InfoLine(
-                      label: 'Frais acces',
+                      label: strings.t('access_fee'),
                       value: '${approachFee.toStringAsFixed(0)} DA',
                     ),
                 ],
@@ -707,7 +723,7 @@ class _MissionOfferDialogState extends State<_MissionOfferDialog> {
                       child: FilledButton.icon(
                         onPressed: _accept,
                         icon: const Icon(Icons.check_circle_outline),
-                        label: const Text('Accepter'),
+                        label: Text(strings.t('accept')),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -716,13 +732,13 @@ class _MissionOfferDialogState extends State<_MissionOfferDialog> {
                       child: OutlinedButton.icon(
                         onPressed: _reject,
                         icon: const Icon(Icons.close),
-                        label: const Text('Rejeter'),
+                        label: Text(strings.t('reject')),
                       ),
                     ),
                     const SizedBox(height: 6),
                     TextButton(
                       onPressed: _later,
-                      child: const Text('Voir plus tard'),
+                      child: Text(strings.t('see_later')),
                     ),
                   ],
                 ),
