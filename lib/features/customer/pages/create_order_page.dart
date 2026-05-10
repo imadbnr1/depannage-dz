@@ -67,7 +67,15 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
   void initState() {
     super.initState();
     _pickupPoint = _customerPosition;
-    _pickupController.text = 'Ma position actuelle';
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_pickupController.text.trim().isEmpty) {
+      _pickupController.text =
+          AppLocalizations.of(context).t('current_location');
+    }
   }
 
   @override
@@ -85,6 +93,7 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
         builder: (_) => PickDestinationPage(
           store: widget.store,
           initialCenter: _pickupPoint ?? _customerPosition,
+          mode: LocationPickMode.pickup,
           initialText: _pickupController.text,
         ),
       ),
@@ -117,6 +126,7 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
         builder: (_) => PickDestinationPage(
           store: widget.store,
           initialCenter: _pickupPoint ?? _customerPosition,
+          mode: LocationPickMode.destination,
           initialText: _destinationController.text,
         ),
       ),

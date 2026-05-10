@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 
+import '../../../core/i18n/app_localizations.dart';
+
 class SplashPage extends StatefulWidget {
   const SplashPage({
     super.key,
@@ -60,6 +62,7 @@ class _SplashPageState extends State<SplashPage>
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -131,9 +134,11 @@ class _SplashPageState extends State<SplashPage>
                                 // BIGGER RESPONSIVE LOGO
                                 Builder(
                                   builder: (context) {
-                                    final screenWidth = MediaQuery.of(context).size.width;
-                                    final logoSize = screenWidth * 0.35; // 35% of screen - LARGER
-                                    
+                                    final screenWidth =
+                                        MediaQuery.of(context).size.width;
+                                    final logoSize = screenWidth *
+                                        0.35; // 35% of screen - LARGER
+
                                     return Image.asset(
                                       'assets/logo/applogo.png',
                                       width: logoSize,
@@ -143,7 +148,7 @@ class _SplashPageState extends State<SplashPage>
                                   },
                                 ),
                                 const SizedBox(height: 20),
-                                
+
                                 // App name with shadow
                                 const Text(
                                   'Auto Rescue',
@@ -162,16 +167,16 @@ class _SplashPageState extends State<SplashPage>
                                   ),
                                 ),
                                 const SizedBox(height: 12),
-                                const Text(
-                                  'Assistance routière rapide en Algérie',
-                                  style: TextStyle(
+                                Text(
+                                  strings.t('app_subtitle'),
+                                  style: const TextStyle(
                                     color: Colors.white70,
                                     fontSize: 15,
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
                                 const SizedBox(height: 20),
-                                
+
                                 // Premium badge
                                 Container(
                                   padding: const EdgeInsets.symmetric(
@@ -194,34 +199,38 @@ class _SplashPageState extends State<SplashPage>
                                     ),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.15),
+                                        color: Colors.black
+                                            .withValues(alpha: 0.15),
                                         blurRadius: 20,
                                         offset: const Offset(0, 8),
                                       ),
                                     ],
                                   ),
-                                  child: const Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.flash_on_rounded,
-                                        color: Color(0xFFF59E0B),
-                                        size: 18,
-                                      ),
-                                      SizedBox(width: 8),
-                                      Text(
-                                        'Assistance • Suivi • Mission',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 13,
+                                  child: const FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.flash_on_rounded,
+                                          color: Color(0xFFF59E0B),
+                                          size: 18,
                                         ),
-                                      ),
-                                    ],
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Assistance • Suivi • Mission',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(height: 40),
-                                
+
                                 // Premium loading indicator
                                 SizedBox(
                                   width: 42,

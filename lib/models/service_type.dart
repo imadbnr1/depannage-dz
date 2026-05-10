@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../core/i18n/app_localizations.dart';
+
 enum ServiceType {
   towing,
   battery,
@@ -21,6 +23,22 @@ extension ServiceTypeX on ServiceType {
     }
   }
 
+  String get labelKey {
+    switch (this) {
+      case ServiceType.towing:
+        return 'service_towing';
+      case ServiceType.battery:
+        return 'service_battery';
+      case ServiceType.tire:
+        return 'service_tire';
+      case ServiceType.repair:
+        return 'service_repair';
+    }
+  }
+
+  String localizedLabel(BuildContext context) =>
+      AppLocalizations.of(context).t(labelKey);
+
   String get description {
     switch (this) {
       case ServiceType.towing:
@@ -33,6 +51,22 @@ extension ServiceTypeX on ServiceType {
         return 'Panne generale ou mecanique';
     }
   }
+
+  String get descriptionKey {
+    switch (this) {
+      case ServiceType.towing:
+        return 'service_towing_desc';
+      case ServiceType.battery:
+        return 'service_battery_desc';
+      case ServiceType.tire:
+        return 'service_tire_desc';
+      case ServiceType.repair:
+        return 'service_repair_desc';
+    }
+  }
+
+  String localizedDescription(BuildContext context) =>
+      AppLocalizations.of(context).t(descriptionKey);
 
   IconData get icon {
     switch (this) {

@@ -86,35 +86,57 @@ class _OnboardingPageState extends State<OnboardingPage> {
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 7,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.75),
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(color: const Color(0xFFEADFCC)),
-                      ),
-                      child: Text(
-                        '${_index + 1}/$_itemCount',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF6B7280),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final veryNarrow = constraints.maxWidth < 330;
+
+                    return Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 7,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.75),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(color: const Color(0xFFEADFCC)),
+                          ),
+                          child: Text(
+                            '${_index + 1}/$_itemCount',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF6B7280),
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                    const Spacer(),
-                    const LanguageSelector(compact: true),
-                    const SizedBox(width: 8),
-                    TextButton(
-                      onPressed: widget.onFinish,
-                      child: Text(strings.t('skip')),
-                    ),
-                  ],
+                        const Spacer(),
+                        const LanguageSelector(compact: true),
+                        SizedBox(width: veryNarrow ? 4 : 8),
+                        Flexible(
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: TextButton(
+                                style: TextButton.styleFrom(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: veryNarrow ? 8 : 12,
+                                  ),
+                                  minimumSize: const Size(0, 40),
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                onPressed: widget.onFinish,
+                                child: Text(strings.t('skip')),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
               Expanded(

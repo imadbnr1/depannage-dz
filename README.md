@@ -551,15 +551,44 @@ MAP_PROXY_BASE_URL=
 
 The Flutter app calls Firebase Cloud Functions for web-safe map/search/routing access. `MAP_PROXY_BASE_URL` is optional and is only needed for a local emulator or custom proxy URL.
 
-Set Cloud Functions secrets for private routing provider keys:
+Set Cloud Functions runtime config for private routing provider keys. This keeps
+keys on the server and avoids Firebase Secret Manager, which requires Blaze:
 
 ```bash
-firebase functions:secrets:set OPENROUTESERVICE_API_KEY
-firebase functions:secrets:set GRAPHHOPPER_API_KEY
-firebase functions:secrets:set MAPBOX_ACCESS_TOKEN
+firebase functions:config:set maps.openrouteservice="KEY"
+firebase functions:config:set maps.graphhopper="KEY"
+firebase functions:config:set maps.mapbox="KEY"
 ```
 
-If routing secrets are blank, the function still tries OSRM and returns a local straight-line fallback when every provider fails.
+For local emulators, either export process environment variables or create a
+local ignored `functions/.runtimeconfig.json` from the example:
+
+```bash
+cp functions/.runtimeconfig.example.json functions/.runtimeconfig.json
+firebase emulators:start --only functions
+```
+
+On Windows PowerShell:
+
+```powershell
+Copy-Item functions/.runtimeconfig.example.json functions/.runtimeconfig.json
+firebase emulators:start --only functions
+```
+
+You can also run the emulator with environment variables:
+
+```bash
+OPENROUTESERVICE_API_KEY=KEY GRAPHHOPPER_API_KEY=KEY MAPBOX_ACCESS_TOKEN=KEY firebase emulators:start --only functions
+```
+
+If routing keys are blank, the function still tries OSRM and returns a local
+straight-line fallback when every provider fails. Search, reverse geocoding, and
+nearby place lookups return empty results instead of crashing when upstream
+services fail.
+
+Note: this setup removes the Secret Manager requirement. Firebase may still
+require Blaze to deploy new Cloud Functions; the local emulator and runtime
+config workflow do not expose API keys to the Flutter frontend.
 
 Cloud Function endpoints:
 

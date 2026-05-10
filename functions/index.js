@@ -1,12 +1,7 @@
 "use strict";
 
-const {onRequest} = require("firebase-functions/v2/https");
-const {defineSecret} = require("firebase-functions/params");
+const functions = require("firebase-functions/v1");
 const logger = require("firebase-functions/logger");
-
-const openRouteServiceKey = defineSecret("OPENROUTESERVICE_API_KEY");
-const graphHopperApiKey = defineSecret("GRAPHHOPPER_API_KEY");
-const mapboxAccessToken = defineSecret("MAPBOX_ACCESS_TOKEN");
 
 const REGION = "us-central1";
 const USER_AGENT = "DepaninyMapProxy/1.0 (graduation project)";
@@ -152,12 +147,27 @@ function toRad(value) {
   return value * Math.PI / 180;
 }
 
-function secretValue(secret) {
+function runtimeConfig() {
   try {
-    return secret.value() || "";
+    return functions.config() || {};
   } catch (error) {
-    return "";
+    logger.debug("Firebase runtime config unavailable", {
+      message: error && error.message ? error.message : "unknown",
+    });
+    return {};
   }
+}
+
+function configuredKey(envName, configPath) {
+  const envValue = cleanText(process.env[envName] || "", 512);
+  if (envValue) return envValue;
+
+  const config = runtimeConfig();
+  let value = config;
+  for (const part of configPath) {
+    value = value && value[part];
+  }
+  return cleanText(value || "", 512);
 }
 
 function routeFromGeoJson(coordinates, distanceMeters, durationSeconds) {
@@ -182,7 +192,10 @@ function routeFromGeoJson(coordinates, distanceMeters, durationSeconds) {
 }
 
 async function tryOpenRouteService(origin, destination) {
-  const key = secretValue(openRouteServiceKey);
+  const key = configuredKey("OPENROUTESERVICE_API_KEY", [
+    "maps",
+    "openrouteservice",
+  ]);
   if (!key) return null;
   const url = new URL("https://api.openrouteservice.org/v2/directions/driving-car");
   url.searchParams.set("start", `${origin.lng},${origin.lat}`);
@@ -224,7 +237,7 @@ async function tryOsrm(origin, destination) {
 }
 
 async function tryGraphHopper(origin, destination) {
-  const key = secretValue(graphHopperApiKey);
+  const key = configuredKey("GRAPHHOPPER_API_KEY", ["maps", "graphhopper"]);
   if (!key) return null;
   const url = new URL("https://graphhopper.com/api/1/route");
   url.searchParams.append("point", `${origin.lat},${origin.lng}`);
@@ -241,7 +254,7 @@ async function tryGraphHopper(origin, destination) {
 }
 
 async function tryMapbox(origin, destination) {
-  const token = secretValue(mapboxAccessToken);
+  const token = configuredKey("MAPBOX_ACCESS_TOKEN", ["maps", "mapbox"]);
   if (!token) return null;
   const url = new URL(`https://api.mapbox.com/directions/v5/mapbox/driving/${origin.lng},${origin.lat};${destination.lng},${destination.lat}`);
   url.searchParams.set("access_token", token);
@@ -255,7 +268,7 @@ async function tryMapbox(origin, destination) {
   return routeFromGeoJson(coords, Number(route && route.distance), Number(route && route.duration));
 }
 
-exports.mapSearch = onRequest({region: REGION, cors: true}, async (req, res) => {
+exports.mapSearch = functions.region(REGION).https.onRequest(async (req, res) => {
   if (handleCors(req, res)) return;
   const query = cleanText(body(req).query, 120);
   const limit = cleanLimit(body(req).limit, 6, 10);
@@ -272,7 +285,7 @@ exports.mapSearch = onRequest({region: REGION, cors: true}, async (req, res) => 
   return sendJson(res, 200, {results: normalizeNominatimItems(data, limit)});
 });
 
-exports.reverseGeocode = onRequest({region: REGION, cors: true}, async (req, res) => {
+exports.reverseGeocode = functions.region(REGION).https.onRequest(async (req, res) => {
   if (handleCors(req, res)) return;
   const position = cleanLatLng(body(req));
   if (!position) return sendJson(res, 200, {displayName: null});
@@ -289,7 +302,7 @@ exports.reverseGeocode = onRequest({region: REGION, cors: true}, async (req, res
   return sendJson(res, 200, {displayName: displayName || null});
 });
 
-exports.nearbyPlaces = onRequest({region: REGION, cors: true}, async (req, res) => {
+exports.nearbyPlaces = functions.region(REGION).https.onRequest(async (req, res) => {
   if (handleCors(req, res)) return;
   const position = cleanLatLng(body(req));
   const limit = cleanLimit(body(req).limit, 8, 20);
@@ -313,27 +326,20 @@ exports.nearbyPlaces = onRequest({region: REGION, cors: true}, async (req, res) 
   return sendJson(res, 200, {results: normalizeOverpassElements(data, limit)});
 });
 
-exports.routeDirections = onRequest(
-  {
-    region: REGION,
-    cors: true,
-    secrets: [openRouteServiceKey, graphHopperApiKey, mapboxAccessToken],
-  },
-  async (req, res) => {
-    if (handleCors(req, res)) return;
-    const origin = cleanLatLng(body(req).origin);
-    const destination = cleanLatLng(body(req).destination);
-    if (!origin || !destination) {
-      return sendJson(res, 200, {route: null});
-    }
+exports.routeDirections = functions.region(REGION).https.onRequest(async (req, res) => {
+  if (handleCors(req, res)) return;
+  const origin = cleanLatLng(body(req).origin);
+  const destination = cleanLatLng(body(req).destination);
+  if (!origin || !destination) {
+    return sendJson(res, 200, {route: null});
+  }
 
-    const route =
-      await tryOpenRouteService(origin, destination) ||
-      await tryOsrm(origin, destination) ||
-      await tryGraphHopper(origin, destination) ||
-      await tryMapbox(origin, destination) ||
-      fallbackRoute(origin, destination);
+  const route =
+    await tryOpenRouteService(origin, destination) ||
+    await tryOsrm(origin, destination) ||
+    await tryGraphHopper(origin, destination) ||
+    await tryMapbox(origin, destination) ||
+    fallbackRoute(origin, destination);
 
-    return sendJson(res, 200, {route});
-  },
-);
+  return sendJson(res, 200, {route});
+});

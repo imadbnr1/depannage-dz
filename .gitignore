@@ -28,6 +28,7 @@ secrets/
 .flutter-plugins
 .flutter-plugins-dependencies
 .firebase/
+functions/.runtimeconfig.json
 
 # Firebase local output
 .firebase/

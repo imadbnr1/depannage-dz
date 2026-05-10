@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/i18n/app_localizations.dart';
 import '../../../models/request_status.dart';
 import '../../../models/service_type.dart';
 import '../../../state/app_store.dart';
@@ -40,6 +41,7 @@ class _CustomerRequestsPageState extends State<CustomerRequestsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     final requests = widget.store.activeCustomerRequests;
 
     return Scaffold(
@@ -47,20 +49,18 @@ class _CustomerRequestsPageState extends State<CustomerRequestsPage> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            const _SectionHero(
+            _SectionHero(
               icon: Icons.receipt_long_outlined,
-              title: 'Demandes actives',
-              subtitle:
-                  'Retrouvez ici vos missions en cours, leur statut et l acces rapide au suivi.',
+              title: strings.t('active_requests'),
+              subtitle: strings.t('active_requests_sub'),
               accent: Color(0xFF2563EB),
             ),
             const SizedBox(height: 16),
             if (requests.isEmpty)
-              const AppEmptyState(
+              AppEmptyState(
                 icon: Icons.receipt_long_outlined,
-                title: 'Aucune demande active',
-                message:
-                    'Vos demandes en cours apparaitront ici. Les demandes terminees sont dans Historique.',
+                title: strings.t('aucune_demande_active'),
+                message: strings.t('active_requests_empty_sub'),
               )
             else
               ...requests.map(
@@ -82,7 +82,7 @@ class _CustomerRequestsPageState extends State<CustomerRequestsPage> {
                               borderRadius: BorderRadius.circular(999),
                             ),
                             child: Text(
-                              request.status.label,
+                              request.status.localizedLabel(context),
                               style: TextStyle(
                                 color: request.status.color,
                                 fontWeight: FontWeight.w800,
@@ -103,7 +103,7 @@ class _CustomerRequestsPageState extends State<CustomerRequestsPage> {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        request.service.label,
+                        request.service.localizedLabel(context),
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w900,
@@ -112,28 +112,28 @@ class _CustomerRequestsPageState extends State<CustomerRequestsPage> {
                       const SizedBox(height: 6),
                       Text(
                         request.providerName?.trim().isNotEmpty == true
-                            ? 'Provider: ${request.providerName}'
-                            : 'Affectation du provider en cours',
+                            ? '${strings.t('provider')}: ${request.providerName}'
+                            : strings.t('provider_assignment_pending'),
                         style: const TextStyle(
                           color: Color(0xFF6B7280),
                         ),
                       ),
                       const SizedBox(height: 10),
                       InfoRow(
-                        title: 'Vehicule',
+                        title: strings.t('vehicule'),
                         value: '${request.vehicleType} · ${request.brandModel}',
                       ),
                       InfoRow(
-                        title: 'Depart',
+                        title: strings.t('depart'),
                         value: request.pickupLabel,
                       ),
                       if (request.destination.isNotEmpty)
                         InfoRow(
-                          title: 'Destination',
+                          title: strings.t('destination'),
                           value: request.destination,
                         ),
                       InfoRow(
-                        title: 'Repere',
+                        title: strings.t('repere'),
                         value: request.landmark,
                       ),
                       const SizedBox(height: 12),
@@ -156,7 +156,7 @@ class _CustomerRequestsPageState extends State<CustomerRequestsPage> {
                                       );
                                     },
                                     icon: const Icon(Icons.map_outlined),
-                                    label: const Text('Ouvrir le suivi'),
+                                    label: Text(strings.t('open_tracking')),
                                   ),
                                 ),
                                 const SizedBox(height: 10),
@@ -168,7 +168,8 @@ class _CustomerRequestsPageState extends State<CustomerRequestsPage> {
                                           .cancelRequest(request.id);
                                     },
                                     icon: const Icon(Icons.close),
-                                    label: const Text('Annuler la demande'),
+                                    label:
+                                        Text(strings.t('annuler_la_demande')),
                                   ),
                                 ),
                               ],
@@ -190,7 +191,7 @@ class _CustomerRequestsPageState extends State<CustomerRequestsPage> {
                                     );
                                   },
                                   icon: const Icon(Icons.map_outlined),
-                                  label: const Text('Ouvrir le suivi'),
+                                  label: Text(strings.t('open_tracking')),
                                 ),
                               ),
                               const SizedBox(width: 10),
@@ -201,7 +202,7 @@ class _CustomerRequestsPageState extends State<CustomerRequestsPage> {
                                         .cancelRequest(request.id);
                                   },
                                   icon: const Icon(Icons.close),
-                                  label: const Text('Annuler la demande'),
+                                  label: Text(strings.t('annuler_la_demande')),
                                 ),
                               ),
                             ],

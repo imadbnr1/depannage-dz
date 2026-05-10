@@ -41,7 +41,7 @@ service cloud.firestore {
 
     function canReadRequest(data) {
       return isAdmin() ||
-        (isCustomer() && data.customerUid == request.auth.uid) ||
+        (isSignedIn() && data.customerUid == request.auth.uid) ||
         (isProvider() && (
           data.providerUid == request.auth.uid ||
           data.offeredProviderUid == request.auth.uid
@@ -61,9 +61,13 @@ service cloud.firestore {
       let providerDoc = get(/databases/$(database)/documents/providers/$(providerId));
 
       return providerId is string &&
+        exists(/databases/$(database)/documents/providers/$(providerId)) &&
         providerDoc.data.isApproved == true &&
         (providerDoc.data.isOnline == true || providerDoc.data.online == true) &&
-        providerDoc.data.isBusy != true;
+        providerDoc.data.isBusy != true &&
+        providerDoc.data.hasActiveMission != true &&
+        providerDoc.data.activeMission != true &&
+        providerDoc.data.onActiveMission != true;
     }
 
     function customerCanCancelOwnRequest() {
@@ -76,8 +80,12 @@ service cloud.firestore {
     function customerCanDispatchOwnRequest() {
       return isCustomer() &&
         resource.data.customerUid == request.auth.uid &&
+        request.resource.data.customerUid == request.auth.uid &&
         resource.data.status == 'searching' &&
         request.resource.data.status == 'searching' &&
+        resource.data.providerUid == null &&
+        request.resource.data.providerUid == null &&
+        resource.data.offeredProviderUid == null &&
         offeredProviderIsAvailable() &&
         onlyChanged([
           'offeredProviderUid',

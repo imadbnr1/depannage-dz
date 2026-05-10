@@ -267,19 +267,19 @@ class _ProviderMissionDetailsPageState
                     markers: [
                       Marker(
                         point: providerPosition,
-                        width: 144,
-                        height: 142,
+                        width: RoleMapMarker.outerSize,
+                        height: RoleMapMarker.outerSize,
                         child: const MapPin(
                           label: 'Provider',
                           icon: Icons.local_shipping,
-                          color: Colors.blue,
+                          color: Color(0xFFF59E0B),
                           markerType: RoleMapMarkerType.provider,
                         ),
                       ),
                       Marker(
                         point: routeTarget,
-                        width: 144,
-                        height: 142,
+                        width: RoleMapMarker.outerSize,
+                        height: RoleMapMarker.outerSize,
                         child: MapPin(
                           label: request.status == RequestStatus.arrived ||
                                   request.status == RequestStatus.inService ||
@@ -410,7 +410,7 @@ class _ProviderMissionDetailsPageState
                                     borderRadius: BorderRadius.circular(999),
                                   ),
                                   child: Text(
-                                    request.status.label,
+                                    request.status.localizedLabel(context),
                                     style: TextStyle(
                                       color: request.status.color,
                                       fontWeight: FontWeight.w800,
@@ -546,7 +546,7 @@ class _ProviderMissionDetailsPageState
                               ),
                               InfoRow(
                                 title: 'Service',
-                                value: request.service.label,
+                                value: request.service.localizedLabel(context),
                               ),
                               InfoRow(
                                 title: 'Vehicule',

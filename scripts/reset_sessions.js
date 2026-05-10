@@ -33,7 +33,17 @@ async function reset() {
     await doc.ref.update({
       isOnline: false,
       isBusy: false,
+      busy: false,
+      hasActiveMission: false,
+      activeMission: false,
+      onActiveMission: false,
+      activeMissionId: null,
+      activeRequestId: null,
+      currentRequestId: null,
+      assignedRequestId: null,
+      offeredRequestId: null,
       updatedAtIso: new Date().toISOString(),
+      busyStatusUpdatedAtIso: new Date().toISOString(),
     });
   }
 
@@ -45,10 +55,13 @@ async function reset() {
     const data = doc.data();
 
     const activeStatuses = [
-      'searching',
       'accepted',
+      'confirmed',
+      'enRoute',
       'onTheWay',
       'arrived',
+      'inProgress',
+      'active',
       'inService',
     ];
 

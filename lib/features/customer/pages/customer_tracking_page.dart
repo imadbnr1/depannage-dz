@@ -768,8 +768,8 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
     markers.add(
       Marker(
         point: customerPosition,
-        width: 82,
-        height: 82,
+        width: RoleMapMarker.outerSize,
+        height: RoleMapMarker.outerSize,
         child: _PinnedMarker(
           label: destinationStage ? 'Pick up' : 'Client',
           type: RoleMapMarkerType.customer,
@@ -786,8 +786,8 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
       markers.add(
         Marker(
           point: request.destinationPosition!,
-          width: 82,
-          height: 82,
+          width: RoleMapMarker.outerSize,
+          height: RoleMapMarker.outerSize,
           child: const _PinnedMarker(
             label: 'Dest',
             type: RoleMapMarkerType.destination,
@@ -805,8 +805,8 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
         markers.add(
           Marker(
             point: provider.position,
-            width: 96,
-            height: 96,
+            width: RoleMapMarker.outerSize,
+            height: RoleMapMarker.outerSize,
             child: _SearchingProviderMarker(
               label: provider.name.trim().isEmpty
                   ? strings.t('provider')
@@ -822,22 +822,16 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
       markers.add(
         Marker(
           point: providerPosition,
-          width: 50,
-          height: 50,
-          alignment: Alignment.topCenter,
-          child: const DecoratedBox(
-            decoration: BoxDecoration(
-              color: Color(0xFFF59E0B),
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black26,
-                  blurRadius: 8,
-                  offset: Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Icon(Icons.directions_car, color: Colors.white, size: 24),
+          width: RoleMapMarker.outerSize,
+          height: RoleMapMarker.outerSize,
+          child: _PinnedMarker(
+            label: strings.t('provider'),
+            type: RoleMapMarkerType.provider,
+            icon: Icons.car_repair_rounded,
+            color: const Color(0xFFF59E0B),
+            compactLabel: true,
+            offset: providerMarkerOffset,
+            rotationRadians: providerHeadingRadians,
           ),
         ),
       );
@@ -850,8 +844,8 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
           markers.add(
             Marker(
               point: offeredProvider.position,
-              width: 112,
-              height: 112,
+              width: RoleMapMarker.outerSize,
+              height: RoleMapMarker.outerSize,
               child: _AnimatedOfferMarker(
                 label: offeredProvider.name.trim().isEmpty
                     ? strings.t('provider')
@@ -1205,91 +1199,24 @@ class _PinnedMarker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final marker = SizedBox(
-      width: 70,
-      height: 70,
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: RoleMapMarker(
-          label: label,
-          type: type,
-          fallbackIcon: icon,
-          color: color,
-          size: 46,
-          rotationRadians: rotationRadians,
-          compactLabel: compactLabel,
-        ),
+    final marker = RoleMapMarker(
+      label: label,
+      type: type,
+      fallbackIcon: icon,
+      color: color,
+      size: 48,
+      rotationRadians: rotationRadians,
+      compactLabel: compactLabel,
+      showPulse: pulse,
+    );
+
+    return SizedBox(
+      width: RoleMapMarker.outerSize,
+      height: RoleMapMarker.outerSize,
+      child: Transform.translate(
+        offset: offset,
+        child: marker,
       ),
-    );
-
-    return Transform.translate(
-      offset: offset,
-      child:
-          pulse ? _SearchingPulseMarker(color: color, child: marker) : marker,
-    );
-  }
-}
-
-class _SearchingPulseMarker extends StatefulWidget {
-  const _SearchingPulseMarker({
-    required this.color,
-    required this.child,
-  });
-
-  final Color color;
-  final Widget child;
-
-  @override
-  State<_SearchingPulseMarker> createState() => _SearchingPulseMarkerState();
-}
-
-class _SearchingPulseMarkerState extends State<_SearchingPulseMarker>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1600),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      child: widget.child,
-      builder: (context, child) {
-        final t = Curves.easeOut.transform(_controller.value);
-        return Stack(
-          alignment: Alignment.center,
-          children: [
-            Transform.scale(
-              scale: 0.72 + (t * 0.42),
-              child: Container(
-                width: 68,
-                height: 68,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: widget.color.withValues(alpha: (1 - t) * 0.45),
-                    width: 3,
-                  ),
-                ),
-              ),
-            ),
-            child!,
-          ],
-        );
-      },
     );
   }
 }
@@ -1596,14 +1523,21 @@ class _SearchingScanCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     final safeAttempt = currentAttempt.clamp(0, scannedCount);
     final progress =
         scannedCount <= 0 ? null : (safeAttempt / scannedCount).clamp(0.0, 1.0);
     final subtitle = scannedCount <= 0
-        ? 'Recherche de providers eligibles...'
+        ? strings.t('searching_eligible_providers')
         : secondsLeft == null
-            ? '$scannedCount providers eligibles trouves'
-            : 'Provider $safeAttempt / $scannedCount - ${secondsLeft}s restantes';
+            ? strings
+                .t('eligible_providers_found')
+                .replaceAll('{count}', '$scannedCount')
+            : strings
+                .t('provider_scan_progress')
+                .replaceAll('{current}', '$safeAttempt')
+                .replaceAll('{total}', '$scannedCount')
+                .replaceAll('{seconds}', '$secondsLeft');
 
     return Container(
       width: double.infinity,
@@ -1630,9 +1564,9 @@ class _SearchingScanCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Recherche en cours',
-                  style: TextStyle(
+                Text(
+                  strings.t('search_in_progress'),
+                  style: const TextStyle(
                     fontWeight: FontWeight.w900,
                     color: Color(0xFF6B4F1D),
                   ),
@@ -1668,7 +1602,7 @@ class _SearchingScanCard extends StatelessWidget {
   }
 }
 
-class _SearchingProviderMarker extends StatefulWidget {
+class _SearchingProviderMarker extends StatelessWidget {
   const _SearchingProviderMarker({
     required this.label,
   });
@@ -1676,98 +1610,15 @@ class _SearchingProviderMarker extends StatefulWidget {
   final String label;
 
   @override
-  State<_SearchingProviderMarker> createState() =>
-      _SearchingProviderMarkerState();
-}
-
-class _SearchingProviderMarkerState extends State<_SearchingProviderMarker>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1800),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        final pulse = Curves.easeOut.transform(_controller.value);
-        return Stack(
-          alignment: Alignment.center,
-          children: [
-            Transform.scale(
-              scale: 0.8 + (pulse * 0.8),
-              child: Container(
-                width: 54,
-                height: 54,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFFF59E0B).withValues(
-                    alpha: (1 - pulse) * 0.28,
-                  ),
-                ),
-              ),
-            ),
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: const Color(0xFFF59E0B),
-                  width: 2,
-                ),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 8,
-                    offset: Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.radar_rounded,
-                color: Color(0xFFF59E0B),
-                size: 21,
-              ),
-            ),
-            Positioned(
-              bottom: 0,
-              child: Container(
-                constraints: const BoxConstraints(maxWidth: 86),
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.94),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  widget.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+    return RoleMapMarker(
+      label: label,
+      type: RoleMapMarkerType.provider,
+      fallbackIcon: Icons.car_repair_rounded,
+      color: const Color(0xFFF59E0B),
+      size: 48,
+      compactLabel: true,
+      showPulse: true,
     );
   }
 }
@@ -1799,11 +1650,11 @@ class _AnimatedOfferMarkerState extends State<_AnimatedOfferMarker>
       vsync: this,
     )..repeat();
 
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.6).animate(
+    _scaleAnimation = Tween<double>(begin: 0.72, end: 1.08).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
 
-    _opacityAnimation = Tween<double>(begin: 0.8, end: 0.0).animate(
+    _opacityAnimation = Tween<double>(begin: 0.35, end: 0.0).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeOut),
     );
   }
@@ -1826,8 +1677,8 @@ class _AnimatedOfferMarkerState extends State<_AnimatedOfferMarker>
             Transform.scale(
               scale: _scaleAnimation.value,
               child: Container(
-                width: 60,
-                height: 60,
+                width: 76,
+                height: 76,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color:
@@ -1843,8 +1694,8 @@ class _AnimatedOfferMarkerState extends State<_AnimatedOfferMarker>
             Transform.scale(
               scale: _scaleAnimation.value * 0.7,
               child: Container(
-                width: 60,
-                height: 60,
+                width: 76,
+                height: 76,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: widget.color
@@ -1854,14 +1705,14 @@ class _AnimatedOfferMarkerState extends State<_AnimatedOfferMarker>
             ),
             // ✅ Center marker
             Container(
-              width: 70,
-              height: 70,
+              width: 50,
+              height: 50,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: widget.color,
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: widget.color,
-                  width: 3,
+                  color: Colors.white,
+                  width: 2,
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -1873,27 +1724,28 @@ class _AnimatedOfferMarkerState extends State<_AnimatedOfferMarker>
               ),
               child: Icon(
                 Icons.car_repair_rounded,
-                color: widget.color,
-                size: 36,
+                color: Colors.white,
+                size: 26,
               ),
             ),
             // ✅ Label
             Positioned(
-              bottom: -8,
+              top: 0,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                constraints: const BoxConstraints(maxWidth: 84),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: widget.color, width: 2),
+                  borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
                   widget.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 11,
-                    color: widget.color,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 9,
+                    color: Colors.black87,
                   ),
                 ),
               ),
@@ -2058,6 +1910,7 @@ class _NoProvidersPopup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Material(
@@ -2089,10 +1942,10 @@ class _NoProvidersPopup extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               // ✅ Title
-              const Text(
-                'Aucun provider disponible',
+              Text(
+                strings.t('no_provider_available'),
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
                   color: Colors.black87,
@@ -2100,10 +1953,10 @@ class _NoProvidersPopup extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               // ✅ Body text
-              const Text(
-                'Aucun provider n’a accepté la mission. Voulez-vous annuler ou continuer à attendre ?',
+              Text(
+                strings.t('no_provider_available_body'),
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 15,
                   color: Colors.black54,
                   height: 1.4,
@@ -2116,7 +1969,7 @@ class _NoProvidersPopup extends StatelessWidget {
                 child: FilledButton.icon(
                   onPressed: onCancelMission,
                   icon: const Icon(Icons.cancel_outlined),
-                  label: const Text('Annuler la demande'),
+                  label: Text(strings.t('annuler_la_demande')),
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
@@ -2132,7 +1985,7 @@ class _NoProvidersPopup extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     side: const BorderSide(color: Colors.grey),
                   ),
-                  child: const Text('Continuer à attendre'),
+                  child: Text(strings.t('keep_waiting')),
                 ),
               ),
             ],

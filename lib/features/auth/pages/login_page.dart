@@ -70,7 +70,10 @@ class _LoginPageState extends State<LoginPage> {
 
     final isValid = _formKey.currentState?.validate() ?? false;
     if (!isValid) {
-      AppFeedback.showError(context, 'Vérifiez vos informations.');
+      AppFeedback.showError(
+        context,
+        AppLocalizations.of(context).t('checkInfo'),
+      );
       return;
     }
 

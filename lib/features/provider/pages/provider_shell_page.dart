@@ -11,6 +11,7 @@ import '../../../core/services/fcm_service.dart';
 import '../../../models/app_request.dart';
 import '../../../models/service_type.dart';
 import '../../../state/app_store.dart';
+import '../../../widgets/modern_bottom_nav_bar.dart';
 import '../../shared/pages/chat_page.dart';
 import 'provider_dashboard_page.dart';
 import 'provider_history_page.dart';
@@ -374,38 +375,38 @@ class _ProviderShellPageState extends State<ProviderShellPage> {
         index: _index,
         children: pages,
       ),
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: ModernBottomNavBar(
         selectedIndex: _index,
-        onDestinationSelected: (value) {
+        onTap: (value) {
           setState(() => _index = value);
           widget.store.setProviderTab(value);
           widget.store.setAdminNotificationDeliveryReady(value == 0);
         },
-        destinations: [
-          NavigationDestination(
-            icon: const Icon(Icons.explore_outlined),
-            selectedIcon: const Icon(Icons.explore),
-            label: strings.t('accueil'),
+        items: [
+          ModernBottomNavItem(
+            icon: Icons.explore_outlined,
+            selectedIcon: Icons.explore,
+            semanticLabel: strings.t('accueil'),
           ),
-          NavigationDestination(
-            icon: const Icon(Icons.car_repair_outlined),
-            selectedIcon: const Icon(Icons.car_repair),
-            label: strings.t('missions_label'),
+          ModernBottomNavItem(
+            icon: Icons.car_repair_outlined,
+            selectedIcon: Icons.car_repair,
+            semanticLabel: strings.t('missions_label'),
           ),
-          NavigationDestination(
-            icon: const Icon(Icons.history_rounded),
-            selectedIcon: const Icon(Icons.history),
-            label: strings.t('historique'),
+          ModernBottomNavItem(
+            icon: Icons.history_rounded,
+            selectedIcon: Icons.history,
+            semanticLabel: strings.t('historique'),
           ),
-          NavigationDestination(
-            icon: const Icon(Icons.account_circle_outlined),
-            selectedIcon: const Icon(Icons.account_circle),
-            label: strings.t('profil'),
+          ModernBottomNavItem(
+            icon: Icons.account_circle_outlined,
+            selectedIcon: Icons.account_circle,
+            semanticLabel: strings.t('profil'),
           ),
-          NavigationDestination(
-            icon: const Icon(Icons.headset_mic_outlined),
-            selectedIcon: const Icon(Icons.headset_mic),
-            label: strings.t('support'),
+          ModernBottomNavItem(
+            icon: Icons.headset_mic_outlined,
+            selectedIcon: Icons.headset_mic,
+            semanticLabel: strings.t('support'),
           ),
         ],
       ),
@@ -673,7 +674,7 @@ class _MissionOfferDialogState extends State<_MissionOfferDialog> {
                         ),
                       _OfferBadge(
                         icon: Icons.handyman_rounded,
-                        label: request.service.label,
+                        label: request.service.localizedLabel(context),
                       ),
                     ],
                   ),

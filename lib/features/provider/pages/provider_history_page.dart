@@ -76,7 +76,7 @@ class ProviderHistoryPage extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        item.status.label,
+                        item.status.localizedLabel(context),
                         style: TextStyle(
                           color: item.status.color,
                           fontWeight: FontWeight.w700,
@@ -85,7 +85,7 @@ class ProviderHistoryPage extends StatelessWidget {
                       const SizedBox(height: 10),
                       InfoRow(
                         title: 'Service',
-                        value: item.service.label,
+                        value: item.service.localizedLabel(context),
                       ),
                       InfoRow(
                         title: 'Vehicule',

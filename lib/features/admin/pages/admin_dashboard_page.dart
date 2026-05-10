@@ -6,6 +6,7 @@ import '../../../core/services/auth_service.dart';
 import '../../../core/services/admin_audit_service.dart';
 import '../../../core/i18n/app_localizations.dart';
 import '../../../widgets/language_selector.dart';
+import '../../../widgets/modern_bottom_nav_bar.dart';
 import 'admin_activity_log_page.dart';
 import 'admin_analytics_page.dart';
 import 'admin_notifications_page.dart';
@@ -159,7 +160,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                                       width: 52,
                                       height: 52,
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withValues(alpha: 0.12),
+                                        color: Colors.white
+                                            .withValues(alpha: 0.12),
                                         borderRadius: BorderRadius.circular(18),
                                       ),
                                       child: Icon(
@@ -170,13 +172,16 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                                     SizedBox(
                                       width: wide
                                           ? 620
-                                          : (constraints.maxWidth - 110).clamp(220.0, 620.0),
+                                          : (constraints.maxWidth - 110)
+                                              .clamp(220.0, 620.0),
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             current.title,
-                                            style: theme.textTheme.headlineSmall?.copyWith(
+                                            style: theme.textTheme.headlineSmall
+                                                ?.copyWith(
                                               color: Colors.white,
                                               fontWeight: FontWeight.w900,
                                             ),
@@ -184,7 +189,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                                           const SizedBox(height: 4),
                                           Text(
                                             t('admin_banner_subtitle'),
-                                            style: theme.textTheme.bodyMedium?.copyWith(
+                                            style: theme.textTheme.bodyMedium
+                                                ?.copyWith(
                                               color: Colors.white70,
                                             ),
                                           ),
@@ -193,8 +199,10 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                                     ),
                                     FilledButton.icon(
                                       style: FilledButton.styleFrom(
-                                        backgroundColor: const Color(0xFFF8FAFC),
-                                        foregroundColor: const Color(0xFF0F172A),
+                                        backgroundColor:
+                                            const Color(0xFFF8FAFC),
+                                        foregroundColor:
+                                            const Color(0xFF0F172A),
                                       ),
                                       onPressed: () async {
                                         await AuthService().signOut();
@@ -220,27 +228,53 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                                       itemBuilder: (context, index) {
                                         final item = destinations[index];
                                         final selected = index == _index;
-                                        return ChoiceChip(
-                                          label: Text(item.label),
-                                          selected: selected,
-                                          onSelected: (_) => _onSelect(index),
-                                          avatar: Icon(
-                                            selected ? item.selectedIcon : item.icon,
-                                            size: 18,
-                                            color: selected
-                                                ? const Color(0xFF0F172A)
-                                                : Colors.white,
-                                          ),
-                                          labelStyle: TextStyle(
-                                            color: selected
-                                                ? const Color(0xFF0F172A)
-                                                : Colors.white,
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                          backgroundColor: Colors.white.withValues(alpha: 0.08),
-                                          selectedColor: const Color(0xFFF8FAFC),
-                                          side: BorderSide(
-                                            color: Colors.white.withValues(alpha: 0.1),
+                                        return Tooltip(
+                                          message: item.label,
+                                          child: Semantics(
+                                            label: item.label,
+                                            button: true,
+                                            selected: selected,
+                                            child: InkWell(
+                                              borderRadius:
+                                                  BorderRadius.circular(999),
+                                              onTap: () => _onSelect(index),
+                                              child: AnimatedContainer(
+                                                duration: const Duration(
+                                                  milliseconds: 220,
+                                                ),
+                                                curve: Curves.easeOutCubic,
+                                                width: 46,
+                                                height: 46,
+                                                decoration: BoxDecoration(
+                                                  color: selected
+                                                      ? const Color(0xFFF8FAFC)
+                                                      : Colors.white.withValues(
+                                                          alpha: 0.08,
+                                                        ),
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                    999,
+                                                  ),
+                                                  border: Border.all(
+                                                    color:
+                                                        Colors.white.withValues(
+                                                      alpha: selected
+                                                          ? 0.36
+                                                          : 0.12,
+                                                    ),
+                                                  ),
+                                                ),
+                                                child: Icon(
+                                                  selected
+                                                      ? item.selectedIcon
+                                                      : item.icon,
+                                                  size: selected ? 22 : 20,
+                                                  color: selected
+                                                      ? const Color(0xFF0F172A)
+                                                      : Colors.white,
+                                                ),
+                                              ),
+                                            ),
                                           ),
                                         );
                                       },
@@ -269,15 +303,15 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       ),
       bottomNavigationBar: MediaQuery.of(context).size.width >= 1100
           ? null
-          : NavigationBar(
+          : ModernBottomNavBar(
               selectedIndex: _index,
-              onDestinationSelected: _onSelect,
-              destinations: destinations
+              onTap: _onSelect,
+              items: destinations
                   .map(
-                    (item) => NavigationDestination(
-                      icon: Icon(item.icon),
-                      selectedIcon: Icon(item.selectedIcon),
-                      label: item.label,
+                    (item) => ModernBottomNavItem(
+                      icon: item.icon,
+                      selectedIcon: item.selectedIcon,
+                      semanticLabel: item.label,
                     ),
                   )
                   .toList(),
@@ -348,7 +382,8 @@ class _AdminOverviewPage extends StatelessWidget {
     }
   }
 
-  String _formatMoney(double value, AppLocalizations t) => '${value.toStringAsFixed(0)} DA';
+  String _formatMoney(double value, AppLocalizations t) =>
+      '${value.toStringAsFixed(0)} DA';
 
   String _formatWhen(DateTime? value, AppLocalizations t) {
     if (value == null) return '--';
@@ -395,8 +430,10 @@ class _AdminOverviewPage extends StatelessWidget {
                   );
                 }
 
-                if (requestsSnapshot.connectionState == ConnectionState.waiting ||
-                    providersSnapshot.connectionState == ConnectionState.waiting ||
+                if (requestsSnapshot.connectionState ==
+                        ConnectionState.waiting ||
+                    providersSnapshot.connectionState ==
+                        ConnectionState.waiting ||
                     usersSnapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
@@ -405,8 +442,9 @@ class _AdminOverviewPage extends StatelessWidget {
                 final providers = providersSnapshot.data?.docs ?? [];
                 final users = usersSnapshot.data?.docs ?? [];
 
-                final searching =
-                    requests.where((d) => (d.data()['status'] ?? '') == 'searching').length;
+                final searching = requests
+                    .where((d) => (d.data()['status'] ?? '') == 'searching')
+                    .length;
                 final active = requests.where((d) {
                   final status = (d.data()['status'] ?? '').toString();
                   return status == 'accepted' ||
@@ -414,12 +452,15 @@ class _AdminOverviewPage extends StatelessWidget {
                       status == 'arrived' ||
                       status == 'inService';
                 }).length;
-                final completed =
-                    requests.where((d) => (d.data()['status'] ?? '') == 'completed').length;
-                final cancelled =
-                    requests.where((d) => (d.data()['status'] ?? '') == 'cancelled').length;
+                final completed = requests
+                    .where((d) => (d.data()['status'] ?? '') == 'completed')
+                    .length;
+                final cancelled = requests
+                    .where((d) => (d.data()['status'] ?? '') == 'cancelled')
+                    .length;
                 final urgent = requests.where((d) {
-                  final urgency = (d.data()['urgency'] ?? '').toString().toLowerCase();
+                  final urgency =
+                      (d.data()['urgency'] ?? '').toString().toLowerCase();
                   return urgency.contains('urgent') || urgency.contains('crit');
                 }).length;
 
@@ -427,19 +468,24 @@ class _AdminOverviewPage extends StatelessWidget {
                     providers.where((d) => d.data()['isOnline'] == true).length;
                 final busyProviders =
                     providers.where((d) => d.data()['isBusy'] == true).length;
-                final approvedProviders =
-                    providers.where((d) => d.data()['isApproved'] == true).length;
+                final approvedProviders = providers
+                    .where((d) => d.data()['isApproved'] == true)
+                    .length;
                 final pendingProviders = providers.where((d) {
                   final data = d.data();
-                  return data['isApproved'] != true && data['isBlocked'] != true;
+                  return data['isApproved'] != true &&
+                      data['isBlocked'] != true;
                 }).toList();
-                final blockedProviders =
-                    providers.where((d) => d.data()['isBlocked'] == true).length;
+                final blockedProviders = providers
+                    .where((d) => d.data()['isBlocked'] == true)
+                    .length;
 
-                final customers =
-                    users.where((d) => (d.data()['role'] ?? '') == 'customer').length;
-                final providerUsers =
-                    users.where((d) => (d.data()['role'] ?? '') == 'provider').length;
+                final customers = users
+                    .where((d) => (d.data()['role'] ?? '') == 'customer')
+                    .length;
+                final providerUsers = users
+                    .where((d) => (d.data()['role'] ?? '') == 'provider')
+                    .length;
                 final freeProviders = onlineProviders - busyProviders < 0
                     ? 0
                     : onlineProviders - busyProviders;
@@ -447,9 +493,11 @@ class _AdminOverviewPage extends StatelessWidget {
                     .where((d) => (d.data()['status'] ?? '') == 'completed')
                     .fold<double>(
                       0,
-                      (total, doc) => total + _toDouble(doc.data()['estimatedPrice']),
+                      (total, doc) =>
+                          total + _toDouble(doc.data()['estimatedPrice']),
                     );
-                final averageTicket = completed == 0 ? 0.0 : completedRevenue / completed;
+                final averageTicket =
+                    completed == 0 ? 0.0 : completedRevenue / completed;
                 final completionRate = requests.isEmpty
                     ? 0.0
                     : ((completed / requests.length) * 100).clamp(0, 100);
@@ -462,8 +510,10 @@ class _AdminOverviewPage extends StatelessWidget {
                         DateTime.fromMillisecondsSinceEpoch(0);
                     return bDate.compareTo(aDate);
                   });
-                final spotlightRequests = recentRequests.take(4).toList(growable: false);
-                final providerSpotlight = pendingProviders.take(3).toList(growable: false);
+                final spotlightRequests =
+                    recentRequests.take(4).toList(growable: false);
+                final providerSpotlight =
+                    pendingProviders.take(3).toList(growable: false);
                 final screenWidth = MediaQuery.of(context).size.width;
                 final kpiColumns = screenWidth >= 1300
                     ? 4
@@ -716,8 +766,11 @@ class _AdminOverviewPage extends StatelessWidget {
                     LayoutBuilder(
                       builder: (context, sectionConstraints) {
                         final width = sectionConstraints.maxWidth;
-                        final columns =
-                            width >= 1180 ? 3 : width >= 760 ? 2 : 1;
+                        final columns = width >= 1180
+                            ? 3
+                            : width >= 760
+                                ? 2
+                                : 1;
                         final itemWidth = columns == 1
                             ? width
                             : (width - ((columns - 1) * 14)) / columns;
@@ -738,14 +791,16 @@ class _AdminOverviewPage extends StatelessWidget {
                                         Expanded(
                                           child: _MiniStat(
                                             label: t.t('avg_ticket'),
-                                            value: _formatMoney(averageTicket, t),
+                                            value:
+                                                _formatMoney(averageTicket, t),
                                           ),
                                         ),
                                         const SizedBox(width: 10),
                                         Expanded(
                                           child: _MiniStat(
                                             label: t.t('ca_completed'),
-                                            value: _formatMoney(completedRevenue, t),
+                                            value: _formatMoney(
+                                                completedRevenue, t),
                                           ),
                                         ),
                                       ],
@@ -753,7 +808,8 @@ class _AdminOverviewPage extends StatelessWidget {
                                     const SizedBox(height: 12),
                                     _InsightRow(
                                       label: t.t('completion_rate'),
-                                      value: '${completionRate.toStringAsFixed(0)}%',
+                                      value:
+                                          '${completionRate.toStringAsFixed(0)}%',
                                     ),
                                     _InsightRow(
                                       label: t.t('missions_completed'),
@@ -777,26 +833,33 @@ class _AdminOverviewPage extends StatelessWidget {
                                         children: [
                                           const _EmptyStateLine(
                                             title: 'no_pending_providers',
-                                            subtitle: 'no_pending_providers_sub',
+                                            subtitle:
+                                                'no_pending_providers_sub',
                                           ),
                                           const SizedBox(height: 12),
                                           _QuickActionTile(
                                             icon: Icons.local_shipping_outlined,
                                             title: t.t('open_provider_ops'),
-                                            subtitle: t.t('open_provider_ops_sub'),
+                                            subtitle:
+                                                t.t('open_provider_ops_sub'),
                                             onTap: () => onNavigate(2),
                                           ),
                                         ],
                                       )
                                     : Column(
                                         children: [
-                                          ...providerSpotlight.map((providerDoc) {
+                                          ...providerSpotlight
+                                              .map((providerDoc) {
                                             final data = providerDoc.data();
                                             return Padding(
-                                              padding: const EdgeInsets.only(bottom: 10),
+                                              padding: const EdgeInsets.only(
+                                                  bottom: 10),
                                               child: _ProviderApprovalPreview(
-                                                name: (data['name'] ?? 'Provider').toString(),
-                                                phone: (data['phone'] ?? '--').toString(),
+                                                name:
+                                                    (data['name'] ?? 'Provider')
+                                                        .toString(),
+                                                phone: (data['phone'] ?? '--')
+                                                    .toString(),
                                                 vehicle:
                                                     '${data['vehicleType'] ?? '--'} · ${data['plate'] ?? '--'}',
                                               ),
@@ -806,7 +869,8 @@ class _AdminOverviewPage extends StatelessWidget {
                                             icon: Icons.verified_user_outlined,
                                             title: t
                                                 .t('treat_approval')
-                                                .replaceAll('{count}', '${pendingProviders.length}'),
+                                                .replaceAll('{count}',
+                                                    '${pendingProviders.length}'),
                                             subtitle: t.t('treat_approval_sub'),
                                             onTap: () => onNavigate(2),
                                           ),
@@ -827,27 +891,37 @@ class _AdminOverviewPage extends StatelessWidget {
                                     : Column(
                                         children: spotlightRequests.map((doc) {
                                           final data = doc.data();
-                                          final status = (data['status'] ?? 'searching').toString();
+                                          final status =
+                                              (data['status'] ?? 'searching')
+                                                  .toString();
                                           return Padding(
-                                            padding: const EdgeInsets.only(bottom: 10),
+                                            padding: const EdgeInsets.only(
+                                                bottom: 10),
                                             child: _MissionRadarTile(
-                                              title: (data['customerName'] ?? 'Client').toString(),
-                                              pickup: (data['pickupLabel'] ?? 'Point de depart')
+                                              title: (data['customerName'] ??
+                                                      'Client')
                                                   .toString(),
-                                              destination: (data['destination'] ?? '--').toString(),
+                                              pickup: (data['pickupLabel'] ??
+                                                      'Point de depart')
+                                                  .toString(),
+                                              destination:
+                                                  (data['destination'] ?? '--')
+                                                      .toString(),
                                               when: _formatWhen(
                                                 _toDate(data['updatedAt']) ??
                                                     _toDate(data['createdAt']),
                                                 t,
                                               ),
                                               price: _formatMoney(
-                                                _toDouble(data['estimatedPrice']),
+                                                _toDouble(
+                                                    data['estimatedPrice']),
                                                 t,
                                               ),
                                               status: _statusLabel(status, t),
                                               statusColor: _statusColor(status),
                                               pickupLabel: t.t('pick_up'),
-                                              destinationLabel: t.t('destination_label'),
+                                              destinationLabel:
+                                                  t.t('destination_label'),
                                             ),
                                           );
                                         }).toList(),
@@ -1007,8 +1081,10 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
             return bOnline.compareTo(aOnline);
           });
 
-        final onlineCount = docs.where((doc) => doc.data()['isOnline'] == true).length;
-        final blockedCount = docs.where((doc) => doc.data()['isBlocked'] == true).length;
+        final onlineCount =
+            docs.where((doc) => doc.data()['isOnline'] == true).length;
+        final blockedCount =
+            docs.where((doc) => doc.data()['isBlocked'] == true).length;
         final compactStats = MediaQuery.of(context).size.width < 720;
 
         return ListView(
@@ -1140,7 +1216,8 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
               final online = data['isOnline'] == true;
               final busy = data['isBusy'] == true;
               final blocked = data['isBlocked'] == true;
-              final vehicleImageUrl = (data['vehicleImageUrl'] ?? '').toString().trim();
+              final vehicleImageUrl =
+                  (data['vehicleImageUrl'] ?? '').toString().trim();
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 14),
@@ -1196,7 +1273,9 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
                         ),
                         Switch(
                           value: approved,
-                          onChanged: blocked ? null : (value) => _setApproval(uid, value),
+                          onChanged: blocked
+                              ? null
+                              : (value) => _setApproval(uid, value),
                         ),
                       ],
                     ),
@@ -1206,16 +1285,25 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
                       runSpacing: 8,
                       children: [
                         _StatusPill(
-                          label: approved ? t('status_approved') : t('status_pending'),
-                          background: approved ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
+                          label: approved
+                              ? t('status_approved')
+                              : t('status_pending'),
+                          background: approved
+                              ? const Color(0xFFDCFCE7)
+                              : const Color(0xFFFEF3C7),
                         ),
                         _StatusPill(
-                          label: online ? t('status_online') : t('status_offline'),
-                          background: online ? const Color(0xFFDBEAFE) : const Color(0xFFF1F5F9),
+                          label:
+                              online ? t('status_online') : t('status_offline'),
+                          background: online
+                              ? const Color(0xFFDBEAFE)
+                              : const Color(0xFFF1F5F9),
                         ),
                         _StatusPill(
                           label: busy ? t('status_busy') : t('status_free'),
-                          background: busy ? const Color(0xFFFEE2E2) : const Color(0xFFECFDF5),
+                          background: busy
+                              ? const Color(0xFFFEE2E2)
+                              : const Color(0xFFECFDF5),
                         ),
                         if (blocked)
                           _StatusPill(
@@ -1225,10 +1313,13 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
                       ],
                     ),
                     const SizedBox(height: 14),
-                    _InfoLine(title: t('phone_label'), value: (data['phone'] ?? '--').toString()),
+                    _InfoLine(
+                        title: t('phone_label'),
+                        value: (data['phone'] ?? '--').toString()),
                     _InfoLine(
                       title: t('vehicle_label'),
-                      value: '${data['vehicleType'] ?? '--'} · ${data['plate'] ?? '--'}',
+                      value:
+                          '${data['vehicleType'] ?? '--'} · ${data['plate'] ?? '--'}',
                     ),
                     _InfoLine(
                       title: t('performance_label'),
@@ -1268,19 +1359,26 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
                           child: OutlinedButton.icon(
                             onPressed: () => _setApproval(uid, !approved),
                             icon: Icon(
-                              approved ? Icons.remove_circle_outline : Icons.verified_outlined,
+                              approved
+                                  ? Icons.remove_circle_outline
+                                  : Icons.verified_outlined,
                             ),
-                            label: Text(approved ? t('retirer_approval') : t('approuver')),
+                            label: Text(approved
+                                ? t('retirer_approval')
+                                : t('approuver')),
                           ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: FilledButton.icon(
                             style: FilledButton.styleFrom(
-                              backgroundColor: blocked ? Colors.green : Colors.red,
+                              backgroundColor:
+                                  blocked ? Colors.green : Colors.red,
                             ),
                             onPressed: () => _setBlocked(uid, !blocked),
-                            icon: Icon(blocked ? Icons.lock_open_outlined : Icons.block_outlined),
+                            icon: Icon(blocked
+                                ? Icons.lock_open_outlined
+                                : Icons.block_outlined),
                             label: Text(blocked ? t('unblock') : t('block')),
                           ),
                         ),
@@ -1483,7 +1581,9 @@ class _AdminCustomersPageState extends State<_AdminCustomersPage> {
                       children: [
                         CircleAvatar(
                           radius: 24,
-                          backgroundColor: blocked ? const Color(0xFFFEE2E2) : const Color(0xFFDBEAFE),
+                          backgroundColor: blocked
+                              ? const Color(0xFFFEE2E2)
+                              : const Color(0xFFDBEAFE),
                           child: Text(
                             ((data['fullName'] ?? 'CL')
                                     .toString()
@@ -1533,8 +1633,12 @@ class _AdminCustomersPageState extends State<_AdminCustomersPage> {
                       runSpacing: 8,
                       children: [
                         _StatusPill(
-                          label: blocked ? t('status_blocked') : t('status_online'),
-                          background: blocked ? const Color(0xFFFECACA) : const Color(0xFFDCFCE7),
+                          label: blocked
+                              ? t('status_blocked')
+                              : t('status_online'),
+                          background: blocked
+                              ? const Color(0xFFFECACA)
+                              : const Color(0xFFDCFCE7),
                         ),
                         _StatusPill(
                           label: (data['phone'] ?? '--').toString(),
@@ -1553,12 +1657,17 @@ class _AdminCustomersPageState extends State<_AdminCustomersPage> {
                       width: double.infinity,
                       child: FilledButton.icon(
                         style: FilledButton.styleFrom(
-                          backgroundColor: blocked ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                          backgroundColor: blocked
+                              ? const Color(0xFF16A34A)
+                              : const Color(0xFFDC2626),
                           foregroundColor: Colors.white,
                         ),
                         onPressed: () => _setBlocked(uid, !blocked),
-                        icon: Icon(blocked ? Icons.lock_open_outlined : Icons.block_outlined),
-                        label: Text(blocked ? t('unblock_client') : t('block_client')),
+                        icon: Icon(blocked
+                            ? Icons.lock_open_outlined
+                            : Icons.block_outlined),
+                        label: Text(
+                            blocked ? t('unblock_client') : t('block_client')),
                       ),
                     ),
                   ],
@@ -1657,7 +1766,8 @@ class _AdminSidebar extends StatelessWidget {
                   onTap: () => onSelect(itemIndex),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 220),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 14),
                     decoration: BoxDecoration(
                       color: selected
                           ? Colors.white
@@ -1668,14 +1778,17 @@ class _AdminSidebar extends StatelessWidget {
                       children: [
                         Icon(
                           selected ? item.selectedIcon : item.icon,
-                          color: selected ? const Color(0xFF0F172A) : Colors.white,
+                          color:
+                              selected ? const Color(0xFF0F172A) : Colors.white,
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
                             item.label,
                             style: TextStyle(
-                              color: selected ? const Color(0xFF0F172A) : Colors.white,
+                              color: selected
+                                  ? const Color(0xFF0F172A)
+                                  : Colors.white,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
@@ -1812,13 +1925,15 @@ class _KpiCard extends StatelessWidget {
                   ),
                   const Spacer(),
                   if (onTap != null)
-                    const Icon(Icons.arrow_forward_rounded, color: Color(0xFF94A3B8)),
+                    const Icon(Icons.arrow_forward_rounded,
+                        color: Color(0xFF94A3B8)),
                 ],
               ),
               const Spacer(),
               Text(
                 value,
-                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 28),
+                style:
+                    const TextStyle(fontWeight: FontWeight.w900, fontSize: 28),
               ),
               const SizedBox(height: 4),
               Text(
@@ -1851,11 +1966,13 @@ class _InsightRow extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+            child: Text(label,
+                style: const TextStyle(fontWeight: FontWeight.w700)),
           ),
           Text(
             value,
-            style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+            style: const TextStyle(
+                fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
           ),
         ],
       ),
@@ -1902,17 +2019,20 @@ class _QuickActionTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+                    Text(title,
+                        style: const TextStyle(fontWeight: FontWeight.w800)),
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: const TextStyle(color: Colors.black54, fontSize: 12, height: 1.35),
+                      style: const TextStyle(
+                          color: Colors.black54, fontSize: 12, height: 1.35),
                     ),
                   ],
                 ),
               ),
               if (onTap != null)
-                const Icon(Icons.arrow_forward_rounded, color: Color(0xFF64748B)),
+                const Icon(Icons.arrow_forward_rounded,
+                    color: Color(0xFF64748B)),
             ],
           ),
         ),
@@ -1939,7 +2059,9 @@ class _EmptyStateLine extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+          Text(title,
+              style:
+                  const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
           const SizedBox(height: 4),
           Text(
             subtitle,
@@ -1980,7 +2102,8 @@ class _ProviderApprovalPreview extends StatelessWidget {
               color: const Color(0xFFFFEDD5),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: const Icon(Icons.person_search_outlined, color: Color(0xFFEA580C)),
+            child: const Icon(Icons.person_search_outlined,
+                color: Color(0xFFEA580C)),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1993,7 +2116,8 @@ class _ProviderApprovalPreview extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   vehicle,
-                  style: const TextStyle(color: Color(0xFF334155), fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                      color: Color(0xFF334155), fontWeight: FontWeight.w600),
                 ),
               ],
             ),
@@ -2042,17 +2166,23 @@ class _MissionRadarTile extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                child: Text(title,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w800, fontSize: 15)),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
                   status,
-                  style: TextStyle(color: statusColor, fontWeight: FontWeight.w800, fontSize: 12),
+                  style: TextStyle(
+                      color: statusColor,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12),
                 ),
               ),
             ],
@@ -2060,7 +2190,8 @@ class _MissionRadarTile extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             '$pickupLabel: $pickup',
-            style: const TextStyle(color: Color(0xFF334155), fontWeight: FontWeight.w600),
+            style: const TextStyle(
+                color: Color(0xFF334155), fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 3),
           Text(
@@ -2071,9 +2202,13 @@ class _MissionRadarTile extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(when, style: const TextStyle(color: Colors.black54, fontWeight: FontWeight.w600)),
+                child: Text(when,
+                    style: const TextStyle(
+                        color: Colors.black54, fontWeight: FontWeight.w600)),
               ),
-              Text(price, style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+              Text(price,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
             ],
           ),
         ],
@@ -2108,8 +2243,13 @@ class _AdminErrorPanel extends StatelessWidget {
           border: Border.all(color: const Color(0xFFFECACA)),
         ),
         child: Text(
-          (details == null || details!.trim().isEmpty) ? t('admin_error_default') : details!,
-          style: const TextStyle(color: Color(0xFF991B1B), fontWeight: FontWeight.w600, height: 1.35),
+          (details == null || details!.trim().isEmpty)
+              ? t('admin_error_default')
+              : details!,
+          style: const TextStyle(
+              color: Color(0xFF991B1B),
+              fontWeight: FontWeight.w600,
+              height: 1.35),
         ),
       ),
     );
@@ -2160,9 +2300,13 @@ class _MiniStat extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
+          Text(value,
+              style:
+                  const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
           const SizedBox(height: 4),
-          Text(label, style: const TextStyle(color: Colors.black54, fontWeight: FontWeight.w700)),
+          Text(label,
+              style: const TextStyle(
+                  color: Colors.black54, fontWeight: FontWeight.w700)),
         ],
       ),
     );

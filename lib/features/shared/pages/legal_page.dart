@@ -23,6 +23,7 @@ class LegalPage extends StatelessWidget {
     final icon =
         isPrivacy ? Icons.privacy_tip_outlined : Icons.description_outlined;
     final sections = isPrivacy ? _privacySections : _termsSections;
+    final strings = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(title: Text(title)),
@@ -62,9 +63,12 @@ class LegalPage extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        const Text(
-                          'Version projet de graduation. A valider juridiquement avant une exploitation commerciale.',
-                          style: TextStyle(color: Colors.white70, height: 1.35),
+                        Text(
+                          strings.t('graduation_project_legal_notice'),
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            height: 1.35,
+                          ),
                         ),
                       ],
                     ),
@@ -75,8 +79,8 @@ class LegalPage extends StatelessWidget {
             const SizedBox(height: 16),
             for (final section in sections)
               _LegalSection(
-                title: section.title,
-                body: section.body,
+                title: strings.t(section.titleKey),
+                body: strings.t(section.bodyKey),
               ),
           ],
         ),
@@ -131,66 +135,56 @@ class _LegalSection extends StatelessWidget {
 
 class _LegalText {
   const _LegalText({
-    required this.title,
-    required this.body,
+    required this.titleKey,
+    required this.bodyKey,
   });
 
-  final String title;
-  final String body;
+  final String titleKey;
+  final String bodyKey;
 }
 
 const _privacySections = [
   _LegalText(
-    title: 'Donnees collectees',
-    body:
-        'Auto Rescue peut collecter le nom, le telephone, l email, le role utilisateur, les informations de vehicule, la position GPS, les demandes de mission, les messages de support, les notes et les avis.',
+    titleKey: 'privacy_collect_title',
+    bodyKey: 'privacy_collect_body',
   ),
   _LegalText(
-    title: 'Utilisation des donnees',
-    body:
-        'Ces donnees servent a creer les comptes, proposer des missions, calculer les routes, suivre le provider en temps reel, envoyer des notifications, assurer le support et permettre le controle admin.',
+    titleKey: 'privacy_use_title',
+    bodyKey: 'privacy_use_body',
   ),
   _LegalText(
-    title: 'Position et notifications',
-    body:
-        'La position est utilisee pour trouver le client, afficher la route et suivre la mission. Les notifications servent aux alertes de mission, messages importants et annonces administrateur.',
+    titleKey: 'privacy_location_title',
+    bodyKey: 'privacy_location_body',
   ),
   _LegalText(
-    title: 'Securite',
-    body:
-        'Les acces sont separes entre customer, provider et admin. Les donnees doivent etre protegees par Firebase Authentication, Firestore Rules et des comptes admin controles.',
+    titleKey: 'privacy_security_title',
+    bodyKey: 'privacy_security_body',
   ),
   _LegalText(
-    title: 'Contact',
-    body:
-        'Pour toute demande liee aux donnees ou au support, utilisez la page Support de l application ou l email configure par l administrateur.',
+    titleKey: 'privacy_contact_title',
+    bodyKey: 'privacy_contact_body',
   ),
 ];
 
 const _termsSections = [
   _LegalText(
-    title: 'Objet du service',
-    body:
-        'Auto Rescue met en relation des customers ayant besoin d assistance routiere avec des providers disponibles, sous supervision administrative.',
+    titleKey: 'terms_service_title',
+    bodyKey: 'terms_service_body',
   ),
   _LegalText(
-    title: 'Responsabilites utilisateur',
-    body:
-        'L utilisateur doit fournir des informations exactes, respecter les autres utilisateurs, utiliser l application legalement et ne pas tenter d acceder aux espaces reserves.',
+    titleKey: 'terms_user_title',
+    bodyKey: 'terms_user_body',
   ),
   _LegalText(
-    title: 'Providers',
-    body:
-        'Les providers doivent etre approuves par l administrateur, maintenir leurs informations a jour et respecter les missions acceptees.',
+    titleKey: 'terms_providers_title',
+    bodyKey: 'terms_providers_body',
   ),
   _LegalText(
-    title: 'Prix et frais',
-    body:
-        'Les prix peuvent inclure le service, la distance, les frais d acces du provider et les parametres definis par l administrateur.',
+    titleKey: 'terms_prices_title',
+    bodyKey: 'terms_prices_body',
   ),
   _LegalText(
-    title: 'Limites',
-    body:
-        'Cette version est preparee pour un projet de graduation. Avant un lancement commercial, il faut finaliser les validations legales, securite, assurance et conditions de paiement.',
+    titleKey: 'terms_limits_title',
+    bodyKey: 'terms_limits_body',
   ),
 ];

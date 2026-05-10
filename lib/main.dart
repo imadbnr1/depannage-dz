@@ -53,6 +53,8 @@ Future<void> main() async {
 }
 
 Future<void> _loadEnvironment() async {
+  if (kIsWeb) return;
+
   try {
     await dotenv.load(fileName: '.env');
   } catch (e) {

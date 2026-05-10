@@ -6,6 +6,7 @@ import '../../../core/i18n/app_localizations.dart';
 import '../../../models/service_type.dart';
 import '../../../state/app_store.dart';
 import '../../../widgets/map_pin.dart';
+import '../../../widgets/role_map_marker.dart';
 import 'create_order_page.dart';
 import 'customer_tracking_page.dart';
 
@@ -102,12 +103,13 @@ class _CustomerHomePageState extends State<CustomerHomePage> {
                     markers: [
                       Marker(
                         point: customerPosition,
-                        width: 86,
-                        height: 86,
+                        width: RoleMapMarker.outerSize,
+                        height: RoleMapMarker.outerSize,
                         child: MapPin(
                           label: strings.t('vous'),
                           icon: Icons.place,
                           color: Colors.red,
+                          markerType: RoleMapMarkerType.customer,
                         ),
                       ),
                     ],

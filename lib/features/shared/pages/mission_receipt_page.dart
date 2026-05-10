@@ -1,6 +1,7 @@
 import 'package:auto_rescue/models/service_type.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/i18n/app_localizations.dart';
 import '../../../models/request_status.dart';
 import '../../../state/app_store.dart';
 
@@ -58,7 +59,7 @@ class MissionReceiptPage extends StatelessWidget {
                   Text(
                     request.status == RequestStatus.completed
                         ? 'Mission terminee'
-                        : request.status.label,
+                        : request.status.localizedLabel(context),
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w900,
@@ -72,7 +73,10 @@ class MissionReceiptPage extends StatelessWidget {
                             .toLocal()
                             .toString()
                             .substring(0, 16)
-                        : request.createdAt.toLocal().toString().substring(0, 16),
+                        : request.createdAt
+                            .toLocal()
+                            .toString()
+                            .substring(0, 16),
                     style: const TextStyle(color: Colors.white70),
                   ),
                 ],
@@ -85,8 +89,7 @@ class MissionReceiptPage extends StatelessWidget {
                 children: [
                   const Text(
                     'Montant estime',
-                    style:
-                        TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
                   ),
                   const SizedBox(height: 10),
                   Center(
@@ -115,11 +118,11 @@ class MissionReceiptPage extends StatelessWidget {
                 children: [
                   const Text(
                     'Details mission',
-                    style:
-                        TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
                   ),
                   const SizedBox(height: 10),
-                  _Row('Service', request.service.label),
+                  _Row(AppLocalizations.of(context).t('service'),
+                      request.service.localizedLabel(context)),
                   _Row(
                     'Vehicule',
                     '${request.vehicleType} · ${request.brandModel}',
@@ -149,8 +152,7 @@ class MissionReceiptPage extends StatelessWidget {
                 children: [
                   const Text(
                     'Client',
-                    style:
-                        TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
                   ),
                   const SizedBox(height: 10),
                   _Row('Nom', request.customerName),

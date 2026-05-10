@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../../../core/i18n/app_localizations.dart';
 import '../../../core/services/fcm_service.dart';
 import '../../../state/app_store.dart';
+import '../../../widgets/modern_bottom_nav_bar.dart';
 import '../../shared/pages/chat_page.dart';
 import 'customer_history_page.dart';
 import 'customer_home_page.dart';
@@ -237,38 +238,38 @@ class _CustomerShellPageState extends State<CustomerShellPage> {
         index: _index,
         children: pages,
       ),
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: ModernBottomNavBar(
         selectedIndex: _index,
-        onDestinationSelected: (value) {
+        onTap: (value) {
           setState(() => _index = value);
           widget.store.setCustomerTab(value);
           widget.store.setAdminNotificationDeliveryReady(value == 0);
         },
-        destinations: [
-          NavigationDestination(
-            icon: const Icon(Icons.explore_outlined),
-            selectedIcon: const Icon(Icons.explore),
-            label: strings.t('accueil'),
+        items: [
+          ModernBottomNavItem(
+            icon: Icons.explore_outlined,
+            selectedIcon: Icons.explore,
+            semanticLabel: strings.t('accueil'),
           ),
-          NavigationDestination(
-            icon: const Icon(Icons.assignment_outlined),
-            selectedIcon: const Icon(Icons.assignment),
-            label: strings.t('demandes'),
+          ModernBottomNavItem(
+            icon: Icons.assignment_outlined,
+            selectedIcon: Icons.assignment,
+            semanticLabel: strings.t('demandes'),
           ),
-          NavigationDestination(
-            icon: const Icon(Icons.history_rounded),
-            selectedIcon: const Icon(Icons.history),
-            label: strings.t('historique'),
+          ModernBottomNavItem(
+            icon: Icons.history_rounded,
+            selectedIcon: Icons.history,
+            semanticLabel: strings.t('historique'),
           ),
-          NavigationDestination(
-            icon: const Icon(Icons.account_circle_outlined),
-            selectedIcon: const Icon(Icons.account_circle),
-            label: strings.t('profil'),
+          ModernBottomNavItem(
+            icon: Icons.account_circle_outlined,
+            selectedIcon: Icons.account_circle,
+            semanticLabel: strings.t('profil'),
           ),
-          NavigationDestination(
-            icon: const Icon(Icons.headset_mic_outlined),
-            selectedIcon: const Icon(Icons.headset_mic),
-            label: strings.t('support'),
+          ModernBottomNavItem(
+            icon: Icons.headset_mic_outlined,
+            selectedIcon: Icons.headset_mic,
+            semanticLabel: strings.t('support'),
           ),
         ],
       ),

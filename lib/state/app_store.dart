@@ -91,6 +91,7 @@ class AppStore extends ChangeNotifier {
   final Map<String, Timer> _dispatchTimers = {};
   final Map<String, StreamSubscription<Position>> _liveTrackingSubs = {};
   final Set<String> _dispatchFallbackInFlight = {};
+  final Set<String> _staleBusyRepairsInFlight = {};
 
   // ✅ Automatic dispatch chain tracking
   final Map<String, List<String>> _dispatchChains =
@@ -131,6 +132,39 @@ class AppStore extends ChangeNotifier {
         !(lat == 0 && lng == 0);
   }
 
+  static const List<String> _activeProviderStatusNames = [
+    'accepted',
+    'confirmed',
+    'enRoute',
+    'active',
+    'onTheWay',
+    'arrived',
+    'inProgress',
+    'inService',
+  ];
+
+  static bool _readDispatchBool(
+    Map<String, dynamic> map,
+    List<String> keys, {
+    bool fallback = false,
+  }) {
+    for (final key in keys) {
+      final value = map[key];
+      if (value is bool) return value;
+      if (value is num) return value != 0;
+      if (value is String) {
+        final normalized = value.trim().toLowerCase();
+        if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
+          return true;
+        }
+        if (normalized == 'false' || normalized == '0' || normalized == 'no') {
+          return false;
+        }
+      }
+    }
+    return fallback;
+  }
+
   void _debugDispatchDiagnostics({
     required String? requestId,
     required int eligibleCount,
@@ -152,6 +186,134 @@ class AppStore extends ChangeNotifier {
   void _debugDispatch(String message) {
     if (!kDebugMode) return;
     debugPrint('[Dispatch] $message');
+  }
+
+  bool _providerHasActiveMission(String providerId) {
+    return _requests.any((request) {
+      if (request.providerUid != providerId) return false;
+      return _activeProviderStatusNames.contains(request.status.name);
+    });
+  }
+
+  Future<bool> _providerHasActiveMissionInFirestore(String providerId) async {
+    try {
+      final snap = await firestore
+          .collection('requests')
+          .where('providerUid', isEqualTo: providerId)
+          .where('status', whereIn: _activeProviderStatusNames)
+          .limit(1)
+          .get();
+      return snap.docs.isNotEmpty;
+    } catch (error) {
+      _debugDispatch(
+        'active mission verification failed for provider=$providerId; keeping busy protection',
+      );
+      return true;
+    }
+  }
+
+  bool _needsProviderStateVerification(ProviderAgent provider) {
+    return (provider.isBusy || provider.hasActiveMission) &&
+        !_providerHasActiveMission(provider.id);
+  }
+
+  Future<bool> _repairStaleBusyIfSafe(ProviderAgent provider) async {
+    if (!_needsProviderStateVerification(provider)) return false;
+    if (_staleBusyRepairsInFlight.contains(provider.id)) return false;
+
+    _staleBusyRepairsInFlight.add(provider.id);
+    try {
+      final hasActiveMission =
+          await _providerHasActiveMissionInFirestore(provider.id);
+      if (hasActiveMission) {
+        await firestore.collection('providers').doc(provider.id).set({
+          'hasActiveMission': true,
+          'isBusy': true,
+          'busy': true,
+          'updatedAtIso': DateTime.now().toIso8601String(),
+          'busyStatusUpdatedAtIso': DateTime.now().toIso8601String(),
+        }, SetOptions(merge: true));
+        final index = providers.indexWhere((p) => p.id == provider.id);
+        if (index != -1) {
+          providers[index] = providers[index].copyWith(
+            isBusy: true,
+            hasActiveMission: true,
+          );
+        }
+        return false;
+      }
+
+      await _clearProviderBusyState(provider.id);
+      _debugProvider('repaired stale active mission state');
+      return true;
+    } on FirebaseException catch (error) {
+      if (error.code == 'permission-denied') {
+        _debugDispatch('provider stale-state repair permission-denied');
+        final index = providers.indexWhere((p) => p.id == provider.id);
+        if (index != -1) {
+          providers[index] = providers[index].copyWith(
+            isBusy: false,
+            hasActiveMission: false,
+          );
+        }
+        return true;
+      }
+      rethrow;
+    } finally {
+      _staleBusyRepairsInFlight.remove(provider.id);
+    }
+  }
+
+  Future<void> _clearProviderBusyState(String providerId) async {
+    await firestore.collection('providers').doc(providerId).set({
+      'isBusy': false,
+      'busy': false,
+      'hasActiveMission': false,
+      'activeMission': false,
+      'onActiveMission': false,
+      'activeMissionId': null,
+      'activeRequestId': null,
+      'currentRequestId': null,
+      'assignedRequestId': null,
+      'offeredRequestId': null,
+      'updatedAtIso': DateTime.now().toIso8601String(),
+      'busyStatusUpdatedAtIso': DateTime.now().toIso8601String(),
+    }, SetOptions(merge: true));
+
+    final index = providers.indexWhere((p) => p.id == providerId);
+    if (index != -1) {
+      providers[index] = providers[index].copyWith(
+        isBusy: false,
+        hasActiveMission: false,
+      );
+    }
+  }
+
+  void _debugProvider(String message) {
+    if (!kDebugMode) return;
+    debugPrint('[Provider] $message');
+  }
+
+  Future<void> _repairProviderSessionStateIfSafe(String providerId) async {
+    if (providerId.trim().isEmpty) return;
+    if (_staleBusyRepairsInFlight.contains(providerId)) return;
+
+    _staleBusyRepairsInFlight.add(providerId);
+    try {
+      final hasActiveMission =
+          await _providerHasActiveMissionInFirestore(providerId);
+      if (hasActiveMission) return;
+      await _clearProviderBusyState(providerId);
+      _debugProvider('repaired stale active mission state');
+    } on FirebaseException catch (error) {
+      if (error.code == 'permission-denied') {
+        _debugProvider('stale active mission repair permission-denied');
+        return;
+      }
+      rethrow;
+    } finally {
+      _staleBusyRepairsInFlight.remove(providerId);
+    }
   }
 
   void bootstrap() {
@@ -186,6 +348,7 @@ class AppStore extends ChangeNotifier {
 
       if (currentUserRoleName == 'provider') {
         selectedProviderId = user.uid;
+        unawaited(_repairProviderSessionStateIfSafe(user.uid));
       }
 
       _startVisibleRequestsListener(user.uid, currentUserRoleName!);
@@ -219,21 +382,40 @@ class AppStore extends ChangeNotifier {
         final map = doc.data();
 
         ({LatLng position, bool isValid}) parsePosition() {
-          final raw = map['position'];
-          if (raw is Map<String, dynamic>) {
-            final lat = raw['lat'];
-            final lng = raw['lng'];
+          ({LatLng position, bool isValid}) parseLatLngMap(
+            Map<String, dynamic> value,
+          ) {
+            final lat = value['lat'] ?? value['latitude'];
+            final lng = value['lng'] ?? value['lon'] ?? value['longitude'];
             if (lat is num && lng is num) {
+              final point = LatLng(lat.toDouble(), lng.toDouble());
               return (
-                position: LatLng(lat.toDouble(), lng.toDouble()),
-                isValid: _isValidDispatchPosition(
-                  LatLng(lat.toDouble(), lng.toDouble()),
-                )
+                position: point,
+                isValid: _isValidDispatchPosition(point),
               );
             }
+            return (position: const LatLng(36.7538, 3.0588), isValid: false);
+          }
+
+          final raw = map['position'];
+          if (raw is Map<String, dynamic>) {
+            final parsed = parseLatLngMap(raw);
+            if (parsed.isValid) return parsed;
           }
           if (raw is GeoPoint) {
             final point = LatLng(raw.latitude, raw.longitude);
+            return (
+              position: point,
+              isValid: _isValidDispatchPosition(point),
+            );
+          }
+          final location = map['location'] ?? map['currentLocation'];
+          if (location is Map<String, dynamic>) {
+            final parsed = parseLatLngMap(location);
+            if (parsed.isValid) return parsed;
+          }
+          if (location is GeoPoint) {
+            final point = LatLng(location.latitude, location.longitude);
             return (
               position: point,
               isValid: _isValidDispatchPosition(point),
@@ -253,22 +435,34 @@ class AppStore extends ChangeNotifier {
 
         final parsedPosition = parsePosition();
         final rawUid = (map['uid'] ?? '').toString().trim();
+        final providerId = rawUid.isEmpty ? doc.id : rawUid;
+        final docHasActiveMission = _readDispatchBool(
+              map,
+              const ['hasActiveMission', 'activeMission', 'onActiveMission'],
+            ) ||
+            (map['activeMissionId'] ?? '').toString().trim().isNotEmpty ||
+            (map['activeRequestId'] ?? '').toString().trim().isNotEmpty ||
+            (map['currentRequestId'] ?? '').toString().trim().isNotEmpty ||
+            (map['assignedRequestId'] ?? '').toString().trim().isNotEmpty;
+        final hasActiveMission =
+            docHasActiveMission || _providerHasActiveMission(providerId);
 
         return ProviderAgent(
-          id: rawUid.isEmpty ? doc.id : rawUid,
+          id: providerId,
           name: (map['fullName'] ?? '').toString(),
           phone: (map['phone'] ?? '').toString(),
           position: parsedPosition.position,
-          isOnline: map['isOnline'] == true || map['online'] == true,
-          isBusy: map['isBusy'] == true,
+          isOnline: _readDispatchBool(map, const ['isOnline', 'online']),
+          isBusy: _readDispatchBool(map, const ['isBusy', 'busy']),
           rating: ((map['rating'] ?? 5.0) as num).toDouble(),
           ratingCount: ((map['ratingCount'] ?? 0) as num).toInt(),
           vehicleType: (map['vehicleType'] ?? '').toString(),
           plate: (map['plate'] ?? '').toString(),
           missionsCompleted: ((map['missionsCompleted'] ?? 0) as num).toInt(),
-          isVerified: map['isApproved'] == true,
+          isVerified: _readDispatchBool(map, const ['isApproved', 'approved']),
           avatarText: (map['avatarText'] ?? 'PR').toString(),
           hasValidLocation: parsedPosition.isValid,
+          hasActiveMission: hasActiveMission,
         );
       }).toList();
 
@@ -278,6 +472,11 @@ class AppStore extends ChangeNotifier {
       final uid = auth.currentUser?.uid;
       if (uid != null && currentUserRoleName == 'provider') {
         selectedProviderId = uid;
+        final currentProvider = findProviderById(uid);
+        if (currentProvider != null &&
+            _needsProviderStateVerification(currentProvider)) {
+          unawaited(_repairProviderSessionStateIfSafe(uid));
+        }
       } else if (providers.isNotEmpty && selectedProviderId.isEmpty) {
         selectedProviderId = providers.first.id;
       }
@@ -377,6 +576,7 @@ class AppStore extends ChangeNotifier {
     }
     _dispatchTimers.clear();
     _dispatchFallbackInFlight.clear();
+    _staleBusyRepairsInFlight.clear();
     _dispatchChains.clear();
     _dispatchChainIndex.clear();
     _currentOfferedProviderIds.clear();
@@ -464,8 +664,11 @@ class AppStore extends ChangeNotifier {
     if (providerId == null) return const [];
     if (provider == null) return const [];
     if (!provider.isOnline) return const [];
-    if (provider.isBusy) {
-      return const []; // ✅ Busy providers can't see/accept new missions
+    if (_providerHasActiveMission(provider.id)) {
+      return const [];
+    }
+    if (provider.isBusy || provider.hasActiveMission) {
+      unawaited(_repairStaleBusyIfSafe(provider));
     }
 
     return _requests.where((r) {
@@ -608,6 +811,7 @@ class AppStore extends ChangeNotifier {
     final excluded = <String, int>{
       'offline': 0,
       'busy': 0,
+      'active mission': 0,
       'not approved': 0,
       'missing location': 0,
       'rejected': 0,
@@ -615,27 +819,43 @@ class AppStore extends ChangeNotifier {
     };
 
     final eligible = providers.where((p) {
+      final distanceKm = const Distance().as(
+        LengthUnit.Kilometer,
+        customerPosition,
+        p.position,
+      );
+      var exclusionReason = 'eligible';
       if (!p.isOnline) {
         excluded['offline'] = excluded['offline']! + 1;
-        return false;
-      }
-      if (p.isBusy) {
-        excluded['busy'] = excluded['busy']! + 1;
-        return false;
-      }
-      if (!p.isVerified) {
+        exclusionReason = 'offline';
+      } else if ((p.hasActiveMission || p.isBusy) &&
+          _providerHasActiveMission(p.id)) {
+        excluded['active mission'] = excluded['active mission']! + 1;
+        exclusionReason = 'active mission';
+      } else if (_needsProviderStateVerification(p)) {
+        unawaited(_repairStaleBusyIfSafe(p));
+      } else if (!p.isVerified) {
         excluded['not approved'] = excluded['not approved']! + 1;
-        return false;
-      }
-      if (!p.hasValidLocation || !_isValidDispatchPosition(p.position)) {
+        exclusionReason = 'not approved';
+      } else if (!p.hasValidLocation || !_isValidDispatchPosition(p.position)) {
         excluded['missing location'] = excluded['missing location']! + 1;
-        return false;
-      }
-      if (rejected.contains(p.id)) {
+        exclusionReason = 'missing location';
+      } else if (rejected.contains(p.id)) {
         excluded['rejected'] = excluded['rejected']! + 1;
-        return false;
+        exclusionReason = 'rejected';
       }
-      return true;
+
+      if (kDebugMode) {
+        debugPrint(
+          '[Dispatch] provider uid=${p.id} totalProviders=${providers.length} '
+          'isOnline=${p.isOnline} isApproved=${p.isVerified} '
+          'isBusy=${p.isBusy} hasActiveMission=${p.hasActiveMission || _providerHasActiveMission(p.id)} '
+          'hasLocation=${p.hasValidLocation && _isValidDispatchPosition(p.position)} '
+          'distanceKm=${distanceKm.toStringAsFixed(2)} '
+          'exclusionReason=$exclusionReason',
+        );
+      }
+      return exclusionReason == 'eligible';
     }).toList();
 
     _debugDispatchDiagnostics(
@@ -662,6 +882,36 @@ class AppStore extends ChangeNotifier {
     });
 
     return eligible;
+  }
+
+  Future<List<ProviderAgent>> _eligibleProvidersSortedByDistanceForDispatch(
+    LatLng customerPosition, {
+    String? requestId,
+  }) async {
+    final repaired = <String>{};
+    for (final provider in providers) {
+      if (!_needsProviderStateVerification(provider)) continue;
+      if (await _repairStaleBusyIfSafe(provider)) {
+        repaired.add(provider.id);
+      }
+    }
+
+    var waitTicks = 0;
+    while (_staleBusyRepairsInFlight.isNotEmpty && waitTicks < 10) {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      waitTicks++;
+    }
+
+    final items = eligibleProvidersSortedByDistance(
+      customerPosition,
+      requestId: requestId,
+    );
+    if (repaired.isEmpty) return items;
+
+    _debugDispatch(
+      'stale busy repaired before dispatch: providers=${repaired.join(',')}',
+    );
+    return items;
   }
 
   final Map<String, int> _arrivalHitCounts = {};
@@ -748,6 +998,8 @@ class AppStore extends ChangeNotifier {
       final stillEligible = offeredProvider != null &&
           offeredProvider.isOnline &&
           !offeredProvider.isBusy &&
+          !offeredProvider.hasActiveMission &&
+          !_providerHasActiveMission(offeredProvider.id) &&
           offeredProvider.isVerified &&
           offeredProvider.hasValidLocation;
 
@@ -800,7 +1052,8 @@ class AppStore extends ChangeNotifier {
 
       // ✅ Build dispatch chain if not exists or if not using chain
       if (!useDispatchChain || !_dispatchChains.containsKey(requestId)) {
-        final allProviders = eligibleProvidersSortedByDistance(
+        final allProviders =
+            await _eligibleProvidersSortedByDistanceForDispatch(
           targetPosition,
           requestId: requestId,
         );
@@ -825,6 +1078,8 @@ class AppStore extends ChangeNotifier {
         if (provider != null &&
             provider.isOnline &&
             !provider.isBusy &&
+            !provider.hasActiveMission &&
+            !_providerHasActiveMission(provider.id) &&
             provider.isVerified &&
             provider.hasValidLocation) {
           nextProviderId = providerId;
@@ -840,6 +1095,26 @@ class AppStore extends ChangeNotifier {
 
       // ✅ No more providers in chain - wait for current offer timeout first
       if (nextProviderId == null) {
+        if (_staleBusyRepairsInFlight.isNotEmpty) {
+          _debugDispatch(
+              'provider state repair in flight; delaying no-provider');
+          Timer(const Duration(seconds: 1), () {
+            final retryRequest = findRequest(requestId);
+            if (retryRequest == null ||
+                retryRequest.status != RequestStatus.searching ||
+                noProviderPopupVisible) {
+              return;
+            }
+            unawaited(_attemptFallbackDispatch(
+              requestId,
+              customerPosition: retryRequest.customerPosition,
+              delay: Duration.zero,
+              useDispatchChain: false,
+            ));
+          });
+          return;
+        }
+
         // Check if there's still an active pending offer before showing no provider message
         final currentRequest = findRequest(requestId);
         if (currentRequest?.offerExpiresAt != null &&
@@ -1035,6 +1310,8 @@ class AppStore extends ChangeNotifier {
     );
     if (!rejected) return;
 
+    await _repairProviderSessionStateIfSafe(providerUid);
+
     await _attemptFallbackDispatch(
       requestId,
       customerPosition: customerPosition,
@@ -1080,6 +1357,7 @@ class AppStore extends ChangeNotifier {
 
     if (isOnline) {
       await presenceService.goOnline(effectiveProviderId);
+      await _repairProviderSessionStateIfSafe(effectiveProviderId);
     } else {
       await presenceService.goOffline(effectiveProviderId);
     }
@@ -1095,12 +1373,33 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> updateProviderBusyStatus(String providerId, bool isBusy) async {
+  Future<void> updateProviderBusyStatus(
+    String providerId,
+    bool isBusy, {
+    String? activeRequestId,
+  }) async {
     await firestore.collection('providers').doc(providerId).set({
       'isBusy': isBusy,
+      'busy': isBusy,
+      'hasActiveMission': isBusy,
+      'activeMission': isBusy,
+      'onActiveMission': isBusy,
+      'activeMissionId': isBusy ? activeRequestId : null,
+      'activeRequestId': isBusy ? activeRequestId : null,
+      'currentRequestId': isBusy ? activeRequestId : null,
+      'assignedRequestId': isBusy ? activeRequestId : null,
+      'offeredRequestId': null,
       'updatedAtIso': DateTime.now().toIso8601String(),
       'busyStatusUpdatedAtIso': DateTime.now().toIso8601String(),
     }, SetOptions(merge: true));
+
+    final index = providers.indexWhere((p) => p.id == providerId);
+    if (index != -1) {
+      providers[index] = providers[index].copyWith(
+        isBusy: isBusy,
+        hasActiveMission: isBusy,
+      );
+    }
   }
 
   Future<void> updateProviderPosition(
@@ -1279,7 +1578,9 @@ class AppStore extends ChangeNotifier {
 
     final available = providers.where((p) {
       return p.isOnline &&
-          !p.isBusy &&
+          !_providerHasActiveMission(p.id) &&
+          (!p.hasActiveMission || _needsProviderStateVerification(p)) &&
+          (!p.isBusy || _needsProviderStateVerification(p)) &&
           p.isVerified &&
           p.hasValidLocation &&
           !rejected.contains(p.id);
@@ -1802,7 +2103,11 @@ class AppStore extends ChangeNotifier {
       return;
     }
 
-    await updateProviderBusyStatus(provider.id, true);
+    await updateProviderBusyStatus(
+      provider.id,
+      true,
+      activeRequestId: requestId,
+    );
 
     final acceptedRequest = current.copyWith(
       status: RequestStatus.accepted,
@@ -2077,6 +2382,10 @@ class AppStore extends ChangeNotifier {
     final provider = findProviderById(current.providerUid ?? '');
     if (provider != null) {
       await updateProviderBusyStatus(provider.id, false);
+    }
+    final offeredProviderId = current.offeredProviderUid;
+    if (offeredProviderId != null && offeredProviderId.trim().isNotEmpty) {
+      await _repairProviderSessionStateIfSafe(offeredProviderId);
     }
 
     _pushLifecycleNotification(

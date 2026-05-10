@@ -501,7 +501,7 @@ class _ProviderActiveCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      latest.status.label,
+                      latest.status.localizedLabel(context),
                       style: TextStyle(
                         color: latest.status.color,
                         fontWeight: FontWeight.w700,

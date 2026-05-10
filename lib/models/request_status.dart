@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../core/i18n/app_localizations.dart';
+
 enum RequestStatus {
   searching,
   accepted,
@@ -29,6 +31,28 @@ extension RequestStatusX on RequestStatus {
         return 'Annulee';
     }
   }
+
+  String get labelKey {
+    switch (this) {
+      case RequestStatus.searching:
+        return 'status_searching';
+      case RequestStatus.accepted:
+        return 'status_accepted';
+      case RequestStatus.onTheWay:
+        return 'status_on_the_way';
+      case RequestStatus.arrived:
+        return 'status_arrived';
+      case RequestStatus.inService:
+        return 'status_in_service';
+      case RequestStatus.completed:
+        return 'status_completed';
+      case RequestStatus.cancelled:
+        return 'status_cancelled';
+    }
+  }
+
+  String localizedLabel(BuildContext context) =>
+      AppLocalizations.of(context).t(labelKey);
 
   Color get color {
     switch (this) {

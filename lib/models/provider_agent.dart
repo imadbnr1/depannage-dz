@@ -16,6 +16,7 @@ class ProviderAgent {
     required this.isVerified,
     required this.avatarText,
     this.hasValidLocation = true,
+    this.hasActiveMission = false,
   });
 
   final String id;
@@ -32,6 +33,7 @@ class ProviderAgent {
   final bool isVerified;
   final String avatarText;
   final bool hasValidLocation;
+  final bool hasActiveMission;
 
   ProviderAgent copyWith({
     String? id,
@@ -48,6 +50,7 @@ class ProviderAgent {
     bool? isVerified,
     String? avatarText,
     bool? hasValidLocation,
+    bool? hasActiveMission,
   }) {
     return ProviderAgent(
       id: id ?? this.id,
@@ -64,6 +67,7 @@ class ProviderAgent {
       isVerified: isVerified ?? this.isVerified,
       avatarText: avatarText ?? this.avatarText,
       hasValidLocation: hasValidLocation ?? this.hasValidLocation,
+      hasActiveMission: hasActiveMission ?? this.hasActiveMission,
     );
   }
 }

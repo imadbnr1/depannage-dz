@@ -2,13 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../core/i18n/app_localizations.dart';
+import '../../../widgets/map_pin.dart';
+import '../../../widgets/role_map_marker.dart';
+
 class SelectDestinationOnMapPage extends StatefulWidget {
   const SelectDestinationOnMapPage({
     super.key,
     required this.initialCenter,
+    this.isPickup = false,
   });
 
   final LatLng initialCenter;
+  final bool isPickup;
 
   @override
   State<SelectDestinationOnMapPage> createState() =>
@@ -29,9 +35,14 @@ class _SelectDestinationOnMapPageState
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Choisir destination'),
+        title: Text(
+          widget.isPickup
+              ? strings.t('choose_pickup')
+              : strings.t('choisir_destination'),
+        ),
       ),
       body: Stack(
         children: [
@@ -56,16 +67,19 @@ class _SelectDestinationOnMapPageState
                   markers: [
                     Marker(
                       point: _selectedPoint!,
-                      width: 80,
-                      height: 80,
-                      child: const Column(
-                        children: [
-                          Icon(
-                            Icons.location_on,
-                            color: Colors.red,
-                            size: 42,
-                          ),
-                        ],
+                      width: RoleMapMarker.outerSize,
+                      height: RoleMapMarker.outerSize,
+                      child: MapPin(
+                        label: widget.isPickup
+                            ? strings.t('depart')
+                            : strings.t('dest'),
+                        icon: widget.isPickup
+                            ? Icons.person_pin_circle_rounded
+                            : Icons.place,
+                        color: Colors.red,
+                        markerType: widget.isPickup
+                            ? RoleMapMarkerType.customer
+                            : RoleMapMarkerType.destination,
                       ),
                     ),
                   ],
@@ -93,8 +107,10 @@ class _SelectDestinationOnMapPageState
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
-                      'Touchez la carte pour choisir la destination',
+                    Text(
+                      widget.isPickup
+                          ? strings.t('tap_map_pickup')
+                          : strings.t('tap_map_destination'),
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 16,
@@ -117,7 +133,11 @@ class _SelectDestinationOnMapPageState
                                 Navigator.of(context).pop(_selectedPoint);
                               },
                         icon: const Icon(Icons.check_circle_outline),
-                        label: const Text('Confirmer cette destination'),
+                        label: Text(
+                          widget.isPickup
+                              ? strings.t('confirm_pickup')
+                              : strings.t('confirm_destination'),
+                        ),
                       ),
                     ),
                   ],

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../models/app_request.dart';
@@ -139,35 +140,46 @@ class FirestoreRequestRepository implements RequestRepository {
     required DateTime offeredAt,
     required DateTime offerExpiresAt,
   }) async {
-    return _firestore.runTransaction((tx) async {
-      final ref = _requests.doc(requestId);
-      final snap = await tx.get(ref);
-      final data = snap.data();
-      if (!snap.exists || data == null) return false;
+    try {
+      return await _firestore.runTransaction((tx) async {
+        final ref = _requests.doc(requestId);
+        final snap = await tx.get(ref);
+        final data = snap.data();
+        if (!snap.exists || data == null) return false;
 
-      final status = (data['status'] ?? '').toString();
-      final currentProviderUid = (data['providerUid'] ?? '').toString();
-      final currentOfferedUid = (data['offeredProviderUid'] ?? '').toString();
-      final rejected =
-          List<String>.from((data['rejectedProviderUids'] ?? const <String>[]));
+        final status = (data['status'] ?? '').toString();
+        final currentProviderUid = (data['providerUid'] ?? '').toString();
+        final currentOfferedUid = (data['offeredProviderUid'] ?? '').toString();
+        final rejected = List<String>.from(
+          (data['rejectedProviderUids'] ?? const <String>[]),
+        );
 
-      if (status != RequestStatus.searching.name) return false;
-      if (currentProviderUid.isNotEmpty) return false;
-      if (currentOfferedUid.isNotEmpty) return false;
-      if (rejected.contains(providerUid)) return false;
+        if (status != RequestStatus.searching.name) return false;
+        if (currentProviderUid.isNotEmpty) return false;
+        if (currentOfferedUid.isNotEmpty) return false;
+        if (rejected.contains(providerUid)) return false;
 
-      tx.set(
-          ref,
-          {
-            'offeredProviderUid': providerUid,
-            'offeredAt': offeredAt.toIso8601String(),
-            'offerExpiresAt': offerExpiresAt.toIso8601String(),
-            'updatedAt': FieldValue.serverTimestamp(),
-            'updatedAtIso': DateTime.now().toIso8601String(),
-          },
-          SetOptions(merge: true));
-      return true;
-    });
+        tx.set(
+            ref,
+            {
+              'offeredProviderUid': providerUid,
+              'offeredAt': offeredAt.toIso8601String(),
+              'offerExpiresAt': offerExpiresAt.toIso8601String(),
+              'updatedAt': FieldValue.serverTimestamp(),
+              'updatedAtIso': DateTime.now().toIso8601String(),
+            },
+            SetOptions(merge: true));
+        return true;
+      });
+    } on FirebaseException catch (error) {
+      if (error.code == 'permission-denied') {
+        if (kDebugMode) {
+          debugPrint('[Dispatch] offer failed permission-denied');
+        }
+        return false;
+      }
+      rethrow;
+    }
   }
 
   @override

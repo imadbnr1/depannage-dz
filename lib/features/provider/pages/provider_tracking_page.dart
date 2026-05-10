@@ -912,8 +912,8 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
       markers.add(
         Marker(
           point: customerPosition,
-          width: 82,
-          height: 82,
+          width: RoleMapMarker.outerSize,
+          height: RoleMapMarker.outerSize,
           child: _PinnedMarker(
             label: destinationStage ? 'Pick up' : 'Client',
             type: RoleMapMarkerType.customer,
@@ -930,8 +930,8 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
       markers.add(
         Marker(
           point: request.destinationPosition!,
-          width: 82,
-          height: 82,
+          width: RoleMapMarker.outerSize,
+          height: RoleMapMarker.outerSize,
           child: const _PinnedMarker(
             label: 'Dest',
             type: RoleMapMarkerType.destination,
@@ -948,22 +948,16 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
       markers.add(
         Marker(
           point: providerPosition,
-          width: 50,
-          height: 50,
-          alignment: Alignment.topCenter,
-          child: const DecoratedBox(
-            decoration: BoxDecoration(
-              color: Color(0xFFF59E0B),
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black26,
-                  blurRadius: 8,
-                  offset: Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Icon(Icons.directions_car, color: Colors.white, size: 24),
+          width: RoleMapMarker.outerSize,
+          height: RoleMapMarker.outerSize,
+          child: _PinnedMarker(
+            label: strings.t('provider'),
+            type: RoleMapMarkerType.provider,
+            icon: Icons.car_repair_rounded,
+            color: const Color(0xFFF59E0B),
+            compactLabel: true,
+            offset: providerMarkerOffset,
+            rotationRadians: providerHeadingRadians,
           ),
         ),
       );
@@ -1268,26 +1262,23 @@ class _PinnedMarker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final marker = SizedBox(
-      width: 70,
-      height: 70,
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: RoleMapMarker(
-          label: label,
-          type: type,
-          fallbackIcon: icon,
-          color: color,
-          size: 46,
-          rotationRadians: rotationRadians,
-          compactLabel: compactLabel,
-        ),
-      ),
+    final marker = RoleMapMarker(
+      label: label,
+      type: type,
+      fallbackIcon: icon,
+      color: color,
+      size: 48,
+      rotationRadians: rotationRadians,
+      compactLabel: compactLabel,
     );
 
-    return Transform.translate(
-      offset: offset,
-      child: marker,
+    return SizedBox(
+      width: RoleMapMarker.outerSize,
+      height: RoleMapMarker.outerSize,
+      child: Transform.translate(
+        offset: offset,
+        child: marker,
+      ),
     );
   }
 }

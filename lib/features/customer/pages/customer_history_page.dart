@@ -64,7 +64,7 @@ class _CustomerHistoryPageState extends State<CustomerHistoryPage> {
                       Row(
                         children: [
                           Text(
-                            request.status.label,
+                            request.status.localizedLabel(context),
                             style: TextStyle(
                               color: request.status.color,
                               fontWeight: FontWeight.w800,
@@ -82,7 +82,7 @@ class _CustomerHistoryPageState extends State<CustomerHistoryPage> {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        request.service.label,
+                        request.service.localizedLabel(context),
                         style: const TextStyle(
                           fontSize: 19,
                           fontWeight: FontWeight.w900,

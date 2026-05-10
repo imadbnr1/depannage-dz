@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/i18n/app_localizations.dart';
 import '../../../models/chat_message.dart';
 
 class ChatPage extends StatefulWidget {
@@ -137,25 +138,26 @@ class _ChatPageState extends State<ChatPage> {
                   final docs = snapshot.data?.docs ?? [];
 
                   if (docs.isEmpty) {
-                    return const Center(
+                    final strings = AppLocalizations.of(context);
+                    return Center(
                       child: Padding(
-                        padding: EdgeInsets.all(24),
+                        padding: const EdgeInsets.all(24),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.chat_bubble_outline, size: 40),
-                            SizedBox(height: 12),
+                            const Icon(Icons.chat_bubble_outline, size: 40),
+                            const SizedBox(height: 12),
                             Text(
-                              'Aucun message pour le moment',
-                              style: TextStyle(
+                              strings.t('no_message_yet'),
+                              style: const TextStyle(
                                 fontWeight: FontWeight.w800,
                                 fontSize: 18,
                               ),
                             ),
-                            SizedBox(height: 6),
+                            const SizedBox(height: 6),
                             Text(
-                              'Commencez la discussion ici.',
-                              style: TextStyle(color: Colors.black54),
+                              strings.t('start_chat_here'),
+                              style: const TextStyle(color: Colors.black54),
                             ),
                           ],
                         ),
@@ -196,7 +198,8 @@ class _ChatPageState extends State<ChatPage> {
                                 Text(
                                   item.text,
                                   style: TextStyle(
-                                    color: isMine ? Colors.white : Colors.black87,
+                                    color:
+                                        isMine ? Colors.white : Colors.black87,
                                     height: 1.3,
                                   ),
                                 ),

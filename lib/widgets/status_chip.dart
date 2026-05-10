@@ -19,7 +19,7 @@ class StatusChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        status.label,
+        status.localizedLabel(context),
         style: TextStyle(color: status.color, fontWeight: FontWeight.w800),
       ),
     );

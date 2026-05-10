@@ -542,6 +542,93 @@ class AppLocalizations {
       'retirer': 'Retirer',
       'privacy_policy': 'Politique de confidentialite',
       'terms_of_use': 'Conditions d utilisation',
+      'graduation_project_legal_notice':
+          'Version projet de graduation. A valider juridiquement avant une exploitation commerciale.',
+      'choose_pickup': 'Choisir depart',
+      'current_location': 'Ma position actuelle',
+      'pickup_search_hint': 'Ex: Ma position, garage, station service...',
+      'destination_search_hint':
+          'Ex: Garage, Station service, Zone industrielle...',
+      'search_unavailable_try_map':
+          'Recherche indisponible. Essayez avec un autre terme ou choisissez sur la carte.',
+      'position_unavailable_choose_map':
+          'Position indisponible. Choisissez sur la carte.',
+      'map_pickup_label': 'Depart carte',
+      'map_destination_label': 'Destination carte',
+      'nearby_auto_services': 'Services auto a proximite',
+      'local_suggestions': 'Suggestions locales',
+      'no_pickup_suggestion': 'Aucune suggestion de depart',
+      'no_destination_found': 'Aucune destination trouvee',
+      'no_pickup_suggestion_sub':
+          'Essayez une recherche ou choisissez le point de depart sur la carte.',
+      'no_destination_found_sub':
+          'Essayez une recherche ou choisissez la destination sur la carte.',
+      'tap_map_pickup': 'Touchez la carte pour choisir le depart',
+      'tap_map_destination': 'Touchez la carte pour choisir la destination',
+      'confirm_pickup': 'Confirmer ce depart',
+      'confirm_destination': 'Confirmer cette destination',
+      'active_requests': 'Demandes actives',
+      'active_requests_sub':
+          'Retrouvez ici vos missions en cours, leur statut et l acces rapide au suivi.',
+      'active_requests_empty_sub':
+          'Vos demandes en cours apparaitront ici. Les demandes terminees sont dans Historique.',
+      'provider_assignment_pending': 'Affectation du provider en cours',
+      'open_tracking': 'Ouvrir le suivi',
+      'no_provider_available': 'Aucun provider disponible',
+      'no_provider_available_body':
+          'Aucun provider n a accepte la mission. Voulez-vous annuler ou continuer a attendre ?',
+      'keep_waiting': 'Continuer a attendre',
+      'searching_eligible_providers': 'Recherche de providers eligibles...',
+      'eligible_providers_found': '{count} providers eligibles trouves',
+      'provider_scan_progress':
+          'Provider {current} / {total} - {seconds}s restantes',
+      'search_in_progress': 'Recherche en cours',
+      'no_message_yet': 'Aucun message pour le moment',
+      'start_chat_here': 'Commencez la discussion ici.',
+      'service': 'Service',
+      'payment': 'Paiement',
+      'urgency': 'Urgence',
+      'duration': 'Duree',
+      'name': 'Nom',
+      'position_label': 'Position',
+      'service_towing': 'Remorquage',
+      'service_battery': 'Batterie',
+      'service_tire': 'Pneu',
+      'service_repair': 'Depannage',
+      'service_towing_desc': 'Transport du vehicule vers une destination',
+      'service_battery_desc': 'Demarrage / assistance batterie',
+      'service_tire_desc': 'Crevaison, roue, gonflage',
+      'service_repair_desc': 'Panne generale ou mecanique',
+      'privacy_collect_title': 'Donnees collectees',
+      'privacy_collect_body':
+          'Auto Rescue peut collecter le nom, le telephone, l email, le role utilisateur, les informations de vehicule, la position GPS, les demandes de mission, les messages de support, les notes et les avis.',
+      'privacy_use_title': 'Utilisation des donnees',
+      'privacy_use_body':
+          'Ces donnees servent a creer les comptes, proposer des missions, calculer les routes, suivre le provider en temps reel, envoyer des notifications, assurer le support et permettre le controle admin.',
+      'privacy_location_title': 'Position et notifications',
+      'privacy_location_body':
+          'La position est utilisee pour trouver le client, afficher la route et suivre la mission. Les notifications servent aux alertes de mission, messages importants et annonces administrateur.',
+      'privacy_security_title': 'Securite',
+      'privacy_security_body':
+          'Les acces sont separes entre customer, provider et admin. Les donnees doivent etre protegees par Firebase Authentication, Firestore Rules et des comptes admin controles.',
+      'privacy_contact_title': 'Contact',
+      'privacy_contact_body':
+          'Pour toute demande liee aux donnees ou au support, utilisez la page Support de l application ou l email configure par l administrateur.',
+      'terms_service_title': 'Objet du service',
+      'terms_service_body':
+          'Auto Rescue met en relation des customers ayant besoin d assistance routiere avec des providers disponibles, sous supervision administrative.',
+      'terms_user_title': 'Responsabilites utilisateur',
+      'terms_user_body':
+          'L utilisateur doit fournir des informations exactes, respecter les autres utilisateurs, utiliser l application legalement et ne pas tenter d acceder aux espaces reserves.',
+      'terms_providers_title': 'Providers',
+      'terms_providers_body':
+          'Les providers doivent etre approuves par l administrateur, maintenir leurs informations a jour et respecter les missions acceptees.',
+      'terms_prices_title': 'Prix et frais',
+      'terms_prices_body':
+          'Les prix peuvent inclure le service, la distance, les frais d acces du provider et les parametres definis par l administrateur.',
+      'terms_limits_title': 'Limites',
+      'terms_limits_body':
+          'Cette version est preparee pour un projet de graduation. Avant un lancement commercial, il faut finaliser les validations legales, securite, assurance et conditions de paiement.',
       'data_collection': 'Donnees collectees',
       'data_usage': 'Utilisation des donnees',
       'data_security': 'Securite',
@@ -1015,12 +1102,185 @@ class AppLocalizations {
       'customers': 'Customers',
       'tout_le_monde': 'Everyone',
       'retirer': 'Remove',
+      'privacy_policy': 'Privacy policy',
+      'terms_of_use': 'Terms of use',
+      'graduation_project_legal_notice':
+          'Graduation project version. Legal validation is required before commercial use.',
+      'choose_pickup': 'Choose pickup',
+      'current_location': 'My current location',
+      'pickup_search_hint': 'Example: my location, garage, gas station...',
+      'destination_search_hint':
+          'Example: garage, gas station, industrial zone...',
+      'search_unavailable_try_map':
+          'Search is unavailable. Try another term or choose on the map.',
+      'position_unavailable_choose_map':
+          'Location unavailable. Choose on the map.',
+      'map_pickup_label': 'Map pickup',
+      'map_destination_label': 'Map destination',
+      'nearby_auto_services': 'Nearby auto services',
+      'local_suggestions': 'Local suggestions',
+      'no_pickup_suggestion': 'No pickup suggestion',
+      'no_destination_found': 'No destination found',
+      'no_pickup_suggestion_sub':
+          'Try a search or choose the pickup point on the map.',
+      'no_destination_found_sub':
+          'Try a search or choose the destination on the map.',
+      'tap_map_pickup': 'Tap the map to choose the pickup point',
+      'tap_map_destination': 'Tap the map to choose the destination',
+      'confirm_pickup': 'Confirm this pickup',
+      'confirm_destination': 'Confirm this destination',
+      'active_requests': 'Active requests',
+      'active_requests_sub':
+          'Find your ongoing missions, their status, and quick access to tracking.',
+      'active_requests_empty_sub':
+          'Your ongoing requests will appear here. Completed requests are in History.',
+      'provider_assignment_pending': 'Provider assignment in progress',
+      'open_tracking': 'Open tracking',
+      'no_provider_available': 'No provider available',
+      'no_provider_available_body':
+          'No provider accepted the mission. Do you want to cancel or keep waiting?',
+      'keep_waiting': 'Keep waiting',
+      'searching_eligible_providers': 'Searching eligible providers...',
+      'eligible_providers_found': '{count} eligible providers found',
+      'provider_scan_progress':
+          'Provider {current} / {total} - {seconds}s remaining',
+      'search_in_progress': 'Search in progress',
+      'no_message_yet': 'No messages yet',
+      'start_chat_here': 'Start the conversation here.',
+      'service': 'Service',
+      'payment': 'Payment',
+      'urgency': 'Urgency',
+      'duration': 'Duration',
+      'name': 'Name',
+      'position_label': 'Position',
+      'service_towing': 'Towing',
+      'service_battery': 'Battery',
+      'service_tire': 'Tire',
+      'service_repair': 'Roadside repair',
+      'service_towing_desc': 'Transport the vehicle to a destination',
+      'service_battery_desc': 'Jump start / battery assistance',
+      'service_tire_desc': 'Flat tire, wheel, inflation',
+      'service_repair_desc': 'General or mechanical breakdown',
+      'privacy_collect_title': 'Data collected',
+      'privacy_collect_body':
+          'Auto Rescue may collect name, phone, email, user role, vehicle information, GPS location, mission requests, support messages, ratings, and reviews.',
+      'privacy_use_title': 'Use of data',
+      'privacy_use_body':
+          'This data is used to create accounts, offer missions, calculate routes, track providers in real time, send notifications, provide support, and enable admin control.',
+      'privacy_location_title': 'Location and notifications',
+      'privacy_location_body':
+          'Location is used to find the customer, display the route, and track the mission. Notifications are used for mission alerts, important messages, and admin announcements.',
+      'privacy_security_title': 'Security',
+      'privacy_security_body':
+          'Access is separated between customer, provider, and admin. Data must be protected by Firebase Authentication, Firestore Rules, and controlled admin accounts.',
+      'privacy_contact_title': 'Contact',
+      'privacy_contact_body':
+          'For data or support requests, use the Support page in the app or the email configured by the administrator.',
+      'terms_service_title': 'Service purpose',
+      'terms_service_body':
+          'Auto Rescue connects customers who need roadside assistance with available providers under administrative supervision.',
+      'terms_user_title': 'User responsibilities',
+      'terms_user_body':
+          'Users must provide accurate information, respect other users, use the app legally, and not attempt to access restricted areas.',
+      'terms_providers_title': 'Providers',
+      'terms_providers_body':
+          'Providers must be approved by the administrator, keep their information up to date, and honor accepted missions.',
+      'terms_prices_title': 'Prices and fees',
+      'terms_prices_body':
+          'Prices may include the service, distance, provider access fees, and parameters defined by the administrator.',
+      'terms_limits_title': 'Limits',
+      'terms_limits_body':
+          'This version is prepared for a graduation project. Before commercial launch, legal, security, insurance, and payment conditions must be finalized.',
     },
 
     // ══════════════════════════════════════════════════════
     // عربي — ARABIC
     // ══════════════════════════════════════════════════════
     'ar': {
+      'privacy_policy': 'سياسة الخصوصية',
+      'terms_of_use': 'شروط الاستخدام',
+      'graduation_project_legal_notice':
+          'نسخة مشروع تخرج. يجب التحقق القانوني قبل أي استخدام تجاري.',
+      'choose_pickup': 'اختيار نقطة الانطلاق',
+      'current_location': 'موقعي الحالي',
+      'pickup_search_hint': 'مثال: موقعي، مرآب، محطة وقود...',
+      'destination_search_hint': 'مثال: مرآب، محطة وقود، منطقة صناعية...',
+      'search_unavailable_try_map':
+          'البحث غير متاح. جرّب كلمة أخرى أو اختر من الخريطة.',
+      'position_unavailable_choose_map': 'الموقع غير متاح. اختر من الخريطة.',
+      'map_pickup_label': 'نقطة انطلاق من الخريطة',
+      'map_destination_label': 'وجهة من الخريطة',
+      'nearby_auto_services': 'خدمات سيارات قريبة',
+      'local_suggestions': 'اقتراحات محلية',
+      'no_pickup_suggestion': 'لا توجد اقتراحات للانطلاق',
+      'no_destination_found': 'لم يتم العثور على وجهة',
+      'no_pickup_suggestion_sub':
+          'جرّب البحث أو اختر نقطة الانطلاق على الخريطة.',
+      'no_destination_found_sub': 'جرّب البحث أو اختر الوجهة على الخريطة.',
+      'tap_map_pickup': 'اضغط على الخريطة لاختيار نقطة الانطلاق',
+      'tap_map_destination': 'اضغط على الخريطة لاختيار الوجهة',
+      'confirm_pickup': 'تأكيد نقطة الانطلاق',
+      'confirm_destination': 'تأكيد هذه الوجهة',
+      'active_requests': 'الطلبات النشطة',
+      'active_requests_sub': 'تابع مهامك الجارية وحالتها وافتح التتبع بسرعة.',
+      'active_requests_empty_sub':
+          'ستظهر طلباتك الجارية هنا. الطلبات المكتملة في السجل.',
+      'provider_assignment_pending': 'جاري تعيين مزود الخدمة',
+      'open_tracking': 'فتح التتبع',
+      'no_provider_available': 'لا يوجد مزود متاح',
+      'no_provider_available_body':
+          'لم يقبل أي مزود المهمة. هل تريد الإلغاء أم متابعة الانتظار؟',
+      'keep_waiting': 'متابعة الانتظار',
+      'searching_eligible_providers': 'جاري البحث عن مزودين مؤهلين...',
+      'eligible_providers_found': 'تم العثور على {count} مزودين مؤهلين',
+      'provider_scan_progress': 'مزود {current} / {total} - متبقي {seconds} ث',
+      'search_in_progress': 'البحث جار',
+      'no_message_yet': 'لا توجد رسائل بعد',
+      'start_chat_here': 'ابدأ المحادثة هنا.',
+      'service': 'الخدمة',
+      'payment': 'الدفع',
+      'urgency': 'الاستعجال',
+      'duration': 'المدة',
+      'name': 'الاسم',
+      'position_label': 'الموقع',
+      'service_towing': 'القطر',
+      'service_battery': 'البطارية',
+      'service_tire': 'الإطار',
+      'service_repair': 'إصلاح على الطريق',
+      'service_towing_desc': 'نقل المركبة إلى وجهة',
+      'service_battery_desc': 'تشغيل / مساعدة البطارية',
+      'service_tire_desc': 'ثقب، عجلة، نفخ',
+      'service_repair_desc': 'عطل عام أو ميكانيكي',
+      'privacy_collect_title': 'البيانات المجمعة',
+      'privacy_collect_body':
+          'قد يجمع Auto Rescue الاسم والهاتف والبريد والدور ومعلومات المركبة والموقع وطلبات المهام ورسائل الدعم والتقييمات.',
+      'privacy_use_title': 'استخدام البيانات',
+      'privacy_use_body':
+          'تستخدم هذه البيانات لإنشاء الحسابات، اقتراح المهام، حساب المسارات، تتبع المزود، إرسال التنبيهات، الدعم، وتمكين تحكم الإدارة.',
+      'privacy_location_title': 'الموقع والتنبيهات',
+      'privacy_location_body':
+          'يستخدم الموقع للعثور على العميل وعرض الطريق وتتبع المهمة. وتستخدم التنبيهات لتنبيهات المهام والرسائل المهمة وإعلانات الإدارة.',
+      'privacy_security_title': 'الأمان',
+      'privacy_security_body':
+          'يتم فصل الوصول بين العميل والمزود والإدارة، ويجب حماية البيانات عبر Firebase Authentication وقواعد Firestore وحسابات إدارة مضبوطة.',
+      'privacy_contact_title': 'التواصل',
+      'privacy_contact_body':
+          'لطلبات البيانات أو الدعم، استخدم صفحة الدعم داخل التطبيق أو البريد الذي يحدده المسؤول.',
+      'terms_service_title': 'هدف الخدمة',
+      'terms_service_body':
+          'يربط Auto Rescue العملاء الذين يحتاجون مساعدة على الطريق بمزودين متاحين تحت إشراف إداري.',
+      'terms_user_title': 'مسؤوليات المستخدم',
+      'terms_user_body':
+          'يجب على المستخدم تقديم معلومات صحيحة، احترام الآخرين، استخدام التطبيق قانونيًا، وعدم محاولة الوصول إلى المساحات المقيدة.',
+      'terms_providers_title': 'مزودو الخدمة',
+      'terms_providers_body':
+          'يجب اعتماد المزودين من الإدارة، وتحديث معلوماتهم، واحترام المهام المقبولة.',
+      'terms_prices_title': 'الأسعار والرسوم',
+      'terms_prices_body':
+          'قد تشمل الأسعار الخدمة والمسافة ورسوم وصول المزود والإعدادات التي تحددها الإدارة.',
+      'terms_limits_title': 'الحدود',
+      'terms_limits_body':
+          'هذه النسخة معدة لمشروع تخرج. قبل الإطلاق التجاري يجب إكمال الجوانب القانونية والأمان والتأمين وشروط الدفع.',
       'app_name': 'أوتو ريسكيو',
       'app_subtitle': 'مساعدة طرق سريعة في الجزائر',
       'close': 'إغلاق',

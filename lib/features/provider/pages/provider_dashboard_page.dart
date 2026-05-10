@@ -7,6 +7,7 @@ import '../../../core/services/auth_service.dart';
 import '../../../models/request_status.dart';
 import '../../../state/app_store.dart';
 import '../../../widgets/map_pin.dart';
+import '../../../widgets/role_map_marker.dart';
 import 'provider_earnings_page.dart';
 
 class ProviderDashboardPage extends StatefulWidget {
@@ -129,12 +130,13 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
     final markers = <Marker>[
       Marker(
         point: providerPosition,
-        width: 86,
-        height: 86,
+        width: RoleMapMarker.outerSize,
+        height: RoleMapMarker.outerSize,
         child: MapPin(
           label: strings.t('provider'),
           icon: Icons.car_repair_rounded,
           color: const Color(0xFFF59E0B),
+          markerType: RoleMapMarkerType.provider,
         ),
       ),
     ];
@@ -143,12 +145,13 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
       markers.add(
         Marker(
           point: item.customerPosition,
-          width: 82,
-          height: 82,
+          width: RoleMapMarker.outerSize,
+          height: RoleMapMarker.outerSize,
           child: MapPin(
             label: strings.t('client'),
             icon: Icons.place,
             color: Colors.red,
+            markerType: RoleMapMarkerType.customer,
           ),
         ),
       );

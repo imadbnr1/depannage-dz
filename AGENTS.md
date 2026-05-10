@@ -6,16 +6,15 @@ This repository contains a production-style Flutter roadside assistance / towing
 
 This is NOT a demo project.
 
-All code changes must preserve:
+All changes must preserve:
 
 * production readiness
-* realtime stability
 * Firebase security
-* existing architecture
-* provider/customer/admin flows
-* multilingual support
-* responsive UI behavior
 * realtime dispatch integrity
+* customer/provider/admin flows
+* multilingual support
+* responsive UI
+* Flutter Web and Android compatibility
 
 The application uses:
 
@@ -24,187 +23,269 @@ The application uses:
 * Cloud Firestore
 * Firebase Realtime Database
 * Firebase Messaging
-* Google Maps
-* Provider state management
+* Firebase Hosting
+* Firebase Functions when available
+* Provider / ChangeNotifier state management
+* Flutter Map / OpenStreetMap-based maps
 
 ---
 
-# Core Engineering Rules
+## Critical Security Rules
 
-## 1. Never Rewrite Large Systems Unnecessarily
+Never commit secrets.
 
-Do NOT rewrite:
+Never commit:
 
-* dispatch system
-* authentication flow
+* firebase-admin.json
+* service-account JSON files
+* .env
+* private keys
+* API secrets
+* webhook secrets
+* raw FCM tokens
+* credential exports
+
+If a credential was ever committed:
+
+1. revoke/delete the exposed key
+2. rotate it
+3. remove it from Git history
+4. force-push cleaned history only after confirmation
+
+Public Firebase client config may remain public if required by FlutterFire, but Firebase Admin SDK credentials must never be public.
+
+---
+
+## GitHub Safety Rules
+
+Before any public push:
+
+* check `git status --short`
+* confirm `.env` is ignored
+* confirm `firebase-admin.json` is not tracked
+* confirm `.firebase/` cache is not tracked
+* confirm `.env.example` contains placeholders only
+* do not push generated build files unless intentionally required
+
+Use `.gitignore` for:
+
+* `.env`
+* `.env.*`
+* `!.env.example`
+* `firebase-admin.json`
+* `**/firebase-admin.json`
+* `service-account*.json`
+* `*.p12`
+* `*.pem`
+* `*.key`
+* `.firebase/`
+* `build/`
+* `.dart_tool/`
+
+---
+
+## Architecture Rules
+
+Do NOT rewrite large systems unnecessarily.
+
+Do NOT replace:
+
+* Provider/ChangeNotifier
+* repository structure
+* auth architecture
+* dispatch architecture
 * provider presence system
-* Firestore architecture
-* routing/navigation architecture
-* state management architecture
+* localization system
 
 Prefer:
 
 * minimal safe edits
 * targeted fixes
-* additive improvements
-* backward-compatible changes
+* backwards-compatible additions
+* production-safe fallbacks
 
 ---
 
-## 2. Preserve Existing Architecture
+## Firebase Rules
 
-Respect the existing structure:
+Security rules must be production-safe.
 
-* repositories
-* services
-* Provider/ChangeNotifier state management
-* models
-* localization system
-* feature folders
+Never use:
 
-Avoid introducing:
+```js
+allow read, write: if true;
+```
 
-* Riverpod
-* Bloc
-* GetX
-* new architecture patterns
-  unless explicitly requested.
+Rule changes must:
 
----
-
-## 3. Production-Safe Firebase Rules
-
-Security is critical.
-
-Never:
-
-* loosen Firestore rules broadly
-* use allow read, write: if true
-* expose admin-only operations
-* expose provider private data
-* allow arbitrary request mutation
-
-All rule changes must:
-
-* follow least-privilege principle
-* restrict fields precisely
 * validate ownership
-* validate request state transitions
+* validate roles
+* validate state transitions
+* restrict allowed fields
+* avoid broad admin bypasses unless explicitly required and protected
 
 ---
 
-# Dispatch System Rules
+## Dispatch System Rules
 
 The dispatch system is business-critical.
 
-Important concepts:
+Provider dispatch must depend only on Firestore app providers.
 
-* eligibleProvidersSortedByDistance
-* dispatch chains
-* provider offer timeout
-* provider busy-state handling
-* fallback dispatch
-* retry dispatch
-* no-provider popup logic
+Do NOT make dispatch depend on:
 
-Never:
+* Nominatim
+* Overpass
+* route APIs
+* map proxy
+* geocoding
+* nearby places
+* external POI search
 
-* create infinite dispatch loops
-* instantly show "no provider available"
-* bypass provider timeout logic
-* dispatch to busy providers
-* dispatch to offline providers
+Expected dispatch behavior:
 
-Expected behavior:
+1. load Firestore providers
+2. filter eligible providers
+3. sort by distance
+4. offer mission one provider at a time
+5. respect provider timeout
+6. retry safely if customer chooses to keep waiting
+7. show “Aucun provider disponible” only after true dispatch exhaustion
 
-1. Build dispatch chain
-2. Offer mission sequentially
-3. Respect timeout window
-4. Retry safely if requested
-5. Show no-provider popup ONLY after true exhaustion
+Eligible provider must be:
+
+* online
+* approved
+* not busy
+* not on active mission
+* has valid location
+* within dispatch radius if radius is enabled
+
+When debugging dispatch, log only safe diagnostics:
+
+* provider uid
+* total providers count
+* eligible count
+* online/approved/busy flags
+* has location
+* distance
+* exclusion reason
+
+Never log:
+
+* phone
+* email
+* FCM token
+* private user data
 
 ---
 
-# Provider Presence Rules
+## Provider Presence Rules
 
 Provider online/offline state uses:
 
-* Firebase Realtime Database
-* Firestore sync fallback
+* Firebase Realtime Database presence
+* Firestore availability mirror/fallback
 
-Never:
+Do not break:
 
-* break disconnect handling
-* remove onDisconnect behavior
-* mark providers online incorrectly
-* allow busy providers to receive new missions
+* onDisconnect behavior
+* offline fallback
+* busy-state protection
+* active mission protection
 
-Provider session integrity is critical.
+A provider on an active mission must not receive another mission.
 
 ---
 
-# Tracking & Navigation Rules
+## Tracking and Map Rules
 
-Tracking pages must:
+Tracking must:
 
-* support realtime updates
-* avoid heavy rebuilds
-* support ETA/distance
-* gracefully degrade on Flutter Web
-* avoid crashes when route APIs fail
+* update in realtime
+* show route/ETA/distance when available
+* degrade gracefully on Flutter Web
+* never crash because a map API fails
 
 On Flutter Web:
 
-* fallback route rendering is acceptable
-* straight polyline fallback is acceptable
-* UI must never crash due to CORS
+* browser CORS can block direct third-party map/search APIs
+* use Firebase Functions proxy when available
+* otherwise fallback safely
+* straight-line route fallback is acceptable
+
+External map/search failures must never affect provider dispatch.
 
 ---
 
-# UI/UX Rules
+## Firebase Functions Rules
+
+Use Firebase Functions as a backend proxy for web map/search/routing when possible.
+
+Spark/free-plan compatibility:
+
+* do not require Secret Manager unless project is on Blaze
+* support `functions.config()` or `process.env`
+* fail gracefully if a key is missing
+* never expose API keys to Flutter frontend
+
+Cloud Function endpoints may include:
+
+* `mapSearch`
+* `reverseGeocode`
+* `nearbyPlaces`
+* `routeDirections`
+
+Functions must:
+
+* validate input
+* apply timeouts
+* catch upstream errors
+* normalize responses
+* return empty/fallback results instead of crashing
+
+---
+
+## UI/UX Rules
 
 Do NOT redesign pages unless explicitly requested.
 
-Keep:
+Preserve:
 
-* existing branding
-* visual hierarchy
-* navigation flow
+* current branding
+* layout language
+* customer/provider/admin flows
 * localization behavior
 
 Fixes should:
 
-* avoid overflows
+* remove overflow
 * avoid layout jumps
-* remain responsive
-* preserve performance
-
-Animations:
-
-* lightweight only
-* avoid rebuilding full map/widgets every frame
-* prefer AnimationController + AnimatedBuilder
+* keep mobile/web responsive
+* keep animations lightweight
 
 ---
 
-# Marker & Map Rules
+## Marker and Animation Rules
 
-Custom map markers must:
+Map markers must:
 
-* have constrained dimensions
+* use fixed/constrained dimensions
+* avoid unconstrained `Column`
 * avoid RenderFlex overflow
-* avoid unconstrained Column usage
-* remain performant
+* keep marker and pulse centered
 
-Searching state may use:
+Searching marker pulse:
 
-* pulse animation
-* radar ring
-* opacity/scale animation
+* use `Stack(alignment: Alignment.center)`
+* place pulse behind marker
+* match marker widget width/height with map marker width/height
+* avoid offset Transform bugs
+* stop animation when status is no longer searching
 
 ---
 
-# Localization Rules
+## Localization Rules
 
 The project supports:
 
@@ -212,59 +293,56 @@ The project supports:
 * English
 * Arabic
 
-Never hardcode new UI strings unless unavoidable.
+Avoid hardcoded strings for new production UI.
+Prefer existing localization architecture.
 
-Prefer:
-
-* localization keys
-* existing translation architecture
+Temporary debug-only text is acceptable during diagnosis but should not remain in final production UI.
 
 ---
 
-# Repository Safety Rules
+## FCM Rules
 
-Before public Git pushes:
+Never print raw FCM tokens.
 
-Sensitive files must NEVER be committed:
+Allowed logs:
 
-* firebase-admin.json
-* service-account JSON files
-* .env
-* API secrets
-* private tokens
-* webhook secrets
+* `FCM token saved`
+* `FCM token refreshed`
+* `FCM unavailable on web`
 
-Public Firebase client config may remain public if required by FlutterFire.
+Not allowed:
+
+* token value
+* raw exception payloads containing sensitive details
+
+On Flutter Web:
+
+* FCM may fail because of service worker/browser push restrictions
+* failure must not crash UI
 
 ---
 
-# Code Quality Rules
+## Code Quality Rules
 
-Required after modifications:
+After edits:
 
-* dart format
-* flutter analyze when practical
+* run `dart format`
+* run `flutter analyze`
+* run `npm run lint` / `npm run build` for functions when changed
 
 Avoid:
 
+* noisy permanent logs
 * dead code
-* noisy debug logs
 * duplicated logic
-* massive unrelated refactors
+* unrelated refactors
+* repeated failed network retries
 
 ---
 
-# Modification Strategy
+## Final Response Format
 
-Before editing:
-
-1. Read AGENTS.md
-2. Read repomix-flutter.txt
-3. Inspect affected architecture
-4. Minimize scope
-5. Preserve compatibility
-
-Final responses should include:
+Every coding task response must include:
 
 * root cause
 * files changed
@@ -272,49 +350,25 @@ Final responses should include:
 * commands run
 * remaining risks/TODOs
 
----
+For dispatch bugs, also include:
 
-# Performance Rules
+* exact reason provider was excluded
+* how eligibility was corrected
 
-Avoid:
+For Functions changes, also include:
 
-* unnecessary rebuilds
-* polling loops
-* memory leaks
-* repeated failed API retries
-* excessive Firestore writes
-
-Prefer:
-
-* cached state
-* throttled updates
-* lightweight animations
-* graceful fallback behavior
+* setup commands
+* deploy commands
+* any Blaze-only limitations
 
 ---
 
-# Deployment Rules
-
-Code must remain compatible with:
-
-* Flutter Web
-* Android
-
-Do not introduce:
-
-* platform-breaking imports
-* unsupported web plugins
-* incompatible native-only logic without guards
-
----
-
-# Goal
+## Goal
 
 Every change should move the project toward:
 
 * production readiness
-* stability
-* maintainability
-* professional UX
 * secure Firebase architecture
+* stable realtime dispatch
+* professional UX
 * graduation-project presentation quality
