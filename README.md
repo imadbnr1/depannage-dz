@@ -514,7 +514,37 @@ storage.rules
 web/firebase-messaging-sw.js
 ```
 
-For production, keep service account files out of client builds and do not expose admin SDK credentials in public repositories.
+These Firebase client files are required by FlutterFire and are intentionally public client configuration. Do not place Firebase Admin SDK credentials or private service-account keys in client code.
+
+Create local environment variables before running the app:
+
+```bash
+cp .env.example .env
+```
+
+On Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Optional routing API keys can be added to `.env`:
+
+```text
+OPENROUTESERVICE_API_KEY=
+GRAPHHOPPER_API_KEY=
+MAPBOX_ACCESS_TOKEN=
+```
+
+If these values are blank, the app continues to run using OSRM where available and the local straight-line route fallback.
+
+Maintenance scripts that use the Firebase Admin SDK require a local, ignored service account file:
+
+```bash
+FIREBASE_ADMIN_CREDENTIALS=path/to/firebase-admin.json node scripts/reset_sessions.js
+```
+
+If `FIREBASE_ADMIN_CREDENTIALS` is not set, the script looks for an ignored `firebase-admin.json` file at the project root.
 
 ---
 
@@ -623,6 +653,14 @@ Implemented protections include:
 - image upload limits in Storage rules
 
 Client-side role checks improve UX, but Firebase rules remain the primary security boundary.
+
+Repository security expectations:
+
+- never commit `.env`
+- never commit `firebase-admin.json` or service-account exports
+- rotate any API key or private key that was previously committed
+- restrict external routing API keys by platform, domain, package name, or quota where the provider supports it
+- keep FlutterFire client configuration files committed because they are required public client configuration, not Admin SDK secrets
 
 ---
 

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:developer' as developer;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
@@ -18,17 +19,20 @@ class RouteService {
   ];
 
   static const _graphHopperServer = 'https://graphhopper.com/api/1/route';
-  static const _graphHopperApiKey = '79eebee5-8dad-4cca-abeb-0612df7ba436';
+  static String get _graphHopperApiKey => _env('GRAPHHOPPER_API_KEY',
+      const String.fromEnvironment('GRAPHHOPPER_API_KEY'));
 
   static const _mapboxServer =
       'https://api.mapbox.com/directions/v5/mapbox/driving';
-  static const _mapboxAccessToken =
-      'pk.eyJ1IjoiaW1lZGJuciIsImEiOiJjbW9rdXFwZ3QwYTNyMnhzYThoZ20wanEzIn0.TuolyERSKJzKpafwYr2APg';
+  static String get _mapboxAccessToken => _env('MAPBOX_ACCESS_TOKEN',
+      const String.fromEnvironment('MAPBOX_ACCESS_TOKEN'));
 
   static const _openRouteServiceServer =
       'https://api.openrouteservice.org/v2/directions/driving-car';
-  static const _openRouteServiceApiKey =
-      'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjA1NDcyYTllZDIyMzQ5OTU4ZTQxNDM2NmM2MzY5NjVhIiwiaCI6Im11cm11cjY0In0=';
+  static String get _openRouteServiceApiKey => _env(
+        'OPENROUTESERVICE_API_KEY',
+        const String.fromEnvironment('OPENROUTESERVICE_API_KEY'),
+      );
 
   Future<RouteSnapshot> buildDrivingRoute({
     required LatLng origin,
@@ -119,11 +123,14 @@ class RouteService {
   // ==================== OpenRouteService ====================
   Future<RouteSnapshot?> _tryFetchRouteOpenRouteService(
       LatLng origin, LatLng destination) async {
+    final apiKey = _openRouteServiceApiKey;
+    if (apiKey.isEmpty) return null;
+
     try {
       final url = Uri.parse('$_openRouteServiceServer'
           '?start=${origin.longitude},${origin.latitude}'
           '&end=${destination.longitude},${destination.latitude}'
-          '&api_key=$_openRouteServiceApiKey'
+          '&api_key=$apiKey'
           '&format=geojson'
           '&geometry=true'
           '&instructions=false'
@@ -318,12 +325,15 @@ class RouteService {
   // ==================== GraphHopper ====================
   Future<RouteSnapshot?> _tryFetchRouteGraphHopper(
       LatLng origin, LatLng destination) async {
+    final apiKey = _graphHopperApiKey;
+    if (apiKey.isEmpty) return null;
+
     try {
       final url = Uri.parse('$_graphHopperServer'
           '?point=${origin.latitude},${origin.longitude}'
           '&point=${destination.latitude},${destination.longitude}'
           '&vehicle=car'
-          '&key=$_graphHopperApiKey'
+          '&key=$apiKey'
           '&points_encoded=false'
           '&calc_points=true'
           '&instructions=false'
@@ -414,11 +424,14 @@ class RouteService {
   // ==================== Mapbox ====================
   Future<RouteSnapshot?> _tryFetchRouteMapbox(
       LatLng origin, LatLng destination) async {
+    final accessToken = _mapboxAccessToken;
+    if (accessToken.isEmpty) return null;
+
     try {
       final url =
           Uri.parse('$_mapboxServer/${origin.longitude},${origin.latitude};'
               '${destination.longitude},${destination.latitude}'
-              '?access_token=$_mapboxAccessToken'
+              '?access_token=$accessToken'
               '&geometries=geojson'
               '&overview=full'
               '&steps=false'
@@ -544,4 +557,10 @@ class RouteService {
   }
 
   bool _isFinite(double value) => value.isFinite && !value.isNaN;
+
+  static String _env(String key, String dartDefineFallback) {
+    final value = dotenv.env[key]?.trim();
+    if (value != null && value.isNotEmpty) return value;
+    return dartDefineFallback.trim();
+  }
 }

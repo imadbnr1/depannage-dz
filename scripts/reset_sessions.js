@@ -1,6 +1,22 @@
 const admin = require('firebase-admin');
+const fs = require('fs');
+const path = require('path');
 
-const serviceAccount = require('../firebase-admin.json');
+const serviceAccountPath = path.resolve(
+  __dirname,
+  '..',
+  process.env.FIREBASE_ADMIN_CREDENTIALS || 'firebase-admin.json',
+);
+
+if (!fs.existsSync(serviceAccountPath)) {
+  console.error(
+    `Missing Firebase Admin credentials at ${serviceAccountPath}.\n` +
+      'Set FIREBASE_ADMIN_CREDENTIALS or place an ignored firebase-admin.json file at the project root.',
+  );
+  process.exit(1);
+}
+
+const serviceAccount = require(serviceAccountPath);
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),

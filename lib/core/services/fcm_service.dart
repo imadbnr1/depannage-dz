@@ -109,7 +109,9 @@ class FcmService {
 
     try {
       final token = await messaging.getToken();
-      debugPrint('FCM TOKEN: $token');
+      if (kDebugMode && token != null) {
+        debugPrint('FCM token registered.');
+      }
     } catch (e) {
       debugPrint('FCM token error: $e');
     }
