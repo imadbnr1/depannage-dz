@@ -56,6 +56,8 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
   bool _followProvider = true;
   bool _routeIsFallback = false;
   double _panelExtent = 0.30;
+  late final ValueNotifier<double> _panelExtentNotifier =
+      ValueNotifier<double>(_panelExtent);
 
   // ✅ Track rejected provider for animation
   // ignore: unused_field
@@ -137,6 +139,7 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
     _offerTimer?.cancel();
     _providerAnimationTimer?.cancel();
     _rejectionAnimationTimer?.cancel();
+    _panelExtentNotifier.dispose();
     super.dispose();
   }
 
@@ -708,6 +711,14 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
     return request.pickupLabel;
   }
 
+  void _handlePanelNotification(DraggableScrollableNotification notification) {
+    final nextExtent = notification.extent;
+    if ((nextExtent - _panelExtent).abs() < 0.002) return;
+
+    _panelExtent = nextExtent;
+    _panelExtentNotifier.value = nextExtent;
+  }
+
   @override
   Widget build(BuildContext context) {
     final strings = AppLocalizations.of(context);
@@ -864,8 +875,11 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
     final minExtent = compactHeight ? 0.22 : 0.18;
     final initialExtent = compactHeight ? 0.34 : 0.30;
     final maxExtent = compactHeight ? 0.78 : 0.66;
-    final clampedExtent = _panelExtent.clamp(minExtent, maxExtent).toDouble();
-    final floatingBottom = (screenHeight * clampedExtent) + safe.bottom + 14;
+    double floatingBottom(double extent) {
+      final clampedExtent = extent.clamp(minExtent, maxExtent).toDouble();
+      return (screenHeight * clampedExtent) + safe.bottom + 14;
+    }
+
     final topInset = safe.top;
     return Scaffold(
       body: Stack(
@@ -940,9 +954,15 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
               ],
             ),
           ),
-          Positioned(
-            right: 12 + safe.right,
-            bottom: floatingBottom,
+          ValueListenableBuilder<double>(
+            valueListenable: _panelExtentNotifier,
+            builder: (context, panelExtent, child) {
+              return Positioned(
+                right: 12 + safe.right,
+                bottom: floatingBottom(panelExtent),
+                child: child!,
+              );
+            },
             child: _MapGlassButton(
               icon: Icons.my_location_outlined,
               onTap: () async {
@@ -965,17 +985,14 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
           ),
           NotificationListener<DraggableScrollableNotification>(
             onNotification: (notification) {
-              if ((notification.extent - _panelExtent).abs() > 0.002) {
-                setState(() => _panelExtent = notification.extent);
-              }
+              _handlePanelNotification(notification);
               return false;
             },
             child: DraggableScrollableSheet(
               minChildSize: minExtent,
               initialChildSize: initialExtent,
               maxChildSize: maxExtent,
-              snap: true,
-              snapSizes: [minExtent, initialExtent, maxExtent],
+              snap: false,
               builder: (context, scrollController) {
                 return _TrackingOverlayCard(
                   child: ListView(

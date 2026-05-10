@@ -28,9 +28,22 @@ import 'core/services/fcm_service.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await _loadEnvironment();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  try {
+  if (kIsWeb) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } else if (Firebase.apps.isEmpty) {
+    await Firebase.initializeApp();
+  } else {
+    Firebase.app();
+  }
+} on FirebaseException catch (e) {
+  if (e.code != 'duplicate-app') {
+    rethrow;
+  }
+  Firebase.app();
+}
   try {
     await FcmService.init();
   } catch (e) {

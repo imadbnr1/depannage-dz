@@ -62,6 +62,8 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
   bool _followProvider = true;
   bool _routeIsFallback = false;
   double _panelExtent = 0.30;
+  late final ValueNotifier<double> _panelExtentNotifier =
+      ValueNotifier<double>(_panelExtent);
 
   @override
   void initState() {
@@ -115,6 +117,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
     _routeTimer?.cancel();
     _simulationTimer?.cancel();
     _providerAnimationTimer?.cancel();
+    _panelExtentNotifier.dispose();
     super.dispose();
   }
 
@@ -862,6 +865,14 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
     return request.customerName;
   }
 
+  void _handlePanelNotification(DraggableScrollableNotification notification) {
+    final nextExtent = notification.extent;
+    if ((nextExtent - _panelExtent).abs() < 0.002) return;
+
+    _panelExtent = nextExtent;
+    _panelExtentNotifier.value = nextExtent;
+  }
+
   @override
   Widget build(BuildContext context) {
     final strings = AppLocalizations.of(context);
@@ -969,8 +980,11 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
     final minExtent = compactHeight ? 0.24 : 0.20;
     final initialExtent = compactHeight ? 0.36 : 0.30;
     final maxExtent = compactHeight ? 0.82 : 0.70;
-    final clampedExtent = _panelExtent.clamp(minExtent, maxExtent).toDouble();
-    final floatingBottom = (screenHeight * clampedExtent) + safe.bottom + 14;
+    double floatingBottom(double extent) {
+      final clampedExtent = extent.clamp(minExtent, maxExtent).toDouble();
+      return (screenHeight * clampedExtent) + safe.bottom + 14;
+    }
+
     final topInset = safe.top;
     return Scaffold(
       body: Stack(
@@ -1058,9 +1072,15 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
                 onReset: _resetSimulation,
               ),
             ),
-          Positioned(
-            right: 12 + safe.right,
-            bottom: floatingBottom,
+          ValueListenableBuilder<double>(
+            valueListenable: _panelExtentNotifier,
+            builder: (context, panelExtent, child) {
+              return Positioned(
+                right: 12 + safe.right,
+                bottom: floatingBottom(panelExtent),
+                child: child!,
+              );
+            },
             child: _MapGlassButton(
               icon: Icons.my_location_outlined,
               onTap: () {
@@ -1078,17 +1098,14 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
           ),
           NotificationListener<DraggableScrollableNotification>(
             onNotification: (notification) {
-              if ((notification.extent - _panelExtent).abs() > 0.002) {
-                setState(() => _panelExtent = notification.extent);
-              }
+              _handlePanelNotification(notification);
               return false;
             },
             child: DraggableScrollableSheet(
               minChildSize: minExtent,
               initialChildSize: initialExtent,
               maxChildSize: maxExtent,
-              snap: true,
-              snapSizes: [minExtent, initialExtent, maxExtent],
+              snap: false,
               builder: (context, scrollController) {
                 return _TrackingOverlayCard(
                   child: ListView(

@@ -26,6 +26,16 @@ class _CustomerHomePageState extends State<CustomerHomePage> {
   final MapController _mapController = MapController();
   bool _mapReady = false;
   double _panelExtent = 0.24;
+  late final ValueNotifier<double> _panelExtentNotifier =
+      ValueNotifier<double>(_panelExtent);
+
+  void _handlePanelNotification(DraggableScrollableNotification notification) {
+    final nextExtent = notification.extent;
+    if ((nextExtent - _panelExtent).abs() < 0.002) return;
+
+    _panelExtent = nextExtent;
+    _panelExtentNotifier.value = nextExtent;
+  }
 
   @override
   void initState() {
@@ -36,6 +46,7 @@ class _CustomerHomePageState extends State<CustomerHomePage> {
   @override
   void dispose() {
     widget.store.removeListener(_refresh);
+    _panelExtentNotifier.dispose();
     super.dispose();
   }
 
@@ -74,51 +85,59 @@ class _CustomerHomePageState extends State<CustomerHomePage> {
           final minExtent = compactHeight ? 0.18 : 0.16;
           final initialExtent = compactHeight ? 0.28 : 0.24;
           final maxExtent = compactHeight ? 0.62 : 0.52;
-          final clampedExtent =
-              _panelExtent.clamp(minExtent, maxExtent).toDouble();
-          final buttonBottom =
-              (constraints.maxHeight * clampedExtent) + safe.bottom + 14;
+          double buttonBottom(double extent) {
+            final clampedExtent = extent.clamp(minExtent, maxExtent).toDouble();
+            return (constraints.maxHeight * clampedExtent) + safe.bottom + 14;
+          }
 
           return Stack(
             children: [
-              FlutterMap(
-                mapController: _mapController,
-                options: MapOptions(
-                  initialCenter: customerPosition,
-                  initialZoom: 13.5,
-                  onMapReady: () {
-                    _mapReady = true;
-                    try {
-                      _mapController.move(customerPosition, 15);
-                    } catch (_) {}
-                  },
-                ),
-                children: [
-                  TileLayer(
-                    urlTemplate:
-                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    userAgentPackageName: 'dz.depannage.customer',
+              Positioned.fill(
+                child: FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(
+                    initialCenter: customerPosition,
+                    initialZoom: 13.5,
+                    onMapReady: () {
+                      _mapReady = true;
+                      try {
+                        _mapController.move(customerPosition, 15);
+                      } catch (_) {}
+                    },
                   ),
-                  MarkerLayer(
-                    markers: [
-                      Marker(
-                        point: customerPosition,
-                        width: RoleMapMarker.outerSize,
-                        height: RoleMapMarker.outerSize,
-                        child: MapPin(
-                          label: strings.t('vous'),
-                          icon: Icons.place,
-                          color: Colors.red,
-                          markerType: RoleMapMarkerType.customer,
+                  children: [
+                    TileLayer(
+                      urlTemplate:
+                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'dz.depannage.customer',
+                    ),
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: customerPosition,
+                          width: RoleMapMarker.outerSize,
+                          height: RoleMapMarker.outerSize,
+                          child: MapPin(
+                            label: strings.t('vous'),
+                            icon: Icons.place,
+                            color: Colors.red,
+                            markerType: RoleMapMarkerType.customer,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
-              Positioned(
-                right: 16 + safe.right,
-                bottom: buttonBottom,
+              ValueListenableBuilder<double>(
+                valueListenable: _panelExtentNotifier,
+                builder: (context, panelExtent, child) {
+                  return Positioned(
+                    right: 16 + safe.right,
+                    bottom: buttonBottom(panelExtent),
+                    child: child!,
+                  );
+                },
                 child: Material(
                   color: Colors.white.withValues(alpha: 0.9),
                   shape: const CircleBorder(),
@@ -141,17 +160,14 @@ class _CustomerHomePageState extends State<CustomerHomePage> {
               ),
               NotificationListener<DraggableScrollableNotification>(
                 onNotification: (notification) {
-                  if ((notification.extent - _panelExtent).abs() > 0.002) {
-                    setState(() => _panelExtent = notification.extent);
-                  }
+                  _handlePanelNotification(notification);
                   return false;
                 },
                 child: DraggableScrollableSheet(
                   minChildSize: minExtent,
                   initialChildSize: initialExtent,
                   maxChildSize: maxExtent,
-                  snap: true,
-                  snapSizes: [minExtent, initialExtent, maxExtent],
+                  snap: false,
                   builder: (context, scrollController) {
                     return DecoratedBox(
                       decoration: const BoxDecoration(
