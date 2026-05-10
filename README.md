@@ -477,6 +477,7 @@ Enable the following Firebase services:
 - Firebase Cloud Messaging
 - Realtime Database
 - Firebase Hosting, if building for web
+- Cloud Functions, for web map/search/routing proxy endpoints
 
 Deploy Firestore and Storage rules:
 
@@ -490,6 +491,16 @@ Deploy web hosting after building:
 ```bash
 flutter build web --release
 firebase deploy --only hosting
+```
+
+Deploy Cloud Functions:
+
+```bash
+cd functions
+npm install
+npm run lint
+cd ..
+firebase deploy --only functions
 ```
 
 ---
@@ -534,9 +545,30 @@ Optional routing API keys can be added to `.env`:
 OPENROUTESERVICE_API_KEY=
 GRAPHHOPPER_API_KEY=
 MAPBOX_ACCESS_TOKEN=
+FIREBASE_FUNCTIONS_REGION=us-central1
+MAP_PROXY_BASE_URL=
 ```
 
-If these values are blank, the app continues to run using OSRM where available and the local straight-line route fallback.
+The Flutter app calls Firebase Cloud Functions for web-safe map/search/routing access. `MAP_PROXY_BASE_URL` is optional and is only needed for a local emulator or custom proxy URL.
+
+Set Cloud Functions secrets for private routing provider keys:
+
+```bash
+firebase functions:secrets:set OPENROUTESERVICE_API_KEY
+firebase functions:secrets:set GRAPHHOPPER_API_KEY
+firebase functions:secrets:set MAPBOX_ACCESS_TOKEN
+```
+
+If routing secrets are blank, the function still tries OSRM and returns a local straight-line fallback when every provider fails.
+
+Cloud Function endpoints:
+
+```text
+mapSearch
+reverseGeocode
+nearbyPlaces
+routeDirections
+```
 
 Maintenance scripts that use the Firebase Admin SDK require a local, ignored service account file:
 

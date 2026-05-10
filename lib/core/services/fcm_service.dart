@@ -61,11 +61,18 @@ class FcmService {
 
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
-    final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
-    if (initialMessage != null) {
-      payloadNotifier.value = initialMessage.data.map(
-        (key, value) => MapEntry(key, value.toString()),
-      );
+    try {
+      final initialMessage =
+          await FirebaseMessaging.instance.getInitialMessage();
+      if (initialMessage != null) {
+        payloadNotifier.value = initialMessage.data.map(
+          (key, value) => MapEntry(key, value.toString()),
+        );
+      }
+    } catch (_) {
+      if (kDebugMode) {
+        debugPrint('FCM initial message unavailable.');
+      }
     }
 
     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
@@ -107,13 +114,30 @@ class FcmService {
       );
     });
 
-    try {
-      final token = await messaging.getToken();
-      if (kDebugMode && token != null) {
-        debugPrint('FCM token registered.');
+    if (!kIsWeb) {
+      try {
+        final token = await messaging.getToken();
+        if (kDebugMode && token != null) {
+          debugPrint('FCM token saved');
+        }
+      } catch (_) {
+        if (kDebugMode) {
+          debugPrint('FCM token unavailable.');
+        }
       }
-    } catch (e) {
-      debugPrint('FCM token error: $e');
+
+      FirebaseMessaging.instance.onTokenRefresh.listen(
+        (_) {
+          if (kDebugMode) {
+            debugPrint('FCM token refreshed');
+          }
+        },
+        onError: (_) {
+          if (kDebugMode) {
+            debugPrint('FCM token refresh unavailable.');
+          }
+        },
+      );
     }
   }
 

@@ -30,6 +30,7 @@ class ProviderPresenceService {
 
     await _firestore.collection('providers').doc(providerUid).set({
       'isOnline': true,
+      'online': true,
       'lastSeenAtIso': DateTime.now().toIso8601String(),
       'updatedAtIso': DateTime.now().toIso8601String(),
     }, SetOptions(merge: true));
@@ -38,6 +39,7 @@ class ProviderPresenceService {
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (_) async {
       await _firestore.collection('providers').doc(providerUid).set({
         'isOnline': true,
+        'online': true,
         'lastSeenAtIso': DateTime.now().toIso8601String(),
         'updatedAtIso': DateTime.now().toIso8601String(),
       }, SetOptions(merge: true));
@@ -54,6 +56,7 @@ class ProviderPresenceService {
 
     await _firestore.collection('providers').doc(providerUid).set({
       'isOnline': false,
+      'online': false,
       'updatedAtIso': DateTime.now().toIso8601String(),
     }, SetOptions(merge: true));
   }

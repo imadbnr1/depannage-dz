@@ -203,407 +203,6 @@ MAPBOX_ACCESS_TOKEN=
 }
 </file>
 
-<file path=".gitignore">
-# Miscellaneous
-*.class
-*.log
-*.pyc
-*.swp
-.DS_Store
-.atom/
-.build/
-.buildlog/
-.history
-.svn/
-.swiftpm/
-migrate_working_dir/
-
-# Local environment and secrets
-.env
-.env.*
-!.env.example
-firebase-admin.json
-**/firebase-admin.json
-service-account*.json
-*service-account*.json
-*.p12
-*.pem
-*.key
-credentials/
-secrets/
-
-# Firebase local output
-.firebase/
-firebase-debug.log
-firestore-debug.log
-ui-debug.log
-
-# Node tooling used by maintenance scripts
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Temporary files
-*.tmp
-*.temp
-
-# IntelliJ related
-*.iml
-*.ipr
-*.iws
-.idea/
-
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
-
-# Flutter/Dart/Pub related
-**/doc/api/
-**/ios/Flutter/.last_build_id
-.dart_tool/
-.flutter-plugins-dependencies
-.pub-cache/
-.pub/
-/build/
-/coverage/
-
-# Symbolication related
-app.*.symbols
-
-# Obfuscation related
-app.*.map.json
-
-# Android Studio will place build artifacts here
-/android/app/debug
-/android/app/profile
-/android/app/release
-</file>
-
-<file path="AGENTS.md">
-# AGENTS.md
-
-## Project Context
-
-This repository contains a production-style Flutter roadside assistance / towing / dépannage platform developed as a final graduation project.
-
-This is NOT a demo project.
-
-All code changes must preserve:
-
-* production readiness
-* realtime stability
-* Firebase security
-* existing architecture
-* provider/customer/admin flows
-* multilingual support
-* responsive UI behavior
-* realtime dispatch integrity
-
-The application uses:
-
-* Flutter
-* Firebase Auth
-* Cloud Firestore
-* Firebase Realtime Database
-* Firebase Messaging
-* Google Maps
-* Provider state management
-
----
-
-# Core Engineering Rules
-
-## 1. Never Rewrite Large Systems Unnecessarily
-
-Do NOT rewrite:
-
-* dispatch system
-* authentication flow
-* provider presence system
-* Firestore architecture
-* routing/navigation architecture
-* state management architecture
-
-Prefer:
-
-* minimal safe edits
-* targeted fixes
-* additive improvements
-* backward-compatible changes
-
----
-
-## 2. Preserve Existing Architecture
-
-Respect the existing structure:
-
-* repositories
-* services
-* Provider/ChangeNotifier state management
-* models
-* localization system
-* feature folders
-
-Avoid introducing:
-
-* Riverpod
-* Bloc
-* GetX
-* new architecture patterns
-  unless explicitly requested.
-
----
-
-## 3. Production-Safe Firebase Rules
-
-Security is critical.
-
-Never:
-
-* loosen Firestore rules broadly
-* use allow read, write: if true
-* expose admin-only operations
-* expose provider private data
-* allow arbitrary request mutation
-
-All rule changes must:
-
-* follow least-privilege principle
-* restrict fields precisely
-* validate ownership
-* validate request state transitions
-
----
-
-# Dispatch System Rules
-
-The dispatch system is business-critical.
-
-Important concepts:
-
-* eligibleProvidersSortedByDistance
-* dispatch chains
-* provider offer timeout
-* provider busy-state handling
-* fallback dispatch
-* retry dispatch
-* no-provider popup logic
-
-Never:
-
-* create infinite dispatch loops
-* instantly show "no provider available"
-* bypass provider timeout logic
-* dispatch to busy providers
-* dispatch to offline providers
-
-Expected behavior:
-
-1. Build dispatch chain
-2. Offer mission sequentially
-3. Respect timeout window
-4. Retry safely if requested
-5. Show no-provider popup ONLY after true exhaustion
-
----
-
-# Provider Presence Rules
-
-Provider online/offline state uses:
-
-* Firebase Realtime Database
-* Firestore sync fallback
-
-Never:
-
-* break disconnect handling
-* remove onDisconnect behavior
-* mark providers online incorrectly
-* allow busy providers to receive new missions
-
-Provider session integrity is critical.
-
----
-
-# Tracking & Navigation Rules
-
-Tracking pages must:
-
-* support realtime updates
-* avoid heavy rebuilds
-* support ETA/distance
-* gracefully degrade on Flutter Web
-* avoid crashes when route APIs fail
-
-On Flutter Web:
-
-* fallback route rendering is acceptable
-* straight polyline fallback is acceptable
-* UI must never crash due to CORS
-
----
-
-# UI/UX Rules
-
-Do NOT redesign pages unless explicitly requested.
-
-Keep:
-
-* existing branding
-* visual hierarchy
-* navigation flow
-* localization behavior
-
-Fixes should:
-
-* avoid overflows
-* avoid layout jumps
-* remain responsive
-* preserve performance
-
-Animations:
-
-* lightweight only
-* avoid rebuilding full map/widgets every frame
-* prefer AnimationController + AnimatedBuilder
-
----
-
-# Marker & Map Rules
-
-Custom map markers must:
-
-* have constrained dimensions
-* avoid RenderFlex overflow
-* avoid unconstrained Column usage
-* remain performant
-
-Searching state may use:
-
-* pulse animation
-* radar ring
-* opacity/scale animation
-
----
-
-# Localization Rules
-
-The project supports:
-
-* French
-* English
-* Arabic
-
-Never hardcode new UI strings unless unavoidable.
-
-Prefer:
-
-* localization keys
-* existing translation architecture
-
----
-
-# Repository Safety Rules
-
-Before public Git pushes:
-
-Sensitive files must NEVER be committed:
-
-* firebase-admin.json
-* service-account JSON files
-* .env
-* API secrets
-* private tokens
-* webhook secrets
-
-Public Firebase client config may remain public if required by FlutterFire.
-
----
-
-# Code Quality Rules
-
-Required after modifications:
-
-* dart format
-* flutter analyze when practical
-
-Avoid:
-
-* dead code
-* noisy debug logs
-* duplicated logic
-* massive unrelated refactors
-
----
-
-# Modification Strategy
-
-Before editing:
-
-1. Read AGENTS.md
-2. Read repomix-flutter.txt
-3. Inspect affected architecture
-4. Minimize scope
-5. Preserve compatibility
-
-Final responses should include:
-
-* root cause
-* files changed
-* what was fixed
-* commands run
-* remaining risks/TODOs
-
----
-
-# Performance Rules
-
-Avoid:
-
-* unnecessary rebuilds
-* polling loops
-* memory leaks
-* repeated failed API retries
-* excessive Firestore writes
-
-Prefer:
-
-* cached state
-* throttled updates
-* lightweight animations
-* graceful fallback behavior
-
----
-
-# Deployment Rules
-
-Code must remain compatible with:
-
-* Flutter Web
-* Android
-
-Do not introduce:
-
-* platform-breaking imports
-* unsupported web plugins
-* incompatible native-only logic without guards
-
----
-
-# Goal
-
-Every change should move the project toward:
-
-* production readiness
-* stability
-* maintainability
-* professional UX
-* secure Firebase architecture
-* graduation-project presentation quality
-</file>
-
 <file path="analysis_options.yaml">
 include: package:flutter_lints/flutter.yaml
 </file>
@@ -2198,6 +1797,7 @@ class ProviderPresenceService {
 
     await _firestore.collection('providers').doc(providerUid).set({
       'isOnline': true,
+      'online': true,
       'lastSeenAtIso': DateTime.now().toIso8601String(),
       'updatedAtIso': DateTime.now().toIso8601String(),
     }, SetOptions(merge: true));
@@ -2206,6 +1806,7 @@ class ProviderPresenceService {
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (_) async {
       await _firestore.collection('providers').doc(providerUid).set({
         'isOnline': true,
+        'online': true,
         'lastSeenAtIso': DateTime.now().toIso8601String(),
         'updatedAtIso': DateTime.now().toIso8601String(),
       }, SetOptions(merge: true));
@@ -2222,6 +1823,7 @@ class ProviderPresenceService {
 
     await _firestore.collection('providers').doc(providerUid).set({
       'isOnline': false,
+      'online': false,
       'updatedAtIso': DateTime.now().toIso8601String(),
     }, SetOptions(merge: true));
   }
@@ -3434,6 +3036,7 @@ class ProviderAgent {
     required this.missionsCompleted,
     required this.isVerified,
     required this.avatarText,
+    this.hasValidLocation = true,
   });
 
   final String id;
@@ -3449,6 +3052,7 @@ class ProviderAgent {
   final int missionsCompleted;
   final bool isVerified;
   final String avatarText;
+  final bool hasValidLocation;
 
   ProviderAgent copyWith({
     String? id,
@@ -3464,6 +3068,7 @@ class ProviderAgent {
     int? missionsCompleted,
     bool? isVerified,
     String? avatarText,
+    bool? hasValidLocation,
   }) {
     return ProviderAgent(
       id: id ?? this.id,
@@ -3479,6 +3084,7 @@ class ProviderAgent {
       missionsCompleted: missionsCompleted ?? this.missionsCompleted,
       isVerified: isVerified ?? this.isVerified,
       avatarText: avatarText ?? this.avatarText,
+      hasValidLocation: hasValidLocation ?? this.hasValidLocation,
     );
   }
 }
@@ -4028,83 +3634,6 @@ class StatusChip extends StatelessWidget {
 }
 </file>
 
-<file path="scripts/reset_sessions.js">
-const admin = require('firebase-admin');
-const fs = require('fs');
-const path = require('path');
-
-const serviceAccountPath = path.resolve(
-  __dirname,
-  '..',
-  process.env.FIREBASE_ADMIN_CREDENTIALS || 'firebase-admin.json',
-);
-
-if (!fs.existsSync(serviceAccountPath)) {
-  console.error(
-    `Missing Firebase Admin credentials at ${serviceAccountPath}.\n` +
-      'Set FIREBASE_ADMIN_CREDENTIALS or place an ignored firebase-admin.json file at the project root.',
-  );
-  process.exit(1);
-}
-
-const serviceAccount = require(serviceAccountPath);
-
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-});
-
-const db = admin.firestore();
-
-async function reset() {
-  console.log('Resetting providers...');
-
-  const providers = await db.collection('providers').get();
-
-  for (const doc of providers.docs) {
-    await doc.ref.update({
-      isOnline: false,
-      isBusy: false,
-      updatedAtIso: new Date().toISOString(),
-    });
-  }
-
-  console.log('Resetting requests...');
-
-  const requests = await db.collection('requests').get();
-
-  for (const doc of requests.docs) {
-    const data = doc.data();
-
-    const activeStatuses = [
-      'searching',
-      'accepted',
-      'onTheWay',
-      'arrived',
-      'inService',
-    ];
-
-    if (activeStatuses.includes(data.status)) {
-      await doc.ref.update({
-        status: 'cancelled',
-        offeredProviderUid: null,
-        providerUid: null,
-        offerExpiresAt: null,
-        offeredAt: null,
-        updatedAtIso: new Date().toISOString(),
-      });
-    }
-  }
-
-  console.log('DONE.');
-  process.exit(0);
-}
-
-reset().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
-</file>
-
 <file path="storage.rules">
 rules_version = '2';
 
@@ -4159,6 +3688,410 @@ firebase.initializeApp({
 });
 
 const messaging = firebase.messaging();
+</file>
+
+<file path=".gitignore">
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+firebase-admin.json
+**/firebase-admin.json
+service-account*.json
+*service-account*.json
+*.p12
+*.pem
+*.key
+credentials/
+secrets/
+.flutter-plugins
+.flutter-plugins-dependencies
+.firebase/
+
+# Firebase local output
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# Node tooling used by maintenance scripts
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary files
+*.tmp
+*.temp
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# The .vscode folder contains launch configuration and tasks you configure in
+# VS Code which you may wish to be included in version control, so this line
+# is commented out by default.
+#.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+/coverage/
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
+</file>
+
+<file path="AGENTS.md">
+# AGENTS.md
+
+## Project Context
+
+This repository contains a production-style Flutter roadside assistance / towing / dépannage platform developed as a final graduation project.
+
+This is NOT a demo project.
+
+All code changes must preserve:
+
+* production readiness
+* realtime stability
+* Firebase security
+* existing architecture
+* provider/customer/admin flows
+* multilingual support
+* responsive UI behavior
+* realtime dispatch integrity
+
+The application uses:
+
+* Flutter
+* Firebase Auth
+* Cloud Firestore
+* Firebase Realtime Database
+* Firebase Messaging
+* Google Maps
+* Provider state management
+
+---
+
+# Core Engineering Rules
+
+## 1. Never Rewrite Large Systems Unnecessarily
+
+Do NOT rewrite:
+
+* dispatch system
+* authentication flow
+* provider presence system
+* Firestore architecture
+* routing/navigation architecture
+* state management architecture
+
+Prefer:
+
+* minimal safe edits
+* targeted fixes
+* additive improvements
+* backward-compatible changes
+
+---
+
+## 2. Preserve Existing Architecture
+
+Respect the existing structure:
+
+* repositories
+* services
+* Provider/ChangeNotifier state management
+* models
+* localization system
+* feature folders
+
+Avoid introducing:
+
+* Riverpod
+* Bloc
+* GetX
+* new architecture patterns
+  unless explicitly requested.
+
+---
+
+## 3. Production-Safe Firebase Rules
+
+Security is critical.
+
+Never:
+
+* loosen Firestore rules broadly
+* use allow read, write: if true
+* expose admin-only operations
+* expose provider private data
+* allow arbitrary request mutation
+
+All rule changes must:
+
+* follow least-privilege principle
+* restrict fields precisely
+* validate ownership
+* validate request state transitions
+
+---
+
+# Dispatch System Rules
+
+The dispatch system is business-critical.
+
+Important concepts:
+
+* eligibleProvidersSortedByDistance
+* dispatch chains
+* provider offer timeout
+* provider busy-state handling
+* fallback dispatch
+* retry dispatch
+* no-provider popup logic
+
+Never:
+
+* create infinite dispatch loops
+* instantly show "no provider available"
+* bypass provider timeout logic
+* dispatch to busy providers
+* dispatch to offline providers
+
+Expected behavior:
+
+1. Build dispatch chain
+2. Offer mission sequentially
+3. Respect timeout window
+4. Retry safely if requested
+5. Show no-provider popup ONLY after true exhaustion
+
+---
+
+# Provider Presence Rules
+
+Provider online/offline state uses:
+
+* Firebase Realtime Database
+* Firestore sync fallback
+
+Never:
+
+* break disconnect handling
+* remove onDisconnect behavior
+* mark providers online incorrectly
+* allow busy providers to receive new missions
+
+Provider session integrity is critical.
+
+---
+
+# Tracking & Navigation Rules
+
+Tracking pages must:
+
+* support realtime updates
+* avoid heavy rebuilds
+* support ETA/distance
+* gracefully degrade on Flutter Web
+* avoid crashes when route APIs fail
+
+On Flutter Web:
+
+* fallback route rendering is acceptable
+* straight polyline fallback is acceptable
+* UI must never crash due to CORS
+
+---
+
+# UI/UX Rules
+
+Do NOT redesign pages unless explicitly requested.
+
+Keep:
+
+* existing branding
+* visual hierarchy
+* navigation flow
+* localization behavior
+
+Fixes should:
+
+* avoid overflows
+* avoid layout jumps
+* remain responsive
+* preserve performance
+
+Animations:
+
+* lightweight only
+* avoid rebuilding full map/widgets every frame
+* prefer AnimationController + AnimatedBuilder
+
+---
+
+# Marker & Map Rules
+
+Custom map markers must:
+
+* have constrained dimensions
+* avoid RenderFlex overflow
+* avoid unconstrained Column usage
+* remain performant
+
+Searching state may use:
+
+* pulse animation
+* radar ring
+* opacity/scale animation
+
+---
+
+# Localization Rules
+
+The project supports:
+
+* French
+* English
+* Arabic
+
+Never hardcode new UI strings unless unavoidable.
+
+Prefer:
+
+* localization keys
+* existing translation architecture
+
+---
+
+# Repository Safety Rules
+
+Before public Git pushes:
+
+Sensitive files must NEVER be committed:
+
+* firebase-admin.json
+* service-account JSON files
+* .env
+* API secrets
+* private tokens
+* webhook secrets
+
+Public Firebase client config may remain public if required by FlutterFire.
+
+---
+
+# Code Quality Rules
+
+Required after modifications:
+
+* dart format
+* flutter analyze when practical
+
+Avoid:
+
+* dead code
+* noisy debug logs
+* duplicated logic
+* massive unrelated refactors
+
+---
+
+# Modification Strategy
+
+Before editing:
+
+1. Read AGENTS.md
+2. Read repomix-flutter.txt
+3. Inspect affected architecture
+4. Minimize scope
+5. Preserve compatibility
+
+Final responses should include:
+
+* root cause
+* files changed
+* what was fixed
+* commands run
+* remaining risks/TODOs
+
+---
+
+# Performance Rules
+
+Avoid:
+
+* unnecessary rebuilds
+* polling loops
+* memory leaks
+* repeated failed API retries
+* excessive Firestore writes
+
+Prefer:
+
+* cached state
+* throttled updates
+* lightweight animations
+* graceful fallback behavior
+
+---
+
+# Deployment Rules
+
+Code must remain compatible with:
+
+* Flutter Web
+* Android
+
+Do not introduce:
+
+* platform-breaking imports
+* unsupported web plugins
+* incompatible native-only logic without guards
+
+---
+
+# Goal
+
+Every change should move the project toward:
+
+* production readiness
+* stability
+* maintainability
+* professional UX
+* secure Firebase architecture
+* graduation-project presentation quality
 </file>
 
 <file path="lib/core/models/app_user.dart">
@@ -4298,6 +4231,7 @@ class GeocodingService {
   Future<List<PlaceResult>> searchPlaces(String query) async {
     final trimmed = query.trim();
     if (trimmed.isEmpty) return const [];
+    if (kIsWeb) return const [];
 
     try {
       final uri = Uri.https(
@@ -4312,18 +4246,13 @@ class GeocodingService {
         },
       );
 
-      // Use CORS proxy for web
-      final effectiveUri = kIsWeb
-          ? Uri.parse('https://api.allorigins.win/raw?url=${Uri.encodeComponent(uri.toString())}')
-          : uri;
-
       final response = await http.get(
-        effectiveUri,
-        headers: kIsWeb ? {} : {
+        uri,
+        headers: {
           'User-Agent': _userAgent,
           'Accept': 'application/json',
         },
-      );
+      ).timeout(const Duration(seconds: 6));
 
       if (response.statusCode != 200) {
         return const [];
@@ -4356,6 +4285,8 @@ class GeocodingService {
   }
 
   Future<String?> reverseGeocode(LatLng position) async {
+    if (kIsWeb) return null;
+
     try {
       final uri = Uri.https(
         'nominatim.openstreetmap.org',
@@ -4367,18 +4298,13 @@ class GeocodingService {
         },
       );
 
-      // Use CORS proxy for web
-      final effectiveUri = kIsWeb
-          ? Uri.parse('https://api.allorigins.win/raw?url=${Uri.encodeComponent(uri.toString())}')
-          : uri;
-
       final response = await http.get(
-        effectiveUri,
-        headers: kIsWeb ? {} : {
+        uri,
+        headers: {
           'User-Agent': _userAgent,
           'Accept': 'application/json',
         },
-      );
+      ).timeout(const Duration(seconds: 6));
 
       if (response.statusCode != 200) return null;
 
@@ -5848,6 +5774,83 @@ class RoleMapMarker extends StatelessWidget {
     );
   }
 }
+</file>
+
+<file path="scripts/reset_sessions.js">
+const admin = require('firebase-admin');
+const fs = require('fs');
+const path = require('path');
+
+const serviceAccountPath = path.resolve(
+  __dirname,
+  '..',
+  process.env.FIREBASE_ADMIN_CREDENTIALS || 'firebase-admin.json',
+);
+
+if (!fs.existsSync(serviceAccountPath)) {
+  console.error(
+    `Missing Firebase Admin credentials at ${serviceAccountPath}.\n` +
+      'Set FIREBASE_ADMIN_CREDENTIALS or place an ignored firebase-admin.json file at the project root.',
+  );
+  process.exit(1);
+}
+
+const serviceAccount = require(serviceAccountPath);
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
+const db = admin.firestore();
+
+async function reset() {
+  console.log('Resetting providers...');
+
+  const providers = await db.collection('providers').get();
+
+  for (const doc of providers.docs) {
+    await doc.ref.update({
+      isOnline: false,
+      isBusy: false,
+      updatedAtIso: new Date().toISOString(),
+    });
+  }
+
+  console.log('Resetting requests...');
+
+  const requests = await db.collection('requests').get();
+
+  for (const doc of requests.docs) {
+    const data = doc.data();
+
+    const activeStatuses = [
+      'searching',
+      'accepted',
+      'onTheWay',
+      'arrived',
+      'inService',
+    ];
+
+    if (activeStatuses.includes(data.status)) {
+      await doc.ref.update({
+        status: 'cancelled',
+        offeredProviderUid: null,
+        providerUid: null,
+        offerExpiresAt: null,
+        offeredAt: null,
+        updatedAtIso: new Date().toISOString(),
+      });
+    }
+  }
+
+  console.log('DONE.');
+  process.exit(0);
+}
+
+reset().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
 </file>
 
 <file path="web/manifest.json">
@@ -8696,132 +8699,6 @@ class MapPin extends StatelessWidget {
         ),
       ],
     );
-  }
-}
-</file>
-
-<file path="lib/core/services/fcm_service.dart">
-import 'dart:convert';
-
-import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-
-final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-    FlutterLocalNotificationsPlugin();
-
-const AndroidNotificationChannel highImportanceChannel =
-    AndroidNotificationChannel(
-  'high_importance_channel',
-  'High Importance Notifications',
-  description: 'Used for new orders and mission updates.',
-  importance: Importance.max,
-);
-
-@pragma('vm:entry-point')
-Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {}
-
-class FcmService {
-  static final ValueNotifier<Map<String, String>?> payloadNotifier =
-      ValueNotifier<Map<String, String>?>(null);
-
-  static Future<void> init() async {
-    final messaging = FirebaseMessaging.instance;
-
-    if (!kIsWeb) {
-      const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-      const initSettings = InitializationSettings(
-        android: androidInit,
-      );
-      await flutterLocalNotificationsPlugin.initialize(
-        settings: initSettings,
-        onDidReceiveNotificationResponse: (details) {
-          final raw = details.payload;
-          if (raw == null || raw.isEmpty) return;
-          try {
-            final decoded = jsonDecode(raw);
-            if (decoded is Map) {
-              payloadNotifier.value = decoded.map(
-                (key, value) => MapEntry(key.toString(), value.toString()),
-              );
-            }
-          } catch (_) {}
-        },
-      );
-
-      await flutterLocalNotificationsPlugin
-          .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>()
-          ?.createNotificationChannel(highImportanceChannel);
-
-      await FirebaseMessaging.instance
-          .setForegroundNotificationPresentationOptions(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
-    }
-
-    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-
-    final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
-    if (initialMessage != null) {
-      payloadNotifier.value = initialMessage.data.map(
-        (key, value) => MapEntry(key, value.toString()),
-      );
-    }
-
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
-      final data = message.data.map(
-        (key, value) => MapEntry(key, value.toString()),
-      );
-
-      payloadNotifier.value = data.isEmpty ? null : data;
-
-      final notification = message.notification;
-      final android = notification?.android;
-
-      if (!kIsWeb && notification != null && android != null) {
-        await flutterLocalNotificationsPlugin.show(
-          id: notification.hashCode,
-          title: notification.title,
-          body: notification.body,
-          notificationDetails: NotificationDetails(
-            android: AndroidNotificationDetails(
-              highImportanceChannel.id,
-              highImportanceChannel.name,
-              channelDescription: highImportanceChannel.description,
-              importance: Importance.max,
-              priority: Priority.high,
-            ),
-          ),
-          payload: jsonEncode(message.data),
-        );
-      } else {
-        debugPrint(
-          'FCM foreground: ${notification?.title} - ${notification?.body}',
-        );
-      }
-    });
-
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      payloadNotifier.value = message.data.map(
-        (key, value) => MapEntry(key, value.toString()),
-      );
-    });
-
-    try {
-      final token = await messaging.getToken();
-      if (kDebugMode && token != null) {
-        debugPrint('FCM token registered.');
-      }
-    } catch (e) {
-      debugPrint('FCM token error: $e');
-    }
-  }
-
-  static void clearPayload() {
-    payloadNotifier.value = null;
   }
 }
 </file>
@@ -12041,7 +11918,7 @@ service cloud.firestore {
       let providerDoc = get(/databases/$(database)/documents/providers/$(request.auth.uid));
 
       return providerDoc.data.isApproved == true &&
-        providerDoc.data.isOnline == true &&
+        (providerDoc.data.isOnline == true || providerDoc.data.online == true) &&
         providerDoc.data.isBusy != true;
     }
 
@@ -12051,7 +11928,7 @@ service cloud.firestore {
 
       return providerId is string &&
         providerDoc.data.isApproved == true &&
-        providerDoc.data.isOnline == true &&
+        (providerDoc.data.isOnline == true || providerDoc.data.online == true) &&
         providerDoc.data.isBusy != true;
     }
 
@@ -12248,6 +12125,156 @@ service cloud.firestore {
 }
 </file>
 
+<file path="lib/core/services/fcm_service.dart">
+import 'dart:convert';
+
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
+
+const AndroidNotificationChannel highImportanceChannel =
+    AndroidNotificationChannel(
+  'high_importance_channel',
+  'High Importance Notifications',
+  description: 'Used for new orders and mission updates.',
+  importance: Importance.max,
+);
+
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {}
+
+class FcmService {
+  static final ValueNotifier<Map<String, String>?> payloadNotifier =
+      ValueNotifier<Map<String, String>?>(null);
+
+  static Future<void> init() async {
+    final messaging = FirebaseMessaging.instance;
+
+    if (!kIsWeb) {
+      const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+      const initSettings = InitializationSettings(
+        android: androidInit,
+      );
+      await flutterLocalNotificationsPlugin.initialize(
+        settings: initSettings,
+        onDidReceiveNotificationResponse: (details) {
+          final raw = details.payload;
+          if (raw == null || raw.isEmpty) return;
+          try {
+            final decoded = jsonDecode(raw);
+            if (decoded is Map) {
+              payloadNotifier.value = decoded.map(
+                (key, value) => MapEntry(key.toString(), value.toString()),
+              );
+            }
+          } catch (_) {}
+        },
+      );
+
+      await flutterLocalNotificationsPlugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(highImportanceChannel);
+
+      await FirebaseMessaging.instance
+          .setForegroundNotificationPresentationOptions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+    }
+
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
+    try {
+      final initialMessage =
+          await FirebaseMessaging.instance.getInitialMessage();
+      if (initialMessage != null) {
+        payloadNotifier.value = initialMessage.data.map(
+          (key, value) => MapEntry(key, value.toString()),
+        );
+      }
+    } catch (_) {
+      if (kDebugMode) {
+        debugPrint('FCM initial message unavailable.');
+      }
+    }
+
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
+      final data = message.data.map(
+        (key, value) => MapEntry(key, value.toString()),
+      );
+
+      payloadNotifier.value = data.isEmpty ? null : data;
+
+      final notification = message.notification;
+      final android = notification?.android;
+
+      if (!kIsWeb && notification != null && android != null) {
+        await flutterLocalNotificationsPlugin.show(
+          id: notification.hashCode,
+          title: notification.title,
+          body: notification.body,
+          notificationDetails: NotificationDetails(
+            android: AndroidNotificationDetails(
+              highImportanceChannel.id,
+              highImportanceChannel.name,
+              channelDescription: highImportanceChannel.description,
+              importance: Importance.max,
+              priority: Priority.high,
+            ),
+          ),
+          payload: jsonEncode(message.data),
+        );
+      } else {
+        debugPrint(
+          'FCM foreground: ${notification?.title} - ${notification?.body}',
+        );
+      }
+    });
+
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      payloadNotifier.value = message.data.map(
+        (key, value) => MapEntry(key, value.toString()),
+      );
+    });
+
+    if (!kIsWeb) {
+      try {
+        final token = await messaging.getToken();
+        if (kDebugMode && token != null) {
+          debugPrint('FCM token saved');
+        }
+      } catch (_) {
+        if (kDebugMode) {
+          debugPrint('FCM token unavailable.');
+        }
+      }
+
+      FirebaseMessaging.instance.onTokenRefresh.listen(
+        (_) {
+          if (kDebugMode) {
+            debugPrint('FCM token refreshed');
+          }
+        },
+        onError: (_) {
+          if (kDebugMode) {
+            debugPrint('FCM token refresh unavailable.');
+          }
+        },
+      );
+    }
+  }
+
+  static void clearPayload() {
+    payloadNotifier.value = null;
+  }
+}
+</file>
+
 <file path="lib/core/services/place_search_service.dart">
 import 'dart:convert';
 import 'dart:math' as math;
@@ -12267,6 +12294,7 @@ class PlaceSearchService {
   Future<List<PlaceSearchResult>> searchPlaces(String query) async {
     final cleaned = query.trim();
     if (cleaned.isEmpty) return [];
+    if (kIsWeb) return [];
 
     final uri = Uri.https(
       'nominatim.openstreetmap.org',
@@ -12279,22 +12307,17 @@ class PlaceSearchService {
       },
     );
 
-    // Try direct connection first on mobile, fallback to CORS proxy on web or failure
-    if (kIsWeb) {
+    try {
+      return await _searchDirect(uri);
+    } catch (e) {
       return _searchWithCorsProxy(uri);
-    } else {
-      // Try direct connection first on mobile
-      try {
-        return await _searchDirect(uri);
-      } catch (e) {
-        // Fallback to CORS proxy if direct fails
-        return _searchWithCorsProxy(uri);
-      }
     }
   }
 
   Future<List<PlaceSearchResult>> _searchDirect(Uri uri) async {
-    final response = await http.get(uri, headers: _headers);
+    final response = await http
+        .get(uri, headers: _headers)
+        .timeout(const Duration(seconds: 6));
 
     if (response.statusCode != 200) {
       throw Exception('Recherche de destination indisponible.');
@@ -12320,7 +12343,8 @@ class PlaceSearchService {
         'https://api.allorigins.win/raw?url=${Uri.encodeComponent(uri.toString())}',
       );
 
-      final response = await http.get(effectiveUri);
+      final response =
+          await http.get(effectiveUri).timeout(const Duration(seconds: 6));
 
       if (response.statusCode != 200) {
         throw Exception('Recherche de destination indisponible.');
@@ -12351,7 +12375,8 @@ class PlaceSearchService {
         'https://corsproxy.io/?${Uri.encodeComponent(uri.toString())}',
       );
 
-      final response = await http.get(effectiveUri);
+      final response =
+          await http.get(effectiveUri).timeout(const Duration(seconds: 6));
 
       if (response.statusCode != 200) {
         throw Exception('Recherche de destination indisponible.');
@@ -12370,11 +12395,14 @@ class PlaceSearchService {
           .map(PlaceSearchResult.fromJson)
           .toList();
     } catch (e) {
-      throw Exception('Recherche de destination indisponible. Verifiez votre connexion.');
+      throw Exception(
+          'Recherche de destination indisponible. Verifiez votre connexion.');
     }
   }
 
   Future<String?> reverseLookupNearestNamedPlace(LatLng position) async {
+    if (kIsWeb) return null;
+
     final uri = Uri.https(
       'nominatim.openstreetmap.org',
       '/reverse',
@@ -12387,22 +12415,17 @@ class PlaceSearchService {
       },
     );
 
-    // Try direct connection first on mobile, fallback to CORS proxy on web or failure
-    if (kIsWeb) {
+    try {
+      return await _reverseLookupDirect(uri);
+    } catch (e) {
       return await _reverseLookupWithCorsProxy(uri);
-    } else {
-      // Try direct connection first on mobile
-      try {
-        return await _reverseLookupDirect(uri);
-      } catch (e) {
-        // Fallback to CORS proxy if direct fails
-        return await _reverseLookupWithCorsProxy(uri);
-      }
     }
   }
 
   Future<String?> _reverseLookupDirect(Uri uri) async {
-    final response = await http.get(uri, headers: _headers);
+    final response = await http
+        .get(uri, headers: _headers)
+        .timeout(const Duration(seconds: 6));
     if (response.statusCode != 200) return null;
 
     final contentType = response.headers['content-type'] ?? '';
@@ -12420,7 +12443,8 @@ class PlaceSearchService {
         'https://api.allorigins.win/raw?url=${Uri.encodeComponent(uri.toString())}',
       );
 
-      final response = await http.get(effectiveUri);
+      final response =
+          await http.get(effectiveUri).timeout(const Duration(seconds: 6));
       if (response.statusCode != 200) return null;
 
       final contentType = response.headers['content-type'] ?? '';
@@ -12507,6 +12531,8 @@ class PlaceSearchService {
     LatLng position, {
     int limit = 12,
   }) async {
+    if (kIsWeb) return [];
+
     try {
       // Use Overpass API to get automotive-related places
       // Prioritize: garages, mechanics, tire shops, gas stations, car dealerships, auto electricians
@@ -12540,10 +12566,12 @@ class PlaceSearchService {
             )
           : uri;
 
-      final response = await http.get(
-        effectiveUri,
-        headers: kIsWeb ? {} : _headers,
-      ).timeout(const Duration(seconds: 8));
+      final response = await http
+          .get(
+            effectiveUri,
+            headers: kIsWeb ? {} : _headers,
+          )
+          .timeout(const Duration(seconds: 8));
 
       if (response.statusCode != 200) {
         return _getAutomotiveFallbackSuggestions(position);
@@ -12598,19 +12626,19 @@ class PlaceSearchService {
         return value.toString().trim();
       }
     }
-    
+
     // No name found, generate descriptive name
     final shop = tags['shop']?.toString() ?? '';
     final amenity = tags['amenity']?.toString() ?? '';
     final craft = tags['craft']?.toString() ?? '';
-    
+
     if (shop == 'car_repair' || craft == 'car_repair') return 'Garage';
     if (shop == 'car_parts') return 'Pièces Auto';
     if (shop == 'tire') return 'Pneumaticien';
     if (amenity == 'fuel') return 'Station Service';
     if (amenity == 'car_wash') return 'Lavage Auto';
     if (shop == 'car') return 'Concessionnaire';
-    
+
     return 'Service Auto';
   }
 
@@ -12619,7 +12647,7 @@ class PlaceSearchService {
     final shop = tags['shop']?.toString() ?? '';
     final amenity = tags['amenity']?.toString() ?? '';
     final craft = tags['craft']?.toString() ?? '';
-    
+
     // Specific types
     if (shop == 'car_repair' || craft == 'car_repair') {
       final specialty = tags['car_repair']?.toString() ?? '';
@@ -12630,7 +12658,7 @@ class PlaceSearchService {
       if (specialty == 'glass') return 'Pare-brise';
       return 'Garage/Réparation';
     }
-    
+
     if (shop == 'car_parts') return 'Pièces Détachées';
     if (shop == 'tire') return 'Pneus & Jantes';
     if (amenity == 'fuel') return 'Carburant';
@@ -12639,12 +12667,13 @@ class PlaceSearchService {
       final brand = tags['brand'] ?? 'Auto';
       return 'Concessionnaire $brand';
     }
-    
+
     return 'Service Automobile';
   }
 
   /// Get fallback suggestions based on known automotive areas in Algeria
-  Future<List<PlaceSearchResult>> _getAutomotiveFallbackSuggestions(LatLng position) async {
+  Future<List<PlaceSearchResult>> _getAutomotiveFallbackSuggestions(
+      LatLng position) async {
     // Known automotive zones, industrial areas, and commercial zones in Algeria
     // These areas typically have many garages and auto services
     final automotiveZones = [
@@ -12706,575 +12735,6 @@ class PlaceSearchService {
   }
 
   double _toRadians(double degrees) => degrees * math.pi / 180;
-}
-</file>
-
-<file path="lib/core/services/route_service.dart">
-import 'dart:async';
-import 'dart:convert';
-import 'dart:developer' as developer;
-
-import 'package:flutter/foundation.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:http/http.dart' as http;
-import 'package:latlong2/latlong.dart';
-
-import '../../models/route_snapshot.dart';
-
-class RouteService {
-  static final Map<String, RouteSnapshot> _cache = {};
-
-  static const _osrmServers = [
-    'https://router.project-osrm.org',
-    'https://router.openstreetmap.de',
-    'https://osrm-router.prod.aws.openstreetmap.de',
-  ];
-
-  static const _graphHopperServer = 'https://graphhopper.com/api/1/route';
-  static String get _graphHopperApiKey => _env('GRAPHHOPPER_API_KEY',
-      const String.fromEnvironment('GRAPHHOPPER_API_KEY'));
-
-  static const _mapboxServer =
-      'https://api.mapbox.com/directions/v5/mapbox/driving';
-  static String get _mapboxAccessToken => _env('MAPBOX_ACCESS_TOKEN',
-      const String.fromEnvironment('MAPBOX_ACCESS_TOKEN'));
-
-  static const _openRouteServiceServer =
-      'https://api.openrouteservice.org/v2/directions/driving-car';
-  static String get _openRouteServiceApiKey => _env(
-        'OPENROUTESERVICE_API_KEY',
-        const String.fromEnvironment('OPENROUTESERVICE_API_KEY'),
-      );
-
-  Future<RouteSnapshot> buildDrivingRoute({
-    required LatLng origin,
-    required LatLng destination,
-  }) async {
-    final safeOrigin =
-        _safePoint(origin, fallback: const LatLng(36.7538, 3.0588));
-    final safeDestination =
-        _safePoint(destination, fallback: const LatLng(36.7538, 3.0588));
-
-    final cacheKey = _buildCacheKey(safeOrigin, safeDestination);
-    final cached = _cache[cacheKey];
-    if (cached != null) return cached;
-
-    if (kIsWeb) {
-      final fallback = _fallback(safeOrigin, safeDestination);
-      _cache[cacheKey] = fallback;
-      return fallback;
-    }
-
-    final futures = <Future<RouteSnapshot?>>[
-      _tryFetchRouteOpenRouteService(safeOrigin, safeDestination),
-      for (final server in _osrmServers)
-        _tryFetchRoute(server, safeOrigin, safeDestination),
-      _tryFetchRouteGraphHopper(safeOrigin, safeDestination),
-      _tryFetchRouteMapbox(safeOrigin, safeDestination),
-    ];
-
-    RouteSnapshot? result;
-    try {
-      result = await _firstSuccessful(futures);
-    } catch (e) {
-      if (kDebugMode) {
-        developer.log('RouteService: All routing servers failed: $e',
-            name: 'RouteService', level: 700);
-      }
-    }
-
-    final finalResult = result ?? _fallback(safeOrigin, safeDestination);
-
-    if (kDebugMode) {
-      if (finalResult.isFallback) {
-        developer.log(
-            '⚠️ RouteService: FALLBACK (direct line) - all routing sources failed',
-            name: 'RouteService',
-            level: 700);
-      } else {
-        developer.log(
-            '✅ RouteService: SUCCESS - ${finalResult.points.length} pts, '
-            '${finalResult.distanceKm.toStringAsFixed(2)} km',
-            name: 'RouteService',
-            level: 900);
-      }
-    }
-
-    _cache[cacheKey] = finalResult;
-    return finalResult;
-  }
-
-  // ✅ FIX 1: Properly handle the case where all futures return null (no exception)
-  Future<RouteSnapshot?> _firstSuccessful(
-      List<Future<RouteSnapshot?>> futures) async {
-    final completer = Completer<RouteSnapshot?>();
-    int remaining = futures.length;
-
-    for (final future in futures) {
-      future.then((value) {
-        if (!completer.isCompleted && value != null) {
-          completer.complete(value);
-        }
-      }).catchError((e) {
-        if (kDebugMode) {
-          developer.log('RouteService: A future errored: $e',
-              name: 'RouteService', level: 700);
-        }
-      }).whenComplete(() {
-        remaining--;
-        // All futures settled and none returned a valid result → complete with null
-        if (remaining == 0 && !completer.isCompleted) {
-          completer.complete(null);
-        }
-      });
-    }
-
-    return completer.future;
-  }
-
-  // ==================== OpenRouteService ====================
-  Future<RouteSnapshot?> _tryFetchRouteOpenRouteService(
-      LatLng origin, LatLng destination) async {
-    final apiKey = _openRouteServiceApiKey;
-    if (apiKey.isEmpty) return null;
-
-    try {
-      final url = Uri.parse('$_openRouteServiceServer'
-          '?start=${origin.longitude},${origin.latitude}'
-          '&end=${destination.longitude},${destination.latitude}'
-          '&api_key=$apiKey'
-          '&format=geojson'
-          '&geometry=true'
-          '&instructions=false'
-          '&geometry_simplify=false');
-
-      final response = await http.get(url, headers: {
-        'User-Agent': 'DepannageDZGraduation/1.0',
-        'Accept': 'application/json',
-      }).timeout(const Duration(seconds: 8),
-          onTimeout: () => http.Response('Timeout', 408));
-
-      return _processOpenRouteServiceResponse(response);
-    } catch (e) {
-      if (kDebugMode) {
-        developer.log('RouteService: ORS error: $e',
-            name: 'RouteService', level: 700);
-      }
-      return null;
-    }
-  }
-
-  RouteSnapshot? _processOpenRouteServiceResponse(http.Response response) {
-    if (response.statusCode != 200) return null;
-    try {
-      final decoded = jsonDecode(response.body);
-      if (decoded is! Map<String, dynamic>) return null;
-
-      final features = decoded['features'];
-      if (features is! List || features.isEmpty) return null;
-
-      final geometry = features.first['geometry'];
-      if (geometry is! Map<String, dynamic>) return null;
-
-      final coordinates = geometry['coordinates'];
-      if (coordinates is! List) return null;
-
-      final points = <LatLng>[];
-      for (final coord in coordinates) {
-        if (coord is! List || coord.length < 2) continue;
-        // ✅ FIX 2: Use _numToDouble instead of `is double` — JSON ints are valid coords
-        final lon = _numToDouble(coord[0]);
-        final lat = _numToDouble(coord[1]);
-        if (lat == null || lon == null || !_isFinite(lat) || !_isFinite(lon)) {
-          continue;
-        }
-        points.add(LatLng(lat, lon));
-      }
-      if (points.length < 2) return null;
-
-      final properties = features.first['properties'];
-      final segments = properties?['segments'];
-      double distanceKm;
-      int durationMinutes;
-
-      if (segments is List && segments.isNotEmpty) {
-        final seg = segments.first;
-        final distM = _numToDouble(seg['distance']);
-        final durS = _numToDouble(seg['duration']);
-        distanceKm = distM != null
-            ? distM / 1000
-            : const Distance()
-                .as(LengthUnit.Kilometer, points.first, points.last);
-        durationMinutes = durS != null
-            ? (durS / 60).round().clamp(1, 999)
-            : ((distanceKm / 35) * 60).round().clamp(1, 999);
-      } else {
-        distanceKm = const Distance()
-            .as(LengthUnit.Kilometer, points.first, points.last);
-        durationMinutes = ((distanceKm / 35) * 60).round().clamp(1, 999);
-      }
-
-      if (kDebugMode) {
-        developer.log(
-            'RouteService: ORS SUCCESS - ${points.length} pts, '
-            '${distanceKm.toStringAsFixed(2)} km',
-            name: 'RouteService',
-            level: 900);
-      }
-      return RouteSnapshot(
-          points: points,
-          distanceKm: distanceKm,
-          durationMinutes: durationMinutes,
-          isFallback: false);
-    } catch (e) {
-      if (kDebugMode) {
-        developer.log('RouteService: ORS parse error: $e',
-            name: 'RouteService', level: 700);
-      }
-      return null;
-    }
-  }
-
-  // ==================== OSRM ====================
-  Future<RouteSnapshot?> _tryFetchRoute(
-      String server, LatLng origin, LatLng destination) async {
-    try {
-      final url = Uri.parse('$server/route/v1/driving/'
-          '${origin.longitude},${origin.latitude};'
-          '${destination.longitude},${destination.latitude}'
-          '?overview=full&geometries=geojson&steps=false');
-
-      if (!kIsWeb) {
-        try {
-          final result = await _fetchRouteDirect(url);
-          if (result != null) return result;
-        } catch (_) {}
-      }
-      return _fetchRouteWithCorsProxy(url);
-    } catch (e) {
-      return null;
-    }
-  }
-
-  Future<RouteSnapshot?> _fetchRouteDirect(Uri url) async {
-    final response = await http.get(url, headers: {
-      'User-Agent': 'DepannageDZGraduation/1.0 (education project)',
-      'Accept': 'application/json, application/geo+json',
-    }).timeout(const Duration(seconds: 6),
-        onTimeout: () => http.Response('Timeout', 408));
-    return _processRouteResponse(response, url);
-  }
-
-  Future<RouteSnapshot?> _fetchRouteWithCorsProxy(Uri url) async {
-    final proxyUrl = Uri.parse(
-        'https://api.allorigins.win/raw?url=${Uri.encodeComponent(url.toString())}');
-    final response = await http.get(proxyUrl).timeout(
-        const Duration(seconds: 6),
-        onTimeout: () => http.Response('Timeout', 408));
-    return _processRouteResponse(response, url);
-  }
-
-  RouteSnapshot? _processRouteResponse(
-      http.Response response, Uri originalUrl) {
-    if (response.statusCode != 200) return null;
-
-    final ct = response.headers['content-type'] ?? '';
-    if (!ct.contains('application/json') &&
-        !ct.contains('application/geo+json')) {
-      return null;
-    }
-
-    final body = response.body.trimLeft();
-    if (body.startsWith('<!DOCTYPE') || body.startsWith('<html')) return null;
-
-    final decoded = jsonDecode(response.body);
-    if (decoded is! Map<String, dynamic>) return null;
-
-    final routes = decoded['routes'];
-    if (routes is! List || routes.isEmpty) return null;
-
-    final first = routes.first;
-    if (first is! Map<String, dynamic>) return null;
-
-    final geometry = first['geometry'];
-    if (geometry is! Map<String, dynamic>) return null;
-
-    final coordinates = geometry['coordinates'];
-    if (coordinates is! List || coordinates.isEmpty) return null;
-
-    final points = <LatLng>[];
-    for (final item in coordinates) {
-      if (item is List && item.length >= 2) {
-        final lon = _numToDouble(item[0]);
-        final lat = _numToDouble(item[1]);
-        if (lat != null && lon != null && _isFinite(lat) && _isFinite(lon)) {
-          points.add(LatLng(lat, lon));
-        }
-      }
-    }
-
-    final cleaned = _sanitizePoints(points);
-    if (cleaned.length < 2) return null;
-
-    final distanceMeters = _numToDouble(first['distance']) ?? 0;
-    final durationSeconds = _numToDouble(first['duration']) ?? 0;
-
-    final distanceKm = _isFinite(distanceMeters) && distanceMeters >= 0
-        ? distanceMeters / 1000
-        : const Distance()
-            .as(LengthUnit.Kilometer, cleaned.first, cleaned.last);
-    final durationMinutes = _isFinite(durationSeconds) && durationSeconds >= 0
-        ? (durationSeconds / 60).round().clamp(1, 999)
-        : ((distanceKm / 35) * 60).round().clamp(1, 999);
-
-    return RouteSnapshot(
-        points: cleaned,
-        distanceKm: distanceKm,
-        durationMinutes: durationMinutes,
-        isFallback: false);
-  }
-
-  // ==================== GraphHopper ====================
-  Future<RouteSnapshot?> _tryFetchRouteGraphHopper(
-      LatLng origin, LatLng destination) async {
-    final apiKey = _graphHopperApiKey;
-    if (apiKey.isEmpty) return null;
-
-    try {
-      final url = Uri.parse('$_graphHopperServer'
-          '?point=${origin.latitude},${origin.longitude}'
-          '&point=${destination.latitude},${destination.longitude}'
-          '&vehicle=car'
-          '&key=$apiKey'
-          '&points_encoded=false'
-          '&calc_points=true'
-          '&instructions=false'
-          '&elevation=false'
-          '&optimize=false'
-          '&locale=en');
-
-      if (!kIsWeb) {
-        try {
-          final result = await _fetchRouteDirectGraphHopper(url);
-          if (result != null) return result;
-        } catch (_) {}
-      }
-      return _fetchRouteWithCorsProxyGraphHopper(url);
-    } catch (e) {
-      return null;
-    }
-  }
-
-  Future<RouteSnapshot?> _fetchRouteDirectGraphHopper(Uri url) async {
-    final response = await http.get(url, headers: {
-      'User-Agent': 'DepannageDZGraduation/1.0 (education project)',
-      'Accept': 'application/json',
-    }).timeout(const Duration(seconds: 6),
-        onTimeout: () => http.Response('Timeout', 408));
-    return _processRouteResponseGraphHopper(response, url);
-  }
-
-  Future<RouteSnapshot?> _fetchRouteWithCorsProxyGraphHopper(Uri url) async {
-    final proxyUrl = Uri.parse(
-        'https://api.allorigins.win/raw?url=${Uri.encodeComponent(url.toString())}');
-    final response = await http.get(proxyUrl).timeout(
-        const Duration(seconds: 6),
-        onTimeout: () => http.Response('Timeout', 408));
-    return _processRouteResponseGraphHopper(response, url);
-  }
-
-  RouteSnapshot? _processRouteResponseGraphHopper(
-      http.Response response, Uri originalUrl) {
-    if (response.statusCode != 200) return null;
-    try {
-      final decoded = jsonDecode(response.body);
-      if (decoded is! Map<String, dynamic>) return null;
-      final paths = decoded['paths'];
-      if (paths is! List || paths.isEmpty) return null;
-      final first = paths.first;
-      if (first is! Map<String, dynamic>) return null;
-      final pointsData = first['points'];
-      if (pointsData is! Map<String, dynamic>) return null;
-      final coordinates = pointsData['coordinates'];
-      if (coordinates is! List || coordinates.isEmpty) return null;
-
-      final points = <LatLng>[];
-      for (final item in coordinates) {
-        if (item is List && item.length >= 2) {
-          final lon = _numToDouble(item[0]);
-          final lat = _numToDouble(item[1]);
-          if (lat != null && lon != null && _isFinite(lat) && _isFinite(lon)) {
-            points.add(LatLng(lat, lon));
-          }
-        }
-      }
-      final cleaned = _sanitizePoints(points);
-      if (cleaned.length < 2) return null;
-
-      final distanceMeters = _numToDouble(first['distance']) ?? 0;
-      final timeMillis = _numToDouble(first['time']) ?? 0;
-      final durationSeconds = timeMillis / 1000;
-
-      final distanceKm = _isFinite(distanceMeters) && distanceMeters >= 0
-          ? distanceMeters / 1000
-          : const Distance()
-              .as(LengthUnit.Kilometer, cleaned.first, cleaned.last);
-      final durationMinutes = _isFinite(durationSeconds) && durationSeconds >= 0
-          ? (durationSeconds / 60).round().clamp(1, 999)
-          : ((distanceKm / 35) * 60).round().clamp(1, 999);
-
-      return RouteSnapshot(
-          points: cleaned,
-          distanceKm: distanceKm,
-          durationMinutes: durationMinutes,
-          isFallback: false);
-    } catch (e) {
-      return null;
-    }
-  }
-
-  // ==================== Mapbox ====================
-  Future<RouteSnapshot?> _tryFetchRouteMapbox(
-      LatLng origin, LatLng destination) async {
-    final accessToken = _mapboxAccessToken;
-    if (accessToken.isEmpty) return null;
-
-    try {
-      final url =
-          Uri.parse('$_mapboxServer/${origin.longitude},${origin.latitude};'
-              '${destination.longitude},${destination.latitude}'
-              '?access_token=$accessToken'
-              '&geometries=geojson'
-              '&overview=full'
-              '&steps=false'
-              '&alternatives=false');
-
-      if (!kIsWeb) {
-        try {
-          final result = await _fetchRouteDirectMapbox(url);
-          if (result != null) return result;
-        } catch (_) {}
-      }
-      return _fetchRouteWithCorsProxyMapbox(url);
-    } catch (e) {
-      return null;
-    }
-  }
-
-  Future<RouteSnapshot?> _fetchRouteDirectMapbox(Uri url) async {
-    final response = await http.get(url, headers: {
-      'User-Agent': 'DepannageDZGraduation/1.0 (education project)',
-      'Accept': 'application/json',
-    }).timeout(const Duration(seconds: 6),
-        onTimeout: () => http.Response('Timeout', 408));
-    return _processRouteResponseMapbox(response, url);
-  }
-
-  Future<RouteSnapshot?> _fetchRouteWithCorsProxyMapbox(Uri url) async {
-    final proxyUrl = Uri.parse(
-        'https://api.allorigins.win/raw?url=${Uri.encodeComponent(url.toString())}');
-    final response = await http.get(proxyUrl).timeout(
-        const Duration(seconds: 6),
-        onTimeout: () => http.Response('Timeout', 408));
-    return _processRouteResponseMapbox(response, url);
-  }
-
-  RouteSnapshot? _processRouteResponseMapbox(
-      http.Response response, Uri originalUrl) {
-    if (response.statusCode != 200) return null;
-    try {
-      final decoded = jsonDecode(response.body);
-      if (decoded is! Map<String, dynamic>) return null;
-      final routes = decoded['routes'];
-      if (routes is! List || routes.isEmpty) return null;
-      final route = routes.first;
-      final geometry = route['geometry'];
-      if (geometry is! Map<String, dynamic>) return null;
-      final coordinates = geometry['coordinates'];
-      if (coordinates is! List) return null;
-
-      final points = <LatLng>[];
-      for (final coord in coordinates) {
-        if (coord is! List || coord.length < 2) continue;
-        // ✅ FIX 2 applied here too: _numToDouble handles both int and double
-        final lon = _numToDouble(coord[0]);
-        final lat = _numToDouble(coord[1]);
-        if (lon == null || lat == null || !_isFinite(lon) || !_isFinite(lat)) {
-          continue;
-        }
-        points.add(LatLng(lat, lon));
-      }
-      if (points.length < 2) return null;
-
-      final distance = _numToDouble(route['distance']);
-      final duration = _numToDouble(route['duration']);
-      final distanceKm = distance != null
-          ? distance / 1000.0
-          : const Distance()
-              .as(LengthUnit.Kilometer, points.first, points.last);
-      final durationMinutes = duration != null
-          ? (duration / 60).round().clamp(1, 999)
-          : ((distanceKm / 35) * 60).round().clamp(1, 999);
-
-      return RouteSnapshot(
-          points: points,
-          distanceKm: distanceKm,
-          durationMinutes: durationMinutes,
-          isFallback: false);
-    } catch (e) {
-      return null;
-    }
-  }
-
-  // ==================== Helpers ====================
-  String _buildCacheKey(LatLng a, LatLng b) {
-    String r(double v) => v.toStringAsFixed(5);
-    return '${r(a.latitude)},${r(a.longitude)}|${r(b.latitude)},${r(b.longitude)}';
-  }
-
-  RouteSnapshot _fallback(LatLng origin, LatLng destination) {
-    final safeOrigin =
-        _safePoint(origin, fallback: const LatLng(36.7538, 3.0588));
-    final safeDestination =
-        _safePoint(destination, fallback: const LatLng(36.7538, 3.0588));
-    final distanceKm =
-        const Distance().as(LengthUnit.Kilometer, safeOrigin, safeDestination);
-    final points = _sanitizePoints([safeOrigin, safeDestination]);
-    return RouteSnapshot(
-        points: points.length >= 2 ? points : [safeOrigin, safeDestination],
-        distanceKm: _isFinite(distanceKm) ? distanceKm : 0,
-        durationMinutes: ((_isFinite(distanceKm) ? distanceKm : 0) / 35 * 60)
-            .round()
-            .clamp(1, 999),
-        isFallback: true);
-  }
-
-  LatLng _safePoint(LatLng point, {required LatLng fallback}) {
-    if (_isFinite(point.latitude) && _isFinite(point.longitude)) return point;
-    return fallback;
-  }
-
-  List<LatLng> _sanitizePoints(List<LatLng> points) {
-    final cleaned = points
-        .where((p) => _isFinite(p.latitude) && _isFinite(p.longitude))
-        .toList();
-    if (cleaned.isEmpty) return [];
-    if (cleaned.length == 1) return [cleaned.first, cleaned.first];
-    return cleaned;
-  }
-
-  double? _numToDouble(dynamic value) {
-    if (value is num) return value.toDouble();
-    return null;
-  }
-
-  bool _isFinite(double value) => value.isFinite && !value.isNaN;
-
-  static String _env(String key, String dartDefineFallback) {
-    final value = dotenv.env[key]?.trim();
-    if (value != null && value.isNotEmpty) return value;
-    return dartDefineFallback.trim();
-  }
 }
 </file>
 
@@ -18564,6 +18024,8 @@ class AuthService {
   }
 
   Future<String?> _readFcmTokenSafely() async {
+    if (kIsWeb) return null;
+
     try {
       return await FirebaseMessaging.instance.getToken();
     } catch (_) {
@@ -18673,779 +18135,573 @@ class AuthService {
 }
 </file>
 
-<file path="README.md">
-# Auto Rescue
-
-A production-style Flutter + Firebase roadside assistance platform for Algeria, built as a final graduation project.
-
-Auto Rescue connects customers who need towing or roadside help with verified nearby providers in real time. The platform includes customer ordering, provider dispatch, live mission tracking, multilingual UI, admin operations, pricing management, notifications, audit logs, and Firebase-backed security rules.
-
----
-
-## Overview
-
-Auto Rescue is a mobile-first roadside assistance and towing platform designed around three operational roles:
-
-- **Customer**: creates assistance requests, tracks provider arrival, chats, cancels requests, and rates completed missions.
-- **Provider**: receives mission offers, accepts or rejects requests, updates mission lifecycle, shares live position, tracks earnings, and rates customers.
-- **Admin**: supervises platform activity, validates providers, manages users, configures pricing/support, sends notifications, exports analytics, and reviews audit logs.
-
-The application is built with Flutter and Firebase using a Provider/ChangeNotifier architecture, Firestore realtime streams, OpenStreetMap maps, routing fallbacks, and role-based security rules.
-
----
-
-## Features
-
-### Customer App
-
-- Create roadside assistance requests with:
-  - pickup location
-  - destination
-  - vehicle type
-  - brand/model
-  - service type
-  - estimated distance, ETA, and price
-- Realtime request tracking on map
-- Animated provider searching indicators
-- Provider scan count and dispatch attempt visibility
-- No-provider-accepted popup with:
-  - cancel request
-  - continue waiting / rescan providers
-- Live provider route, ETA, and distance
-- Mission chat
-- Active requests page
-- Mission history
-- Provider rating after completion
-- Customer profile and support pages
-- Multilingual UI support
-
-### Provider App
-
-- Provider dashboard with live availability controls
-- Online/offline and busy-state handling
-- Mission offers scoped to the offered provider
-- Accept/reject mission flow
-- Current mission tracking page
-- Live GPS tracking
-- Mission lifecycle actions:
-  - accepted
-  - on the way
-  - arrived
-  - in service
-  - completed
-- Google Maps navigation launch
-- Customer chat
-- Earnings page
-- Mission history
-- Customer rating after completion
-- Provider profile and support pages
-
-### Admin App
-
-- Admin dashboard with operational overview
-- Provider management:
-  - approve providers
-  - block/unblock providers
-  - inspect provider status
-- Customer/user management
-- Requests monitoring
-- Pricing management
-- Admin notification management
-- Activity/audit logs
-- Analytics and CSV export
-- Support configuration management
-- Role-based admin access
-
----
-
-## Architecture
-
-The project follows a feature-first Flutter architecture with centralized application state.
-
-```text
-lib/
-  app/                  Application shell and configuration
-  core/
-    i18n/               Localization and language persistence
-    models/             Shared core models
-    services/           Firebase, routing, location, notification, audit services
-    utils/              Utility helpers
-  features/
-    admin/pages/        Admin dashboard, analytics, pricing, notifications
-    auth/pages/         Login, signup, auth gate
-    customer/pages/     Customer home, order, tracking, profile, support
-    provider/pages/     Provider dashboard, missions, tracking, earnings
-    shared/pages/       Chat, legal, onboarding, splash, permissions
-  models/               Domain models
-  repositories/         Firestore repository layer
-  state/
-    app_store.dart      Central ChangeNotifier app state
-  widgets/              Reusable UI widgets
-```
-
-### State Management
-
-The app uses the `provider` package with a central `AppStore` based on `ChangeNotifier`.
-
-`AppStore` coordinates:
-
-- authentication-aware stream subscriptions
-- request streams
-- provider streams
-- pricing configuration
-- dispatch chain state
-- provider busy state
-- live tracking state
-- customer/provider tabs
-- notifications
-- mission lifecycle transitions
-
----
-
-## Tech Stack
-
-- **Flutter**
-- **Dart**
-- **Firebase Auth**
-- **Cloud Firestore**
-- **Firebase Storage**
-- **Firebase Cloud Messaging**
-- **Firebase Realtime Database**
-- **Provider / ChangeNotifier**
-- **Flutter Map**
-- **OpenStreetMap**
-- **Geolocator**
-- **OSRM / GraphHopper / Mapbox / OpenRouteService routing fallbacks**
-- **SharedPreferences**
-- **Flutter Local Notifications**
-- **URL Launcher**
-- **File Picker**
-- **CSV export support**
-
----
-
-## Firebase Services Used
-
-### Firebase Authentication
-
-Used for customer, provider, and admin authentication.
-
-### Cloud Firestore
-
-Primary database for:
-
-- users
-- providers
-- requests
-- request chats
-- app configuration
-- pricing configuration
-- support configuration
-- admin notifications
-- activity logs
-- audit logs
-
-### Firebase Storage
-
-Used for image uploads such as provider/admin-managed assets.
-
-### Firebase Cloud Messaging
-
-Used for push notification payload handling and realtime notification flows.
-
-### Firebase Realtime Database
-
-Used by the provider presence system.
-
-### Firebase Hosting
-
-Configured for Flutter web builds through `firebase.json`.
-
----
-
-## Authentication System
-
-The app includes a role-based authentication system with:
-
-- customer login/signup
-- provider signup
-- provider approval requirement before receiving missions
-- admin-only login flow
-- Firebase Auth integration
-- Firestore user profile lookup
-- role-based routing through `AuthGate`
-- persisted language selection across auth pages
-
-Supported roles:
-
-```text
-customer
-provider
-admin
-```
-
-Provider accounts are not fully active until approved by an admin.
-
----
-
-## Realtime Dispatch System
-
-The dispatch system is implemented in `AppStore` and the request repository layer.
-
-When a customer creates a request:
-
-1. The request is created in Firestore with status `searching`.
-2. Eligible providers are scanned using existing provider data.
-3. Providers are filtered by:
-   - `isOnline == true`
-   - `isBusy != true`
-   - `isApproved == true`
-4. Eligible providers are sorted by distance from the customer.
-5. A dispatch chain is built.
-6. The request is offered to one provider at a time.
-7. Each provider receives an offer timeout window.
-8. If the provider rejects or times out, the next provider is offered.
-9. If all providers reject or time out, the customer receives a no-provider-accepted popup.
-10. The customer can cancel or continue waiting, which rebuilds the dispatch chain.
-
-Dispatch state includes:
-
-- provider chain
-- current chain index
-- current offered provider
-- scanned provider count
-- current dispatch attempt
-- offer expiration time
-- rejected provider list
-- no-provider popup state
-
-This avoids silent infinite searching and gives the customer clearer feedback.
-
----
-
-## Provider / Customer / Admin Roles
-
-### Customer
-
-Customers can:
-
-- request help
-- view active requests
-- track provider movement
-- cancel searching requests
-- chat with provider
-- rate provider
-- view history
-- update profile
-- access support information
-
-### Provider
-
-Providers can:
-
-- go online/offline
-- receive mission offers
-- accept/reject requests
-- update mission lifecycle
-- share live GPS location
-- open navigation
-- chat with customers
-- view earnings
-- view history
-- rate customers
-
-### Admin
-
-Admins can:
-
-- approve/block providers
-- monitor users and requests
-- configure pricing
-- send app notifications
-- manage support settings
-- inspect analytics
-- export CSV reports
-- review activity logs
-
----
-
-## Maps & Navigation
-
-The map system uses:
-
-- `flutter_map`
-- OpenStreetMap tiles
-- `latlong2`
-- Geolocator
-- external Google Maps launch through URL Launcher
-
-Tracking pages include:
-
-- customer position marker
-- provider position marker
-- destination marker
-- route polyline
-- ETA and distance
-- route progress indicator
-- draggable information sheet
-- safe-area-aware floating buttons
-
-Route behavior:
-
-```text
-accepted / onTheWay:
-  routeStart = providerPosition
-  routeEnd   = customerPosition
-
-arrived / inService:
-  routeStart = providerPosition
-  routeEnd   = destinationPosition
-
-completed:
-  active route is cleared
-```
-
-Routing is handled by `RouteService`, which supports multiple routing providers and fallback behavior.
-
----
-
-## Notifications
-
-The project includes several notification layers:
-
-- Firebase Cloud Messaging payload handling
-- local notifications
-- admin broadcast notifications
-- in-app lifecycle notifications
-- chat notifications
-- mission lifecycle alerts
-- provider offer notifications
-- no-provider-available notifications
-
-Admin notifications can be configured with:
-
-- audience
-- type
-- popup behavior
-- schedule
-- optional image
-- sound behavior
-
----
-
-## Localization
-
-Auto Rescue supports:
-
-- French
-- English
-- Arabic
-
-The localization system includes:
-
-- `AppLocalizations`
-- language selector widget
-- persisted language choice using `SharedPreferences`
-- RTL direction support for Arabic
-- localized auth, home, tracking, support, profile, admin, and shared UI strings
-
-Default language behavior is managed by `AppLanguageController`.
-
----
-
-## Project Structure
-
-```text
-.
-├── android/
-├── assets/
-│   ├── logo/
-│   └── sounds/
-├── lib/
-│   ├── app/
-│   ├── core/
-│   │   ├── i18n/
-│   │   ├── models/
-│   │   ├── services/
-│   │   └── utils/
-│   ├── features/
-│   │   ├── admin/
-│   │   ├── auth/
-│   │   ├── customer/
-│   │   ├── provider/
-│   │   └── shared/
-│   ├── models/
-│   ├── repositories/
-│   ├── state/
-│   ├── widgets/
-│   ├── firebase_options.dart
-│   └── main.dart
-├── scripts/
-├── test/
-├── web/
-├── firebase.json
-├── firestore.rules
-├── storage.rules
-├── pubspec.yaml
-└── README.md
-```
-
----
-
-## Installation
-
-### Prerequisites
-
-Install:
-
-- Flutter SDK
-- Dart SDK
-- Firebase CLI
-- FlutterFire CLI
-- Android Studio or VS Code
-- Android SDK
-- A Firebase project
-
-Check Flutter setup:
-
-```bash
-flutter doctor
-```
-
-Install dependencies:
-
-```bash
-flutter pub get
-```
-
----
-
-## Firebase Setup
-
-The project is configured for Firebase project:
-
-```text
-depannage-dz-imad-2026
-```
-
-Firebase configuration files used by the app:
-
-```text
-lib/firebase_options.dart
-android/app/google-services.json
-firebase.json
-firestore.rules
-storage.rules
-```
-
-If setting up a new Firebase project, run:
-
-```bash
-dart pub global activate flutterfire_cli
-flutterfire configure
-```
-
-Enable the following Firebase services:
-
-- Authentication
-- Cloud Firestore
-- Firebase Storage
-- Firebase Cloud Messaging
-- Realtime Database
-- Firebase Hosting, if building for web
-
-Deploy Firestore and Storage rules:
-
-```bash
-firebase deploy --only firestore:rules
-firebase deploy --only storage
-```
-
-Deploy web hosting after building:
-
-```bash
-flutter build web --release
-firebase deploy --only hosting
-```
-
----
-
-## Environment Configuration
-
-The project currently includes generated Firebase options for:
-
-- Android
-- Web
-
-iOS, macOS, Windows, and Linux are not configured in `firebase_options.dart` and will throw an unsupported platform error until configured with FlutterFire CLI.
-
-Important configuration files:
-
-```text
-lib/firebase_options.dart
-android/app/google-services.json
-firebase.json
-firestore.rules
-storage.rules
-web/firebase-messaging-sw.js
-```
-
-These Firebase client files are required by FlutterFire and are intentionally public client configuration. Do not place Firebase Admin SDK credentials or private service-account keys in client code.
-
-Create local environment variables before running the app:
-
-```bash
-cp .env.example .env
-```
-
-On Windows PowerShell:
-
-```powershell
-Copy-Item .env.example .env
-```
-
-Optional routing API keys can be added to `.env`:
-
-```text
-OPENROUTESERVICE_API_KEY=
-GRAPHHOPPER_API_KEY=
-MAPBOX_ACCESS_TOKEN=
-```
-
-If these values are blank, the app continues to run using OSRM where available and the local straight-line route fallback.
-
-Maintenance scripts that use the Firebase Admin SDK require a local, ignored service account file:
-
-```bash
-FIREBASE_ADMIN_CREDENTIALS=path/to/firebase-admin.json node scripts/reset_sessions.js
-```
-
-If `FIREBASE_ADMIN_CREDENTIALS` is not set, the script looks for an ignored `firebase-admin.json` file at the project root.
-
----
-
-## Running Locally
-
-Run on a connected Android device or emulator:
-
-```bash
-flutter run
-```
-
-Run on web:
-
-```bash
-flutter run -d chrome
-```
-
-Fetch dependencies:
-
-```bash
-flutter pub get
-```
-
-Analyze code:
-
-```bash
-flutter analyze
-```
-
-Run tests:
-
-```bash
-flutter test
-```
-
----
-
-## Build Commands
-
-Build Android APK:
-
-```bash
-flutter build apk --release
-```
-
-Build Flutter web:
-
-```bash
-flutter build web --release
-```
-
-Format code:
-
-```bash
-dart format .
-```
-
-Analyze code:
-
-```bash
-flutter analyze
-```
-
-Run tests:
-
-```bash
-flutter test
-```
-
----
-
-## Production Notes
-
-Before production deployment:
-
-- Deploy latest `firestore.rules`.
-- Deploy latest `storage.rules`.
-- Verify Firebase Authentication providers.
-- Verify Firestore indexes if queries require them.
-- Validate provider approval workflow.
-- Test dispatch with multiple real provider accounts.
-- Test background/foreground notification delivery.
-- Test location permissions on physical Android devices.
-- Verify Realtime Database presence behavior.
-- Verify route fallback behavior in poor network conditions.
-- Remove debug-only logs where necessary.
-- Protect admin/service account credentials.
-
----
-
-## Security Notes
-
-Security is enforced through Firebase Authentication and Firestore rules.
-
-Implemented protections include:
-
-- role-based access control
-- customer-only request creation
-- customer-owned request cancellation
-- provider-only mission acceptance/update flows
-- provider availability checks
-- admin-only app configuration writes
-- admin-only audit/activity access
-- scoped request read access
-- scoped chat access based on request visibility
-- image upload limits in Storage rules
-
-Client-side role checks improve UX, but Firebase rules remain the primary security boundary.
-
-Repository security expectations:
-
-- never commit `.env`
-- never commit `firebase-admin.json` or service-account exports
-- rotate any API key or private key that was previously committed
-- restrict external routing API keys by platform, domain, package name, or quota where the provider supports it
-- keep FlutterFire client configuration files committed because they are required public client configuration, not Admin SDK secrets
-
----
-
-## Firestore Rules
-
-The project includes `firestore.rules` with role-aware access for:
-
-- `users`
-- `providers`
-- `requests`
-- `tracking`
-- `app_config`
-- `app_notifications`
-- `admin_activity_logs`
-- `admin_audit_logs`
-- `request_chats`
-- `chats`
-
-Important request permissions include:
-
-- customers can create their own searching requests
-- customers can cancel their own searching requests
-- customers can dispatch their own request to available providers
-- providers can accept offered requests
-- providers can update assigned active missions
-- admins can manage platform data
-
-Deploy rules with:
-
-```bash
-firebase deploy --only firestore:rules
-```
-
----
-
-## Realtime Database Presence System
-
-The project includes a provider presence service using Firebase Realtime Database.
-
-Presence path:
-
-```text
-presence/providers/{providerUid}
-```
-
-The service mirrors provider online state into Firestore provider documents, allowing dispatch to consider realtime availability through provider fields such as:
-
-```text
-isOnline
-isBusy
-isApproved
-lastSeenAtIso
-```
-
-This supports faster provider availability checks and more accurate dispatch behavior.
-
----
-
-## Screenshots
-
-Add product screenshots here before publication.
-
-```text
-docs/screenshots/customer-home.png
-docs/screenshots/create-order.png
-docs/screenshots/customer-tracking.png
-docs/screenshots/provider-dashboard.png
-docs/screenshots/provider-tracking.png
-docs/screenshots/admin-dashboard.png
-docs/screenshots/admin-analytics.png
-```
-
-Example layout:
-
-| Customer | Provider | Admin |
-|---|---|---|
-| ![Customer Home](docs/screenshots/customer-home.png) | ![Provider Dashboard](docs/screenshots/provider-dashboard.png) | ![Admin Dashboard](docs/screenshots/admin-dashboard.png) |
-
----
-
-## Known Limitations / Future Improvements
-
-- iOS, macOS, Windows, and Linux Firebase options are not configured yet.
-- Some admin and secondary screens may still need full localization coverage.
-- No-provider popup text should be moved fully into localization keys.
-- Dispatch currently depends on Firestore provider availability fields being fresh.
-- Production deployment should include complete Firebase indexes and monitoring.
-- Automated integration tests for dispatch, cancellation, and tracking should be expanded.
-- A dedicated backend or Cloud Functions layer could further harden dispatch logic.
-- Realtime Database security rules should be reviewed and deployed with production constraints.
-- Route services depend on external routing APIs and network availability.
-
----
-
-## License
-
-This project is currently provided for academic and portfolio evaluation purposes.
-
-A production license should be defined before commercial distribution.
-
----
-
-## Author
-
-Developed as a final graduation project.
-
-**Project:** Auto Rescue  
-**Type:** Flutter + Firebase roadside assistance platform  
-**Region focus:** Algeria
+<file path="lib/core/services/route_service.dart">
+import 'dart:async';
+import 'dart:convert';
+import 'dart:developer' as developer;
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:http/http.dart' as http;
+import 'package:latlong2/latlong.dart';
+
+import '../../models/route_snapshot.dart';
+
+class RouteService {
+  static final Map<String, RouteSnapshot> _cache = {};
+
+  static const _osrmServers = [
+    'https://router.project-osrm.org',
+    'https://router.openstreetmap.de',
+    'https://osrm-router.prod.aws.openstreetmap.de',
+  ];
+
+  static const _graphHopperServer = 'https://graphhopper.com/api/1/route';
+  static String get _graphHopperApiKey => _env('GRAPHHOPPER_API_KEY',
+      const String.fromEnvironment('GRAPHHOPPER_API_KEY'));
+
+  static const _mapboxServer =
+      'https://api.mapbox.com/directions/v5/mapbox/driving';
+  static String get _mapboxAccessToken => _env('MAPBOX_ACCESS_TOKEN',
+      const String.fromEnvironment('MAPBOX_ACCESS_TOKEN'));
+
+  static const _openRouteServiceServer =
+      'https://api.openrouteservice.org/v2/directions/driving-car';
+  static String get _openRouteServiceApiKey => _env(
+        'OPENROUTESERVICE_API_KEY',
+        const String.fromEnvironment('OPENROUTESERVICE_API_KEY'),
+      );
+
+  Future<RouteSnapshot> buildDrivingRoute({
+    required LatLng origin,
+    required LatLng destination,
+  }) async {
+    final safeOrigin =
+        _safePoint(origin, fallback: const LatLng(36.7538, 3.0588));
+    final safeDestination =
+        _safePoint(destination, fallback: const LatLng(36.7538, 3.0588));
+
+    final cacheKey = _buildCacheKey(safeOrigin, safeDestination);
+    final cached = _cache[cacheKey];
+    if (cached != null) return cached;
+
+    if (kIsWeb) {
+      final fallback = _fallback(safeOrigin, safeDestination);
+      _cache[cacheKey] = fallback;
+      return fallback;
+    }
+
+    final futures = <Future<RouteSnapshot?>>[
+      _tryFetchRouteOpenRouteService(safeOrigin, safeDestination),
+      for (final server in _osrmServers)
+        _tryFetchRoute(server, safeOrigin, safeDestination),
+      _tryFetchRouteGraphHopper(safeOrigin, safeDestination),
+      _tryFetchRouteMapbox(safeOrigin, safeDestination),
+    ];
+
+    RouteSnapshot? result;
+    try {
+      result = await _firstSuccessful(futures);
+    } catch (e) {
+      if (kDebugMode) {
+        developer.log('RouteService: All routing servers failed: $e',
+            name: 'RouteService', level: 700);
+      }
+    }
+
+    final finalResult = result ?? _fallback(safeOrigin, safeDestination);
+
+    if (kDebugMode) {
+      if (finalResult.isFallback) {
+        developer.log(
+            '⚠️ RouteService: FALLBACK (direct line) - all routing sources failed',
+            name: 'RouteService',
+            level: 700);
+      } else {
+        developer.log(
+            '✅ RouteService: SUCCESS - ${finalResult.points.length} pts, '
+            '${finalResult.distanceKm.toStringAsFixed(2)} km',
+            name: 'RouteService',
+            level: 900);
+      }
+    }
+
+    _cache[cacheKey] = finalResult;
+    return finalResult;
+  }
+
+  // ✅ FIX 1: Properly handle the case where all futures return null (no exception)
+  Future<RouteSnapshot?> _firstSuccessful(
+      List<Future<RouteSnapshot?>> futures) async {
+    final completer = Completer<RouteSnapshot?>();
+    int remaining = futures.length;
+
+    for (final future in futures) {
+      future.then((value) {
+        if (!completer.isCompleted && value != null) {
+          completer.complete(value);
+        }
+      }).catchError((e) {
+        if (kDebugMode) {
+          developer.log('RouteService: A future errored: $e',
+              name: 'RouteService', level: 700);
+        }
+      }).whenComplete(() {
+        remaining--;
+        // All futures settled and none returned a valid result → complete with null
+        if (remaining == 0 && !completer.isCompleted) {
+          completer.complete(null);
+        }
+      });
+    }
+
+    return completer.future;
+  }
+
+  // ==================== OpenRouteService ====================
+  Future<RouteSnapshot?> _tryFetchRouteOpenRouteService(
+      LatLng origin, LatLng destination) async {
+    final apiKey = _openRouteServiceApiKey;
+    if (apiKey.isEmpty) return null;
+
+    try {
+      final url = Uri.parse('$_openRouteServiceServer'
+          '?start=${origin.longitude},${origin.latitude}'
+          '&end=${destination.longitude},${destination.latitude}'
+          '&api_key=$apiKey'
+          '&format=geojson'
+          '&geometry=true'
+          '&instructions=false'
+          '&geometry_simplify=false');
+
+      final response = await http.get(url, headers: {
+        'User-Agent': 'DepannageDZGraduation/1.0',
+        'Accept': 'application/json',
+      }).timeout(const Duration(seconds: 8),
+          onTimeout: () => http.Response('Timeout', 408));
+
+      return _processOpenRouteServiceResponse(response);
+    } catch (e) {
+      if (kDebugMode) {
+        developer.log('RouteService: ORS error: $e',
+            name: 'RouteService', level: 700);
+      }
+      return null;
+    }
+  }
+
+  RouteSnapshot? _processOpenRouteServiceResponse(http.Response response) {
+    if (response.statusCode != 200) return null;
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic>) return null;
+
+      final features = decoded['features'];
+      if (features is! List || features.isEmpty) return null;
+
+      final geometry = features.first['geometry'];
+      if (geometry is! Map<String, dynamic>) return null;
+
+      final coordinates = geometry['coordinates'];
+      if (coordinates is! List) return null;
+
+      final points = <LatLng>[];
+      for (final coord in coordinates) {
+        if (coord is! List || coord.length < 2) continue;
+        // ✅ FIX 2: Use _numToDouble instead of `is double` — JSON ints are valid coords
+        final lon = _numToDouble(coord[0]);
+        final lat = _numToDouble(coord[1]);
+        if (lat == null || lon == null || !_isFinite(lat) || !_isFinite(lon)) {
+          continue;
+        }
+        points.add(LatLng(lat, lon));
+      }
+      if (points.length < 2) return null;
+
+      final properties = features.first['properties'];
+      final segments = properties?['segments'];
+      double distanceKm;
+      int durationMinutes;
+
+      if (segments is List && segments.isNotEmpty) {
+        final seg = segments.first;
+        final distM = _numToDouble(seg['distance']);
+        final durS = _numToDouble(seg['duration']);
+        distanceKm = distM != null
+            ? distM / 1000
+            : const Distance()
+                .as(LengthUnit.Kilometer, points.first, points.last);
+        durationMinutes = durS != null
+            ? (durS / 60).round().clamp(1, 999)
+            : ((distanceKm / 35) * 60).round().clamp(1, 999);
+      } else {
+        distanceKm = const Distance()
+            .as(LengthUnit.Kilometer, points.first, points.last);
+        durationMinutes = ((distanceKm / 35) * 60).round().clamp(1, 999);
+      }
+
+      if (kDebugMode) {
+        developer.log(
+            'RouteService: ORS SUCCESS - ${points.length} pts, '
+            '${distanceKm.toStringAsFixed(2)} km',
+            name: 'RouteService',
+            level: 900);
+      }
+      return RouteSnapshot(
+          points: points,
+          distanceKm: distanceKm,
+          durationMinutes: durationMinutes,
+          isFallback: false);
+    } catch (e) {
+      if (kDebugMode) {
+        developer.log('RouteService: ORS parse error: $e',
+            name: 'RouteService', level: 700);
+      }
+      return null;
+    }
+  }
+
+  // ==================== OSRM ====================
+  Future<RouteSnapshot?> _tryFetchRoute(
+      String server, LatLng origin, LatLng destination) async {
+    try {
+      final url = Uri.parse('$server/route/v1/driving/'
+          '${origin.longitude},${origin.latitude};'
+          '${destination.longitude},${destination.latitude}'
+          '?overview=full&geometries=geojson&steps=false');
+
+      if (!kIsWeb) {
+        try {
+          final result = await _fetchRouteDirect(url);
+          if (result != null) return result;
+        } catch (_) {}
+      }
+      return _fetchRouteWithCorsProxy(url);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<RouteSnapshot?> _fetchRouteDirect(Uri url) async {
+    final response = await http.get(url, headers: {
+      'User-Agent': 'DepannageDZGraduation/1.0 (education project)',
+      'Accept': 'application/json, application/geo+json',
+    }).timeout(const Duration(seconds: 6),
+        onTimeout: () => http.Response('Timeout', 408));
+    return _processRouteResponse(response, url);
+  }
+
+  Future<RouteSnapshot?> _fetchRouteWithCorsProxy(Uri url) async {
+    final proxyUrl = Uri.parse(
+        'https://api.allorigins.win/raw?url=${Uri.encodeComponent(url.toString())}');
+    final response = await http.get(proxyUrl).timeout(
+        const Duration(seconds: 6),
+        onTimeout: () => http.Response('Timeout', 408));
+    return _processRouteResponse(response, url);
+  }
+
+  RouteSnapshot? _processRouteResponse(
+      http.Response response, Uri originalUrl) {
+    if (response.statusCode != 200) return null;
+
+    final ct = response.headers['content-type'] ?? '';
+    if (!ct.contains('application/json') &&
+        !ct.contains('application/geo+json')) {
+      return null;
+    }
+
+    final body = response.body.trimLeft();
+    if (body.startsWith('<!DOCTYPE') || body.startsWith('<html')) return null;
+
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) return null;
+
+    final routes = decoded['routes'];
+    if (routes is! List || routes.isEmpty) return null;
+
+    final first = routes.first;
+    if (first is! Map<String, dynamic>) return null;
+
+    final geometry = first['geometry'];
+    if (geometry is! Map<String, dynamic>) return null;
+
+    final coordinates = geometry['coordinates'];
+    if (coordinates is! List || coordinates.isEmpty) return null;
+
+    final points = <LatLng>[];
+    for (final item in coordinates) {
+      if (item is List && item.length >= 2) {
+        final lon = _numToDouble(item[0]);
+        final lat = _numToDouble(item[1]);
+        if (lat != null && lon != null && _isFinite(lat) && _isFinite(lon)) {
+          points.add(LatLng(lat, lon));
+        }
+      }
+    }
+
+    final cleaned = _sanitizePoints(points);
+    if (cleaned.length < 2) return null;
+
+    final distanceMeters = _numToDouble(first['distance']) ?? 0;
+    final durationSeconds = _numToDouble(first['duration']) ?? 0;
+
+    final distanceKm = _isFinite(distanceMeters) && distanceMeters >= 0
+        ? distanceMeters / 1000
+        : const Distance()
+            .as(LengthUnit.Kilometer, cleaned.first, cleaned.last);
+    final durationMinutes = _isFinite(durationSeconds) && durationSeconds >= 0
+        ? (durationSeconds / 60).round().clamp(1, 999)
+        : ((distanceKm / 35) * 60).round().clamp(1, 999);
+
+    return RouteSnapshot(
+        points: cleaned,
+        distanceKm: distanceKm,
+        durationMinutes: durationMinutes,
+        isFallback: false);
+  }
+
+  // ==================== GraphHopper ====================
+  Future<RouteSnapshot?> _tryFetchRouteGraphHopper(
+      LatLng origin, LatLng destination) async {
+    final apiKey = _graphHopperApiKey;
+    if (apiKey.isEmpty) return null;
+
+    try {
+      final url = Uri.parse('$_graphHopperServer'
+          '?point=${origin.latitude},${origin.longitude}'
+          '&point=${destination.latitude},${destination.longitude}'
+          '&vehicle=car'
+          '&key=$apiKey'
+          '&points_encoded=false'
+          '&calc_points=true'
+          '&instructions=false'
+          '&elevation=false'
+          '&optimize=false'
+          '&locale=en');
+
+      if (!kIsWeb) {
+        try {
+          final result = await _fetchRouteDirectGraphHopper(url);
+          if (result != null) return result;
+        } catch (_) {}
+      }
+      return _fetchRouteWithCorsProxyGraphHopper(url);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<RouteSnapshot?> _fetchRouteDirectGraphHopper(Uri url) async {
+    final response = await http.get(url, headers: {
+      'User-Agent': 'DepannageDZGraduation/1.0 (education project)',
+      'Accept': 'application/json',
+    }).timeout(const Duration(seconds: 6),
+        onTimeout: () => http.Response('Timeout', 408));
+    return _processRouteResponseGraphHopper(response, url);
+  }
+
+  Future<RouteSnapshot?> _fetchRouteWithCorsProxyGraphHopper(Uri url) async {
+    final proxyUrl = Uri.parse(
+        'https://api.allorigins.win/raw?url=${Uri.encodeComponent(url.toString())}');
+    final response = await http.get(proxyUrl).timeout(
+        const Duration(seconds: 6),
+        onTimeout: () => http.Response('Timeout', 408));
+    return _processRouteResponseGraphHopper(response, url);
+  }
+
+  RouteSnapshot? _processRouteResponseGraphHopper(
+      http.Response response, Uri originalUrl) {
+    if (response.statusCode != 200) return null;
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic>) return null;
+      final paths = decoded['paths'];
+      if (paths is! List || paths.isEmpty) return null;
+      final first = paths.first;
+      if (first is! Map<String, dynamic>) return null;
+      final pointsData = first['points'];
+      if (pointsData is! Map<String, dynamic>) return null;
+      final coordinates = pointsData['coordinates'];
+      if (coordinates is! List || coordinates.isEmpty) return null;
+
+      final points = <LatLng>[];
+      for (final item in coordinates) {
+        if (item is List && item.length >= 2) {
+          final lon = _numToDouble(item[0]);
+          final lat = _numToDouble(item[1]);
+          if (lat != null && lon != null && _isFinite(lat) && _isFinite(lon)) {
+            points.add(LatLng(lat, lon));
+          }
+        }
+      }
+      final cleaned = _sanitizePoints(points);
+      if (cleaned.length < 2) return null;
+
+      final distanceMeters = _numToDouble(first['distance']) ?? 0;
+      final timeMillis = _numToDouble(first['time']) ?? 0;
+      final durationSeconds = timeMillis / 1000;
+
+      final distanceKm = _isFinite(distanceMeters) && distanceMeters >= 0
+          ? distanceMeters / 1000
+          : const Distance()
+              .as(LengthUnit.Kilometer, cleaned.first, cleaned.last);
+      final durationMinutes = _isFinite(durationSeconds) && durationSeconds >= 0
+          ? (durationSeconds / 60).round().clamp(1, 999)
+          : ((distanceKm / 35) * 60).round().clamp(1, 999);
+
+      return RouteSnapshot(
+          points: cleaned,
+          distanceKm: distanceKm,
+          durationMinutes: durationMinutes,
+          isFallback: false);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // ==================== Mapbox ====================
+  Future<RouteSnapshot?> _tryFetchRouteMapbox(
+      LatLng origin, LatLng destination) async {
+    final accessToken = _mapboxAccessToken;
+    if (accessToken.isEmpty) return null;
+
+    try {
+      final url =
+          Uri.parse('$_mapboxServer/${origin.longitude},${origin.latitude};'
+              '${destination.longitude},${destination.latitude}'
+              '?access_token=$accessToken'
+              '&geometries=geojson'
+              '&overview=full'
+              '&steps=false'
+              '&alternatives=false');
+
+      if (!kIsWeb) {
+        try {
+          final result = await _fetchRouteDirectMapbox(url);
+          if (result != null) return result;
+        } catch (_) {}
+      }
+      return _fetchRouteWithCorsProxyMapbox(url);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<RouteSnapshot?> _fetchRouteDirectMapbox(Uri url) async {
+    final response = await http.get(url, headers: {
+      'User-Agent': 'DepannageDZGraduation/1.0 (education project)',
+      'Accept': 'application/json',
+    }).timeout(const Duration(seconds: 6),
+        onTimeout: () => http.Response('Timeout', 408));
+    return _processRouteResponseMapbox(response, url);
+  }
+
+  Future<RouteSnapshot?> _fetchRouteWithCorsProxyMapbox(Uri url) async {
+    final proxyUrl = Uri.parse(
+        'https://api.allorigins.win/raw?url=${Uri.encodeComponent(url.toString())}');
+    final response = await http.get(proxyUrl).timeout(
+        const Duration(seconds: 6),
+        onTimeout: () => http.Response('Timeout', 408));
+    return _processRouteResponseMapbox(response, url);
+  }
+
+  RouteSnapshot? _processRouteResponseMapbox(
+      http.Response response, Uri originalUrl) {
+    if (response.statusCode != 200) return null;
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic>) return null;
+      final routes = decoded['routes'];
+      if (routes is! List || routes.isEmpty) return null;
+      final route = routes.first;
+      final geometry = route['geometry'];
+      if (geometry is! Map<String, dynamic>) return null;
+      final coordinates = geometry['coordinates'];
+      if (coordinates is! List) return null;
+
+      final points = <LatLng>[];
+      for (final coord in coordinates) {
+        if (coord is! List || coord.length < 2) continue;
+        // ✅ FIX 2 applied here too: _numToDouble handles both int and double
+        final lon = _numToDouble(coord[0]);
+        final lat = _numToDouble(coord[1]);
+        if (lon == null || lat == null || !_isFinite(lon) || !_isFinite(lat)) {
+          continue;
+        }
+        points.add(LatLng(lat, lon));
+      }
+      if (points.length < 2) return null;
+
+      final distance = _numToDouble(route['distance']);
+      final duration = _numToDouble(route['duration']);
+      final distanceKm = distance != null
+          ? distance / 1000.0
+          : const Distance()
+              .as(LengthUnit.Kilometer, points.first, points.last);
+      final durationMinutes = duration != null
+          ? (duration / 60).round().clamp(1, 999)
+          : ((distanceKm / 35) * 60).round().clamp(1, 999);
+
+      return RouteSnapshot(
+          points: points,
+          distanceKm: distanceKm,
+          durationMinutes: durationMinutes,
+          isFallback: false);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // ==================== Helpers ====================
+  String _buildCacheKey(LatLng a, LatLng b) {
+    String r(double v) => v.toStringAsFixed(5);
+    return '${r(a.latitude)},${r(a.longitude)}|${r(b.latitude)},${r(b.longitude)}';
+  }
+
+  RouteSnapshot _fallback(LatLng origin, LatLng destination) {
+    final safeOrigin =
+        _safePoint(origin, fallback: const LatLng(36.7538, 3.0588));
+    final safeDestination =
+        _safePoint(destination, fallback: const LatLng(36.7538, 3.0588));
+    final distanceKm =
+        const Distance().as(LengthUnit.Kilometer, safeOrigin, safeDestination);
+    final points = _sanitizePoints([safeOrigin, safeDestination]);
+    return RouteSnapshot(
+        points: points.length >= 2 ? points : [safeOrigin, safeDestination],
+        distanceKm: _isFinite(distanceKm) ? distanceKm : 0,
+        durationMinutes: ((_isFinite(distanceKm) ? distanceKm : 0) / 35 * 60)
+            .round()
+            .clamp(1, 999),
+        isFallback: true);
+  }
+
+  LatLng _safePoint(LatLng point, {required LatLng fallback}) {
+    if (_isFinite(point.latitude) && _isFinite(point.longitude)) return point;
+    return fallback;
+  }
+
+  List<LatLng> _sanitizePoints(List<LatLng> points) {
+    final cleaned = points
+        .where((p) => _isFinite(p.latitude) && _isFinite(p.longitude))
+        .toList();
+    if (cleaned.isEmpty) return [];
+    if (cleaned.length == 1) return [cleaned.first, cleaned.first];
+    return cleaned;
+  }
+
+  double? _numToDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    return null;
+  }
+
+  bool _isFinite(double value) => value.isFinite && !value.isNaN;
+
+  static String _env(String key, String dartDefineFallback) {
+    final value = dotenv.env[key]?.trim();
+    if (value != null && value.isNotEmpty) return value;
+    return dartDefineFallback.trim();
+  }
+}
 </file>
 
 <file path="lib/core/i18n/app_localizations.dart">
@@ -22256,6 +21512,781 @@ class _InfoLine extends StatelessWidget {
     );
   }
 }
+</file>
+
+<file path="README.md">
+# Auto Rescue
+
+A production-style Flutter + Firebase roadside assistance platform for Algeria, built as a final graduation project.
+
+Auto Rescue connects customers who need towing or roadside help with verified nearby providers in real time. The platform includes customer ordering, provider dispatch, live mission tracking, multilingual UI, admin operations, pricing management, notifications, audit logs, and Firebase-backed security rules.
+
+---
+
+## Overview
+
+Auto Rescue is a mobile-first roadside assistance and towing platform designed around three operational roles:
+
+- **Customer**: creates assistance requests, tracks provider arrival, chats, cancels requests, and rates completed missions.
+- **Provider**: receives mission offers, accepts or rejects requests, updates mission lifecycle, shares live position, tracks earnings, and rates customers.
+- **Admin**: supervises platform activity, validates providers, manages users, configures pricing/support, sends notifications, exports analytics, and reviews audit logs.
+
+The application is built with Flutter and Firebase using a Provider/ChangeNotifier architecture, Firestore realtime streams, OpenStreetMap maps, routing fallbacks, and role-based security rules.
+
+---
+
+## Features
+
+### Customer App
+
+- Create roadside assistance requests with:
+  - pickup location
+  - destination
+  - vehicle type
+  - brand/model
+  - service type
+  - estimated distance, ETA, and price
+- Realtime request tracking on map
+- Animated provider searching indicators
+- Provider scan count and dispatch attempt visibility
+- No-provider-accepted popup with:
+  - cancel request
+  - continue waiting / rescan providers
+- Live provider route, ETA, and distance
+- Mission chat
+- Active requests page
+- Mission history
+- Provider rating after completion
+- Customer profile and support pages
+- Multilingual UI support
+
+### Provider App
+
+- Provider dashboard with live availability controls
+- Online/offline and busy-state handling
+- Mission offers scoped to the offered provider
+- Accept/reject mission flow
+- Current mission tracking page
+- Live GPS tracking
+- Mission lifecycle actions:
+  - accepted
+  - on the way
+  - arrived
+  - in service
+  - completed
+- Google Maps navigation launch
+- Customer chat
+- Earnings page
+- Mission history
+- Customer rating after completion
+- Provider profile and support pages
+
+### Admin App
+
+- Admin dashboard with operational overview
+- Provider management:
+  - approve providers
+  - block/unblock providers
+  - inspect provider status
+- Customer/user management
+- Requests monitoring
+- Pricing management
+- Admin notification management
+- Activity/audit logs
+- Analytics and CSV export
+- Support configuration management
+- Role-based admin access
+
+---
+
+## Architecture
+
+The project follows a feature-first Flutter architecture with centralized application state.
+
+```text
+lib/
+  app/                  Application shell and configuration
+  core/
+    i18n/               Localization and language persistence
+    models/             Shared core models
+    services/           Firebase, routing, location, notification, audit services
+    utils/              Utility helpers
+  features/
+    admin/pages/        Admin dashboard, analytics, pricing, notifications
+    auth/pages/         Login, signup, auth gate
+    customer/pages/     Customer home, order, tracking, profile, support
+    provider/pages/     Provider dashboard, missions, tracking, earnings
+    shared/pages/       Chat, legal, onboarding, splash, permissions
+  models/               Domain models
+  repositories/         Firestore repository layer
+  state/
+    app_store.dart      Central ChangeNotifier app state
+  widgets/              Reusable UI widgets
+```
+
+### State Management
+
+The app uses the `provider` package with a central `AppStore` based on `ChangeNotifier`.
+
+`AppStore` coordinates:
+
+- authentication-aware stream subscriptions
+- request streams
+- provider streams
+- pricing configuration
+- dispatch chain state
+- provider busy state
+- live tracking state
+- customer/provider tabs
+- notifications
+- mission lifecycle transitions
+
+---
+
+## Tech Stack
+
+- **Flutter**
+- **Dart**
+- **Firebase Auth**
+- **Cloud Firestore**
+- **Firebase Storage**
+- **Firebase Cloud Messaging**
+- **Firebase Realtime Database**
+- **Provider / ChangeNotifier**
+- **Flutter Map**
+- **OpenStreetMap**
+- **Geolocator**
+- **OSRM / GraphHopper / Mapbox / OpenRouteService routing fallbacks**
+- **SharedPreferences**
+- **Flutter Local Notifications**
+- **URL Launcher**
+- **File Picker**
+- **CSV export support**
+
+---
+
+## Firebase Services Used
+
+### Firebase Authentication
+
+Used for customer, provider, and admin authentication.
+
+### Cloud Firestore
+
+Primary database for:
+
+- users
+- providers
+- requests
+- request chats
+- app configuration
+- pricing configuration
+- support configuration
+- admin notifications
+- activity logs
+- audit logs
+
+### Firebase Storage
+
+Used for image uploads such as provider/admin-managed assets.
+
+### Firebase Cloud Messaging
+
+Used for push notification payload handling and realtime notification flows.
+
+### Firebase Realtime Database
+
+Used by the provider presence system.
+
+### Firebase Hosting
+
+Configured for Flutter web builds through `firebase.json`.
+
+---
+
+## Authentication System
+
+The app includes a role-based authentication system with:
+
+- customer login/signup
+- provider signup
+- provider approval requirement before receiving missions
+- admin-only login flow
+- Firebase Auth integration
+- Firestore user profile lookup
+- role-based routing through `AuthGate`
+- persisted language selection across auth pages
+
+Supported roles:
+
+```text
+customer
+provider
+admin
+```
+
+Provider accounts are not fully active until approved by an admin.
+
+---
+
+## Realtime Dispatch System
+
+The dispatch system is implemented in `AppStore` and the request repository layer.
+
+When a customer creates a request:
+
+1. The request is created in Firestore with status `searching`.
+2. Eligible providers are scanned using existing provider data.
+3. Providers are filtered by:
+   - `isOnline == true`
+   - `isBusy != true`
+   - `isApproved == true`
+4. Eligible providers are sorted by distance from the customer.
+5. A dispatch chain is built.
+6. The request is offered to one provider at a time.
+7. Each provider receives an offer timeout window.
+8. If the provider rejects or times out, the next provider is offered.
+9. If all providers reject or time out, the customer receives a no-provider-accepted popup.
+10. The customer can cancel or continue waiting, which rebuilds the dispatch chain.
+
+Dispatch state includes:
+
+- provider chain
+- current chain index
+- current offered provider
+- scanned provider count
+- current dispatch attempt
+- offer expiration time
+- rejected provider list
+- no-provider popup state
+
+This avoids silent infinite searching and gives the customer clearer feedback.
+
+---
+
+## Provider / Customer / Admin Roles
+
+### Customer
+
+Customers can:
+
+- request help
+- view active requests
+- track provider movement
+- cancel searching requests
+- chat with provider
+- rate provider
+- view history
+- update profile
+- access support information
+
+### Provider
+
+Providers can:
+
+- go online/offline
+- receive mission offers
+- accept/reject requests
+- update mission lifecycle
+- share live GPS location
+- open navigation
+- chat with customers
+- view earnings
+- view history
+- rate customers
+
+### Admin
+
+Admins can:
+
+- approve/block providers
+- monitor users and requests
+- configure pricing
+- send app notifications
+- manage support settings
+- inspect analytics
+- export CSV reports
+- review activity logs
+
+---
+
+## Maps & Navigation
+
+The map system uses:
+
+- `flutter_map`
+- OpenStreetMap tiles
+- `latlong2`
+- Geolocator
+- external Google Maps launch through URL Launcher
+
+Tracking pages include:
+
+- customer position marker
+- provider position marker
+- destination marker
+- route polyline
+- ETA and distance
+- route progress indicator
+- draggable information sheet
+- safe-area-aware floating buttons
+
+Route behavior:
+
+```text
+accepted / onTheWay:
+  routeStart = providerPosition
+  routeEnd   = customerPosition
+
+arrived / inService:
+  routeStart = providerPosition
+  routeEnd   = destinationPosition
+
+completed:
+  active route is cleared
+```
+
+Routing is handled by `RouteService`, which supports multiple routing providers and fallback behavior.
+
+---
+
+## Notifications
+
+The project includes several notification layers:
+
+- Firebase Cloud Messaging payload handling
+- local notifications
+- admin broadcast notifications
+- in-app lifecycle notifications
+- chat notifications
+- mission lifecycle alerts
+- provider offer notifications
+- no-provider-available notifications
+
+Admin notifications can be configured with:
+
+- audience
+- type
+- popup behavior
+- schedule
+- optional image
+- sound behavior
+
+---
+
+## Localization
+
+Auto Rescue supports:
+
+- French
+- English
+- Arabic
+
+The localization system includes:
+
+- `AppLocalizations`
+- language selector widget
+- persisted language choice using `SharedPreferences`
+- RTL direction support for Arabic
+- localized auth, home, tracking, support, profile, admin, and shared UI strings
+
+Default language behavior is managed by `AppLanguageController`.
+
+---
+
+## Project Structure
+
+```text
+.
+├── android/
+├── assets/
+│   ├── logo/
+│   └── sounds/
+├── lib/
+│   ├── app/
+│   ├── core/
+│   │   ├── i18n/
+│   │   ├── models/
+│   │   ├── services/
+│   │   └── utils/
+│   ├── features/
+│   │   ├── admin/
+│   │   ├── auth/
+│   │   ├── customer/
+│   │   ├── provider/
+│   │   └── shared/
+│   ├── models/
+│   ├── repositories/
+│   ├── state/
+│   ├── widgets/
+│   ├── firebase_options.dart
+│   └── main.dart
+├── scripts/
+├── test/
+├── web/
+├── firebase.json
+├── firestore.rules
+├── storage.rules
+├── pubspec.yaml
+└── README.md
+```
+
+---
+
+## Installation
+
+### Prerequisites
+
+Install:
+
+- Flutter SDK
+- Dart SDK
+- Firebase CLI
+- FlutterFire CLI
+- Android Studio or VS Code
+- Android SDK
+- A Firebase project
+
+Check Flutter setup:
+
+```bash
+flutter doctor
+```
+
+Install dependencies:
+
+```bash
+flutter pub get
+```
+
+---
+
+## Firebase Setup
+
+The project is configured for Firebase project:
+
+```text
+depannage-dz-imad-2026
+```
+
+Firebase configuration files used by the app:
+
+```text
+lib/firebase_options.dart
+android/app/google-services.json
+firebase.json
+firestore.rules
+storage.rules
+```
+
+If setting up a new Firebase project, run:
+
+```bash
+dart pub global activate flutterfire_cli
+flutterfire configure
+```
+
+Enable the following Firebase services:
+
+- Authentication
+- Cloud Firestore
+- Firebase Storage
+- Firebase Cloud Messaging
+- Realtime Database
+- Firebase Hosting, if building for web
+
+Deploy Firestore and Storage rules:
+
+```bash
+firebase deploy --only firestore:rules
+firebase deploy --only storage
+```
+
+Deploy web hosting after building:
+
+```bash
+flutter build web --release
+firebase deploy --only hosting
+```
+
+---
+
+## Environment Configuration
+
+The project currently includes generated Firebase options for:
+
+- Android
+- Web
+
+iOS, macOS, Windows, and Linux are not configured in `firebase_options.dart` and will throw an unsupported platform error until configured with FlutterFire CLI.
+
+Important configuration files:
+
+```text
+lib/firebase_options.dart
+android/app/google-services.json
+firebase.json
+firestore.rules
+storage.rules
+web/firebase-messaging-sw.js
+```
+
+These Firebase client files are required by FlutterFire and are intentionally public client configuration. Do not place Firebase Admin SDK credentials or private service-account keys in client code.
+
+Create local environment variables before running the app:
+
+```bash
+cp .env.example .env
+```
+
+On Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Optional routing API keys can be added to `.env`:
+
+```text
+OPENROUTESERVICE_API_KEY=
+GRAPHHOPPER_API_KEY=
+MAPBOX_ACCESS_TOKEN=
+```
+
+If these values are blank, the app continues to run using OSRM where available and the local straight-line route fallback.
+
+Maintenance scripts that use the Firebase Admin SDK require a local, ignored service account file:
+
+```bash
+FIREBASE_ADMIN_CREDENTIALS=path/to/firebase-admin.json node scripts/reset_sessions.js
+```
+
+If `FIREBASE_ADMIN_CREDENTIALS` is not set, the script looks for an ignored `firebase-admin.json` file at the project root.
+
+---
+
+## Running Locally
+
+Run on a connected Android device or emulator:
+
+```bash
+flutter run
+```
+
+Run on web:
+
+```bash
+flutter run -d chrome
+```
+
+Fetch dependencies:
+
+```bash
+flutter pub get
+```
+
+Analyze code:
+
+```bash
+flutter analyze
+```
+
+Run tests:
+
+```bash
+flutter test
+```
+
+---
+
+## Build Commands
+
+Build Android APK:
+
+```bash
+flutter build apk --release
+```
+
+Build Flutter web:
+
+```bash
+flutter build web --release
+```
+
+Format code:
+
+```bash
+dart format .
+```
+
+Analyze code:
+
+```bash
+flutter analyze
+```
+
+Run tests:
+
+```bash
+flutter test
+```
+
+---
+
+## Production Notes
+
+Before production deployment:
+
+- Deploy latest `firestore.rules`.
+- Deploy latest `storage.rules`.
+- Verify Firebase Authentication providers.
+- Verify Firestore indexes if queries require them.
+- Validate provider approval workflow.
+- Test dispatch with multiple real provider accounts.
+- Test background/foreground notification delivery.
+- Test location permissions on physical Android devices.
+- Verify Realtime Database presence behavior.
+- Verify route fallback behavior in poor network conditions.
+- Remove debug-only logs where necessary.
+- Protect admin/service account credentials.
+
+---
+
+## Security Notes
+
+Security is enforced through Firebase Authentication and Firestore rules.
+
+Implemented protections include:
+
+- role-based access control
+- customer-only request creation
+- customer-owned request cancellation
+- provider-only mission acceptance/update flows
+- provider availability checks
+- admin-only app configuration writes
+- admin-only audit/activity access
+- scoped request read access
+- scoped chat access based on request visibility
+- image upload limits in Storage rules
+
+Client-side role checks improve UX, but Firebase rules remain the primary security boundary.
+
+Repository security expectations:
+
+- never commit `.env`
+- never commit `firebase-admin.json` or service-account exports
+- rotate any API key or private key that was previously committed
+- restrict external routing API keys by platform, domain, package name, or quota where the provider supports it
+- keep FlutterFire client configuration files committed because they are required public client configuration, not Admin SDK secrets
+
+---
+
+## Firestore Rules
+
+The project includes `firestore.rules` with role-aware access for:
+
+- `users`
+- `providers`
+- `requests`
+- `tracking`
+- `app_config`
+- `app_notifications`
+- `admin_activity_logs`
+- `admin_audit_logs`
+- `request_chats`
+- `chats`
+
+Important request permissions include:
+
+- customers can create their own searching requests
+- customers can cancel their own searching requests
+- customers can dispatch their own request to available providers
+- providers can accept offered requests
+- providers can update assigned active missions
+- admins can manage platform data
+
+Deploy rules with:
+
+```bash
+firebase deploy --only firestore:rules
+```
+
+---
+
+## Realtime Database Presence System
+
+The project includes a provider presence service using Firebase Realtime Database.
+
+Presence path:
+
+```text
+presence/providers/{providerUid}
+```
+
+The service mirrors provider online state into Firestore provider documents, allowing dispatch to consider realtime availability through provider fields such as:
+
+```text
+isOnline
+isBusy
+isApproved
+lastSeenAtIso
+```
+
+This supports faster provider availability checks and more accurate dispatch behavior.
+
+---
+
+## Screenshots
+
+Add product screenshots here before publication.
+
+```text
+docs/screenshots/customer-home.png
+docs/screenshots/create-order.png
+docs/screenshots/customer-tracking.png
+docs/screenshots/provider-dashboard.png
+docs/screenshots/provider-tracking.png
+docs/screenshots/admin-dashboard.png
+docs/screenshots/admin-analytics.png
+```
+
+Example layout:
+
+| Customer | Provider | Admin |
+|---|---|---|
+| ![Customer Home](docs/screenshots/customer-home.png) | ![Provider Dashboard](docs/screenshots/provider-dashboard.png) | ![Admin Dashboard](docs/screenshots/admin-dashboard.png) |
+
+---
+
+## Known Limitations / Future Improvements
+
+- iOS, macOS, Windows, and Linux Firebase options are not configured yet.
+- Some admin and secondary screens may still need full localization coverage.
+- No-provider popup text should be moved fully into localization keys.
+- Dispatch currently depends on Firestore provider availability fields being fresh.
+- Production deployment should include complete Firebase indexes and monitoring.
+- Automated integration tests for dispatch, cancellation, and tracking should be expanded.
+- A dedicated backend or Cloud Functions layer could further harden dispatch logic.
+- Realtime Database security rules should be reviewed and deployed with production constraints.
+- Route services depend on external routing APIs and network availability.
+
+---
+
+## License
+
+This project is currently provided for academic and portfolio evaluation purposes.
+
+A production license should be defined before commercial distribution.
+
+---
+
+## Author
+
+Developed as a final graduation project.
+
+**Project:** Auto Rescue  
+**Type:** Flutter + Firebase roadside assistance platform  
+**Region focus:** Algeria
 </file>
 
 <file path="lib/features/admin/pages/admin_dashboard_page.dart">
@@ -25372,6 +25403,600 @@ class _MiniStat extends StatelessWidget {
 }
 </file>
 
+<file path="lib/features/auth/pages/signup_page.dart">
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../../core/i18n/app_localizations.dart';
+import '../../../core/services/app_feedback.dart';
+import '../../../core/services/auth_service.dart';
+import '../../../widgets/language_selector.dart';
+
+class SignupPage extends StatefulWidget {
+  const SignupPage({
+    super.key,
+    required this.authService,
+  });
+
+  final AuthService authService;
+
+  @override
+  State<SignupPage> createState() => _SignupPageState();
+}
+
+class _SignupPageState extends State<SignupPage>
+    with SingleTickerProviderStateMixin {
+  final _formKey = GlobalKey<FormState>();
+  final _fullNameController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+
+  bool _loading = false;
+  bool _obscure = true;
+  bool _confirmObscure = true;
+  String _role = 'customer';
+
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+
+    _fadeAnimation = CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    );
+
+    _animationController.forward();
+  }
+
+  @override
+  void dispose() {
+    _fullNameController.dispose();
+    _phoneController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _createAccountDirectly() async {
+    final strings = AppLocalizations.of(context);
+
+    FocusScope.of(context).unfocus();
+
+    if (_loading) return;
+
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      AppFeedback.showError(context, strings.t('checkInfo'));
+      return;
+    }
+
+    if (_passwordController.text != _confirmPasswordController.text) {
+      AppFeedback.showError(context, strings.t('passwordMismatch'));
+      return;
+    }
+
+    setState(() => _loading = true);
+
+    try {
+      await widget.authService.signUpWithEmailPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+        fullName: _fullNameController.text.trim(),
+        phone: _phoneController.text.trim(),
+        role: _role,
+      );
+
+      if (!mounted) return;
+
+      AppFeedback.showSuccess(
+        context,
+        _role == 'provider'
+            ? strings.t('providerCreated')
+            : strings.t('accountCreated'),
+      );
+
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } catch (e) {
+      if (!mounted) return;
+
+      AppFeedback.showError(
+        context,
+        e.toString().replaceFirst('Exception: ', ''),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  Widget _roleTile({
+    required String value,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+  }) {
+    final selected = _role == value;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: _loading ? null : () => setState(() => _role = value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFFFFF5DB) : const Color(0xFFF8F5EF),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? const Color(0xFFF59E0B) : const Color(0xFFE7DFD1),
+            width: selected ? 2 : 1,
+          ),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor:
+                  selected ? const Color(0xFFF59E0B) : const Color(0xFFEDE4D3),
+              radius: 22,
+              child: Icon(
+                icon,
+                color: selected
+                    ? const Color(0xFF1F293B)
+                    : const Color(0xFF6B7280),
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                      color:
+                          selected ? const Color(0xFF0F172A) : Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: selected ? Colors.black54 : Colors.black45,
+                      height: 1.25,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              selected ? Icons.check_circle : Icons.radio_button_unchecked,
+              color: selected ? const Color(0xFFF59E0B) : Colors.black38,
+              size: 24,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
+    final screenSize = MediaQuery.sizeOf(context);
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+    final keyboardOpen = keyboardInset > 0;
+    final availableHeight = screenSize.height - keyboardInset;
+    final compact = keyboardOpen || availableHeight < 720;
+
+   final logoWidth = compact ? 420.0 : 560.0;
+
+    final scrollPadding = EdgeInsets.fromLTRB(
+      compact ? 18 : 20,
+      keyboardOpen ? 4 : 6,
+      compact ? 18 : 20,
+      compact ? 10 : 14,
+    );
+
+    final cardPadding = EdgeInsets.all(compact ? 20 : 24);
+    final heroCardGap = compact ? 4.0 : 6.0;
+
+    return Scaffold(
+      body: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Color(0xFF0F172A),
+              Color(0xFF1E293B),
+              Color(0xFFF59E0B),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: scrollPadding,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 540),
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          IconButton(
+                            onPressed: _loading
+                                ? null
+                                : () => Navigator.of(context).pop(),
+                            icon: const Icon(
+                              Icons.arrow_back,
+                              color: Colors.white,
+                              size: 26,
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: compact ? 0 : 1),
+                      Image.asset(
+                        'assets/logo/applogo.png',
+                        width: logoWidth,
+                        fit: BoxFit.contain,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        strings.t('app_subtitle'),
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      SizedBox(height: heroCardGap),
+                      Container(
+                        padding: cardPadding,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(32),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.15),
+                              blurRadius: 35,
+                              offset: const Offset(0, 18),
+                            ),
+                          ],
+                        ),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                strings.t('signupTitle'),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 26,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                strings.t('signupSubtitle'),
+                                style: const TextStyle(
+                                  color: Colors.black54,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Align(
+                                alignment: AlignmentDirectional.centerEnd,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF8F5EF),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: const Color(0xFFE5E7EB),
+                                    ),
+                                  ),
+                                  child: const LanguageSelector(),
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              _roleTile(
+                                value: 'customer',
+                                title: strings.t('signupCustomer'),
+                                subtitle: strings.t('signupCustomerDesc'),
+                                icon: Icons.person_outline,
+                              ),
+                              const SizedBox(height: 12),
+                              _roleTile(
+                                value: 'provider',
+                                title: strings.t('signupProvider'),
+                                subtitle: strings.t('signupProviderDesc'),
+                                icon: Icons.car_repair_outlined,
+                              ),
+                              const SizedBox(height: 20),
+                              TextFormField(
+                                controller: _fullNameController,
+                                validator: (value) {
+                                  final text = (value ?? '').trim();
+
+                                  if (text.isEmpty) {
+                                    return strings.t('enterFullName');
+                                  }
+
+                                  if (text.length < 3) {
+                                    return strings.t('nameTooShort');
+                                  }
+
+                                  return null;
+                                },
+                                decoration: InputDecoration(
+                                  labelText: strings.t('full_name'),
+                                  prefixIcon: const Icon(Icons.badge_outlined),
+                                  filled: true,
+                                  fillColor: const Color(0xFFF8F5EF),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(18),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              TextFormField(
+                                controller: _phoneController,
+                                keyboardType: TextInputType.phone,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'[0-9+\s]'),
+                                  ),
+                                ],
+                                validator: (value) {
+                                  final text = (value ?? '').trim();
+
+                                  if (text.isEmpty) {
+                                    return strings.t('enterPhone');
+                                  }
+
+                                  final digits =
+                                      text.replaceAll(RegExp(r'\D'), '');
+                                  if (digits.length < 9) {
+                                    return strings.t('phoneInvalid');
+                                  }
+
+                                  return null;
+                                },
+                                decoration: InputDecoration(
+                                  labelText: strings.t('phone'),
+                                  hintText: '0696 93 85 26',
+                                  prefixIcon: const Icon(Icons.phone_outlined),
+                                  filled: true,
+                                  fillColor: const Color(0xFFF8F5EF),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(18),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              TextFormField(
+                                controller: _emailController,
+                                keyboardType: TextInputType.emailAddress,
+                                validator: (value) {
+                                  final text = (value ?? '').trim();
+
+                                  if (text.isEmpty) {
+                                    return strings.t('enterEmail');
+                                  }
+
+                                  if (!text.contains('@')) {
+                                    return strings.t('invalidEmail');
+                                  }
+
+                                  return null;
+                                },
+                                decoration: InputDecoration(
+                                  labelText: strings.t('email'),
+                                  prefixIcon: const Icon(Icons.email_outlined),
+                                  filled: true,
+                                  fillColor: const Color(0xFFF8F5EF),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(18),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              TextFormField(
+                                controller: _passwordController,
+                                obscureText: _obscure,
+                                validator: (value) {
+                                  final text = (value ?? '').trim();
+
+                                  if (text.isEmpty) {
+                                    return strings.t('enterPassword');
+                                  }
+
+                                  if (text.length < 6) {
+                                    return strings.t('passwordTooShort');
+                                  }
+
+                                  return null;
+                                },
+                                decoration: InputDecoration(
+                                  labelText: strings.t('password'),
+                                  prefixIcon: const Icon(Icons.lock_outline),
+                                  suffixIcon: IconButton(
+                                    onPressed: () =>
+                                        setState(() => _obscure = !_obscure),
+                                    icon: Icon(
+                                      _obscure
+                                          ? Icons.visibility_off_outlined
+                                          : Icons.visibility_outlined,
+                                    ),
+                                  ),
+                                  filled: true,
+                                  fillColor: const Color(0xFFF8F5EF),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(18),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              TextFormField(
+                                controller: _confirmPasswordController,
+                                obscureText: _confirmObscure,
+                                validator: (value) {
+                                  final text = (value ?? '').trim();
+
+                                  if (text.isEmpty) {
+                                    return strings.t('confirmPassword');
+                                  }
+
+                                  if (text != _passwordController.text) {
+                                    return strings.t('passwordsMismatch');
+                                  }
+
+                                  return null;
+                                },
+                                decoration: InputDecoration(
+                                  labelText: strings.t('confirmPassword'),
+                                  prefixIcon: const Icon(Icons.lock_outlined),
+                                  suffixIcon: IconButton(
+                                    onPressed: () => setState(
+                                      () => _confirmObscure = !_confirmObscure,
+                                    ),
+                                    icon: Icon(
+                                      _confirmObscure
+                                          ? Icons.visibility_off_outlined
+                                          : Icons.visibility_outlined,
+                                    ),
+                                  ),
+                                  filled: true,
+                                  fillColor: const Color(0xFFF8F5EF),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(18),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF8F5EF),
+                                  borderRadius: BorderRadius.circular(18),
+                                  border: Border.all(
+                                    color: const Color(0xFFE2D6C2),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.info_outline,
+                                      color: Color(0xFFF59E0B),
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        _role == 'provider'
+                                            ? strings.t('providerNote')
+                                            : strings.t('customerNote'),
+                                        style: const TextStyle(
+                                          color: Colors.black54,
+                                          height: 1.35,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              SizedBox(
+                                width: double.infinity,
+                                child: FilledButton.icon(
+                                  onPressed:
+                                      _loading ? null : _createAccountDirectly,
+                                  icon: _loading
+                                      ? const SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Icon(
+                                          Icons.person_add_alt_1_outlined,
+                                        ),
+                                  label: Text(strings.t('create_account')),
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton.icon(
+                                  onPressed: _loading
+                                      ? null
+                                      : () => Navigator.of(context).pop(),
+                                  icon: const Icon(Icons.login),
+                                  label: Text(strings.t('alreadyAccount')),
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+</file>
+
 <file path="lib/main.dart">
 // lib/main.dart
 import 'package:firebase_core/firebase_core.dart';
@@ -25409,7 +26034,9 @@ Future<void> main() async {
   try {
     await FcmService.init();
   } catch (e) {
-    debugPrint('FCM init skipped: $e');
+    if (kDebugMode) {
+      debugPrint('FCM init skipped.');
+    }
   }
   final store = AppStore(
     requestRepository: FirestoreRequestRepository(),
@@ -27208,600 +27835,6 @@ packages:
 sdks:
   dart: ">=3.11.0 <4.0.0"
   flutter: ">=3.38.4"
-</file>
-
-<file path="lib/features/auth/pages/signup_page.dart">
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-
-import '../../../core/i18n/app_localizations.dart';
-import '../../../core/services/app_feedback.dart';
-import '../../../core/services/auth_service.dart';
-import '../../../widgets/language_selector.dart';
-
-class SignupPage extends StatefulWidget {
-  const SignupPage({
-    super.key,
-    required this.authService,
-  });
-
-  final AuthService authService;
-
-  @override
-  State<SignupPage> createState() => _SignupPageState();
-}
-
-class _SignupPageState extends State<SignupPage>
-    with SingleTickerProviderStateMixin {
-  final _formKey = GlobalKey<FormState>();
-  final _fullNameController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
-
-  bool _loading = false;
-  bool _obscure = true;
-  bool _confirmObscure = true;
-  String _role = 'customer';
-
-  late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 500),
-    );
-
-    _fadeAnimation = CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    );
-
-    _animationController.forward();
-  }
-
-  @override
-  void dispose() {
-    _fullNameController.dispose();
-    _phoneController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
-    _confirmPasswordController.dispose();
-    _animationController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _createAccountDirectly() async {
-    final strings = AppLocalizations.of(context);
-
-    FocusScope.of(context).unfocus();
-
-    if (_loading) return;
-
-    if (!(_formKey.currentState?.validate() ?? false)) {
-      AppFeedback.showError(context, strings.t('checkInfo'));
-      return;
-    }
-
-    if (_passwordController.text != _confirmPasswordController.text) {
-      AppFeedback.showError(context, strings.t('passwordMismatch'));
-      return;
-    }
-
-    setState(() => _loading = true);
-
-    try {
-      await widget.authService.signUpWithEmailPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-        fullName: _fullNameController.text.trim(),
-        phone: _phoneController.text.trim(),
-        role: _role,
-      );
-
-      if (!mounted) return;
-
-      AppFeedback.showSuccess(
-        context,
-        _role == 'provider'
-            ? strings.t('providerCreated')
-            : strings.t('accountCreated'),
-      );
-
-      Navigator.of(context).popUntil((route) => route.isFirst);
-    } catch (e) {
-      if (!mounted) return;
-
-      AppFeedback.showError(
-        context,
-        e.toString().replaceFirst('Exception: ', ''),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
-    }
-  }
-
-  Widget _roleTile({
-    required String value,
-    required String title,
-    required String subtitle,
-    required IconData icon,
-  }) {
-    final selected = _role == value;
-
-    return InkWell(
-      borderRadius: BorderRadius.circular(20),
-      onTap: _loading ? null : () => setState(() => _role = value),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFFFFF5DB) : const Color(0xFFF8F5EF),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: selected ? const Color(0xFFF59E0B) : const Color(0xFFE7DFD1),
-            width: selected ? 2 : 1,
-          ),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ]
-              : null,
-        ),
-        child: Row(
-          children: [
-            CircleAvatar(
-              backgroundColor:
-                  selected ? const Color(0xFFF59E0B) : const Color(0xFFEDE4D3),
-              radius: 22,
-              child: Icon(
-                icon,
-                color: selected
-                    ? const Color(0xFF1F293B)
-                    : const Color(0xFF6B7280),
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 16,
-                      color:
-                          selected ? const Color(0xFF0F172A) : Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      color: selected ? Colors.black54 : Colors.black45,
-                      height: 1.25,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              selected ? Icons.check_circle : Icons.radio_button_unchecked,
-              color: selected ? const Color(0xFFF59E0B) : Colors.black38,
-              size: 24,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final strings = AppLocalizations.of(context);
-    final screenSize = MediaQuery.sizeOf(context);
-    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
-    final keyboardOpen = keyboardInset > 0;
-    final availableHeight = screenSize.height - keyboardInset;
-    final compact = keyboardOpen || availableHeight < 720;
-
-   final logoWidth = compact ? 420.0 : 560.0;
-
-    final scrollPadding = EdgeInsets.fromLTRB(
-      compact ? 18 : 20,
-      keyboardOpen ? 4 : 6,
-      compact ? 18 : 20,
-      compact ? 10 : 14,
-    );
-
-    final cardPadding = EdgeInsets.all(compact ? 20 : 24);
-    final heroCardGap = compact ? 4.0 : 6.0;
-
-    return Scaffold(
-      body: Container(
-        width: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              Color(0xFF0F172A),
-              Color(0xFF1E293B),
-              Color(0xFFF59E0B),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: scrollPadding,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 540),
-                child: FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          IconButton(
-                            onPressed: _loading
-                                ? null
-                                : () => Navigator.of(context).pop(),
-                            icon: const Icon(
-                              Icons.arrow_back,
-                              color: Colors.white,
-                              size: 26,
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: compact ? 0 : 1),
-                      Image.asset(
-                        'assets/logo/applogo.png',
-                        width: logoWidth,
-                        fit: BoxFit.contain,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        strings.t('app_subtitle'),
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      SizedBox(height: heroCardGap),
-                      Container(
-                        padding: cardPadding,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(32),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.15),
-                              blurRadius: 35,
-                              offset: const Offset(0, 18),
-                            ),
-                          ],
-                        ),
-                        child: Form(
-                          key: _formKey,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                strings.t('signupTitle'),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 26,
-                                  color: Color(0xFF0F172A),
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                strings.t('signupSubtitle'),
-                                style: const TextStyle(
-                                  color: Colors.black54,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Align(
-                                alignment: AlignmentDirectional.centerEnd,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF8F5EF),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: const Color(0xFFE5E7EB),
-                                    ),
-                                  ),
-                                  child: const LanguageSelector(),
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                              _roleTile(
-                                value: 'customer',
-                                title: strings.t('signupCustomer'),
-                                subtitle: strings.t('signupCustomerDesc'),
-                                icon: Icons.person_outline,
-                              ),
-                              const SizedBox(height: 12),
-                              _roleTile(
-                                value: 'provider',
-                                title: strings.t('signupProvider'),
-                                subtitle: strings.t('signupProviderDesc'),
-                                icon: Icons.car_repair_outlined,
-                              ),
-                              const SizedBox(height: 20),
-                              TextFormField(
-                                controller: _fullNameController,
-                                validator: (value) {
-                                  final text = (value ?? '').trim();
-
-                                  if (text.isEmpty) {
-                                    return strings.t('enterFullName');
-                                  }
-
-                                  if (text.length < 3) {
-                                    return strings.t('nameTooShort');
-                                  }
-
-                                  return null;
-                                },
-                                decoration: InputDecoration(
-                                  labelText: strings.t('full_name'),
-                                  prefixIcon: const Icon(Icons.badge_outlined),
-                                  filled: true,
-                                  fillColor: const Color(0xFFF8F5EF),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(18),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-                              TextFormField(
-                                controller: _phoneController,
-                                keyboardType: TextInputType.phone,
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.allow(
-                                    RegExp(r'[0-9+\s]'),
-                                  ),
-                                ],
-                                validator: (value) {
-                                  final text = (value ?? '').trim();
-
-                                  if (text.isEmpty) {
-                                    return strings.t('enterPhone');
-                                  }
-
-                                  final digits =
-                                      text.replaceAll(RegExp(r'\D'), '');
-                                  if (digits.length < 9) {
-                                    return strings.t('phoneInvalid');
-                                  }
-
-                                  return null;
-                                },
-                                decoration: InputDecoration(
-                                  labelText: strings.t('phone'),
-                                  hintText: '0696 93 85 26',
-                                  prefixIcon: const Icon(Icons.phone_outlined),
-                                  filled: true,
-                                  fillColor: const Color(0xFFF8F5EF),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(18),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-                              TextFormField(
-                                controller: _emailController,
-                                keyboardType: TextInputType.emailAddress,
-                                validator: (value) {
-                                  final text = (value ?? '').trim();
-
-                                  if (text.isEmpty) {
-                                    return strings.t('enterEmail');
-                                  }
-
-                                  if (!text.contains('@')) {
-                                    return strings.t('invalidEmail');
-                                  }
-
-                                  return null;
-                                },
-                                decoration: InputDecoration(
-                                  labelText: strings.t('email'),
-                                  prefixIcon: const Icon(Icons.email_outlined),
-                                  filled: true,
-                                  fillColor: const Color(0xFFF8F5EF),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(18),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-                              TextFormField(
-                                controller: _passwordController,
-                                obscureText: _obscure,
-                                validator: (value) {
-                                  final text = (value ?? '').trim();
-
-                                  if (text.isEmpty) {
-                                    return strings.t('enterPassword');
-                                  }
-
-                                  if (text.length < 6) {
-                                    return strings.t('passwordTooShort');
-                                  }
-
-                                  return null;
-                                },
-                                decoration: InputDecoration(
-                                  labelText: strings.t('password'),
-                                  prefixIcon: const Icon(Icons.lock_outline),
-                                  suffixIcon: IconButton(
-                                    onPressed: () =>
-                                        setState(() => _obscure = !_obscure),
-                                    icon: Icon(
-                                      _obscure
-                                          ? Icons.visibility_off_outlined
-                                          : Icons.visibility_outlined,
-                                    ),
-                                  ),
-                                  filled: true,
-                                  fillColor: const Color(0xFFF8F5EF),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(18),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-                              TextFormField(
-                                controller: _confirmPasswordController,
-                                obscureText: _confirmObscure,
-                                validator: (value) {
-                                  final text = (value ?? '').trim();
-
-                                  if (text.isEmpty) {
-                                    return strings.t('confirmPassword');
-                                  }
-
-                                  if (text != _passwordController.text) {
-                                    return strings.t('passwordsMismatch');
-                                  }
-
-                                  return null;
-                                },
-                                decoration: InputDecoration(
-                                  labelText: strings.t('confirmPassword'),
-                                  prefixIcon: const Icon(Icons.lock_outlined),
-                                  suffixIcon: IconButton(
-                                    onPressed: () => setState(
-                                      () => _confirmObscure = !_confirmObscure,
-                                    ),
-                                    icon: Icon(
-                                      _confirmObscure
-                                          ? Icons.visibility_off_outlined
-                                          : Icons.visibility_outlined,
-                                    ),
-                                  ),
-                                  filled: true,
-                                  fillColor: const Color(0xFFF8F5EF),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(18),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF8F5EF),
-                                  borderRadius: BorderRadius.circular(18),
-                                  border: Border.all(
-                                    color: const Color(0xFFE2D6C2),
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.info_outline,
-                                      color: Color(0xFFF59E0B),
-                                      size: 20,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        _role == 'provider'
-                                            ? strings.t('providerNote')
-                                            : strings.t('customerNote'),
-                                        style: const TextStyle(
-                                          color: Colors.black54,
-                                          height: 1.35,
-                                          fontSize: 13,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                              SizedBox(
-                                width: double.infinity,
-                                child: FilledButton.icon(
-                                  onPressed:
-                                      _loading ? null : _createAccountDirectly,
-                                  icon: _loading
-                                      ? const SizedBox(
-                                          width: 18,
-                                          height: 18,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
-                                        )
-                                      : const Icon(
-                                          Icons.person_add_alt_1_outlined,
-                                        ),
-                                  label: Text(strings.t('create_account')),
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-                              SizedBox(
-                                width: double.infinity,
-                                child: OutlinedButton.icon(
-                                  onPressed: _loading
-                                      ? null
-                                      : () => Navigator.of(context).pop(),
-                                  icon: const Icon(Icons.login),
-                                  label: Text(strings.t('alreadyAccount')),
-                                  style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 14,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 </file>
 
 <file path="lib/features/auth/pages/login_page.dart">
@@ -30583,68 +30616,6 @@ class _NoProvidersPopup extends StatelessWidget {
 }
 </file>
 
-<file path="pubspec.yaml">
-name: auto_rescue
-description: Auto Rescue - Real-time roadside assistance platform
-publish_to: 'none'
-version: 1.0.0+1
-
-environment:
-  sdk: ">=3.3.0 <4.0.0"
-
-dependencies:
-  flutter:
-    sdk: flutter
-  flutter_localizations:
-    sdk: flutter
-  provider: ^6.1.5+1              # keep only one provider
-  http: ^1.2.2
-  flutter_dotenv: ^5.2.1
-  flutter_map: ^8.3.0
-  latlong2: ^0.9.1
-  geolocator: ^14.0.2
-  url_launcher: ^6.3.0
-  web: ^1.1.1
-  cupertino_icons: ^1.0.8
-
-  firebase_core: ^4.7.0
-  firebase_auth: ^6.4.0
-  cloud_firestore: ^6.3.0
-  firebase_storage: ^13.3.0
-  firebase_messaging: ^16.2.0
-  file_picker: ^11.0.2
-
-  flutter_local_notifications: ^21.0.0
-  audioplayers: ^6.1.0
-  vibration: ^3.1.8
-  shared_preferences: ^2.5.3
-  pinput: ^5.0.0
-  firebase_database: ^12.3.0
-
-dev_dependencies:
-  flutter_test:
-    sdk: flutter
-  flutter_lints: ^6.0.0
-  flutter_launcher_icons: ^0.14.3
-
-flutter:
-  uses-material-design: true
-  assets:
-    - assets/logo/applogo.png
-    - assets/sounds/alert.mp3
-    - assets/sounds/admin_popup.ogg
-
-flutter_launcher_icons:
-  android: true
-  image_path: assets/logo/applogo.png
-  min_sdk_android: 21
-  web:
-    generate: true
-    image_path: assets/logo/applogo.png
-    background_color: "#0F172A"
-    theme_color: "#2563EB"
-</file>
-
 <file path="lib/features/provider/pages/provider_tracking_page.dart">
 import 'dart:async';
 import 'dart:math' as math;
@@ -32320,6 +32291,68 @@ class _InfoBox extends StatelessWidget {
 }
 </file>
 
+<file path="pubspec.yaml">
+name: auto_rescue
+description: Auto Rescue - Real-time roadside assistance platform
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  provider: ^6.1.5+1              # keep only one provider
+  http: ^1.2.2
+  flutter_dotenv: ^5.2.1
+  flutter_map: ^8.3.0
+  latlong2: ^0.9.1
+  geolocator: ^14.0.2
+  url_launcher: ^6.3.0
+  web: ^1.1.1
+  cupertino_icons: ^1.0.8
+
+  firebase_core: ^4.7.0
+  firebase_auth: ^6.4.0
+  cloud_firestore: ^6.3.0
+  firebase_storage: ^13.3.0
+  firebase_messaging: ^16.2.0
+  file_picker: ^11.0.2
+
+  flutter_local_notifications: ^21.0.0
+  audioplayers: ^6.1.0
+  vibration: ^3.1.8
+  shared_preferences: ^2.5.3
+  pinput: ^5.0.0
+  firebase_database: ^12.3.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.3
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/logo/applogo.png
+    - assets/sounds/alert.mp3
+    - assets/sounds/admin_popup.ogg
+
+flutter_launcher_icons:
+  android: true
+  image_path: assets/logo/applogo.png
+  min_sdk_android: 21
+  web:
+    generate: true
+    image_path: assets/logo/applogo.png
+    background_color: "#0F172A"
+    theme_color: "#2563EB"
+</file>
+
 <file path="lib/state/app_store.dart">
 import 'dart:async';
 
@@ -32409,6 +32442,7 @@ class AppStore extends ChangeNotifier {
   Map<String, InAppNotificationItem> _activeAdminPopupItems = {};
   bool _adminNotificationDeliveryReady = false;
   bool _providersLoaded = false;
+  DateTime? _providersLoadedAt;
 
   final Map<String, Timer> _dispatchTimers = {};
   final Map<String, StreamSubscription<Position>> _liveTrackingSubs = {};
@@ -32439,6 +32473,43 @@ class AppStore extends ChangeNotifier {
   int currentDispatchAttempt(String requestId) =>
       _currentDispatchAttempts[requestId] ?? 0;
 
+  static bool _isValidDispatchPosition(LatLng position) {
+    final lat = position.latitude;
+    final lng = position.longitude;
+    return lat.isFinite &&
+        lng.isFinite &&
+        !lat.isNaN &&
+        !lng.isNaN &&
+        lat >= -90 &&
+        lat <= 90 &&
+        lng >= -180 &&
+        lng <= 180 &&
+        !(lat == 0 && lng == 0);
+  }
+
+  void _debugDispatchDiagnostics({
+    required String? requestId,
+    required int eligibleCount,
+    required int rejectedCount,
+    required Map<String, int> excluded,
+  }) {
+    if (!kDebugMode) return;
+    final excludedSummary = excluded.entries
+        .where((entry) => entry.value > 0)
+        .map((entry) => '${entry.key}=${entry.value}')
+        .join(', ');
+    debugPrint(
+      '[Dispatch] request=${requestId ?? 'none'} providersLoaded=$_providersLoaded '
+      'totalProviders=${providers.length} eligibleProviders=$eligibleCount '
+      'rejectedProviders=$rejectedCount excluded=[$excludedSummary]',
+    );
+  }
+
+  void _debugDispatch(String message) {
+    if (!kDebugMode) return;
+    debugPrint('[Dispatch] $message');
+  }
+
   void bootstrap() {
     _authSub = auth.authStateChanges().listen((user) async {
       await _adminNotificationsSub?.cancel();
@@ -32448,6 +32519,7 @@ class AppStore extends ChangeNotifier {
       _requests = [];
       providers = [];
       _providersLoaded = false;
+      _providersLoadedAt = null;
       currentUserRoleName = null;
       _currentUserUid = null;
       _currentUserProfile = const {};
@@ -32502,24 +32574,48 @@ class AppStore extends ChangeNotifier {
       providers = snap.docs.map((doc) {
         final map = doc.data();
 
-        LatLng parsePosition() {
+        ({LatLng position, bool isValid}) parsePosition() {
           final raw = map['position'];
           if (raw is Map<String, dynamic>) {
             final lat = raw['lat'];
             final lng = raw['lng'];
             if (lat is num && lng is num) {
-              return LatLng(lat.toDouble(), lng.toDouble());
+              return (
+                position: LatLng(lat.toDouble(), lng.toDouble()),
+                isValid: _isValidDispatchPosition(
+                  LatLng(lat.toDouble(), lng.toDouble()),
+                )
+              );
             }
           }
-          return const LatLng(36.7538, 3.0588);
+          if (raw is GeoPoint) {
+            final point = LatLng(raw.latitude, raw.longitude);
+            return (
+              position: point,
+              isValid: _isValidDispatchPosition(point),
+            );
+          }
+          final lat = map['latitude'];
+          final lng = map['longitude'] ?? map['lng'];
+          if (lat is num && lng is num) {
+            final point = LatLng(lat.toDouble(), lng.toDouble());
+            return (
+              position: point,
+              isValid: _isValidDispatchPosition(point),
+            );
+          }
+          return (position: const LatLng(36.7538, 3.0588), isValid: false);
         }
 
+        final parsedPosition = parsePosition();
+        final rawUid = (map['uid'] ?? '').toString().trim();
+
         return ProviderAgent(
-          id: (map['uid'] ?? doc.id).toString(),
+          id: rawUid.isEmpty ? doc.id : rawUid,
           name: (map['fullName'] ?? '').toString(),
           phone: (map['phone'] ?? '').toString(),
-          position: parsePosition(),
-          isOnline: map['isOnline'] == true,
+          position: parsedPosition.position,
+          isOnline: map['isOnline'] == true || map['online'] == true,
           isBusy: map['isBusy'] == true,
           rating: ((map['rating'] ?? 5.0) as num).toDouble(),
           ratingCount: ((map['ratingCount'] ?? 0) as num).toInt(),
@@ -32528,10 +32624,12 @@ class AppStore extends ChangeNotifier {
           missionsCompleted: ((map['missionsCompleted'] ?? 0) as num).toInt(),
           isVerified: map['isApproved'] == true,
           avatarText: (map['avatarText'] ?? 'PR').toString(),
+          hasValidLocation: parsedPosition.isValid,
         );
       }).toList();
 
       _providersLoaded = true;
+      _providersLoadedAt = DateTime.now();
 
       final uid = auth.currentUser?.uid;
       if (uid != null && currentUserRoleName == 'provider') {
@@ -32863,13 +32961,45 @@ class AppStore extends ChangeNotifier {
   }) {
     final current = requestId == null ? null : findRequest(requestId);
     final rejected = current?.rejectedProviderUids ?? const <String>[];
+    final excluded = <String, int>{
+      'offline': 0,
+      'busy': 0,
+      'not approved': 0,
+      'missing location': 0,
+      'rejected': 0,
+      'too far': 0,
+    };
 
     final eligible = providers.where((p) {
-      return p.isOnline &&
-          !p.isBusy &&
-          p.isVerified &&
-          !rejected.contains(p.id);
+      if (!p.isOnline) {
+        excluded['offline'] = excluded['offline']! + 1;
+        return false;
+      }
+      if (p.isBusy) {
+        excluded['busy'] = excluded['busy']! + 1;
+        return false;
+      }
+      if (!p.isVerified) {
+        excluded['not approved'] = excluded['not approved']! + 1;
+        return false;
+      }
+      if (!p.hasValidLocation || !_isValidDispatchPosition(p.position)) {
+        excluded['missing location'] = excluded['missing location']! + 1;
+        return false;
+      }
+      if (rejected.contains(p.id)) {
+        excluded['rejected'] = excluded['rejected']! + 1;
+        return false;
+      }
+      return true;
     }).toList();
+
+    _debugDispatchDiagnostics(
+      requestId: requestId,
+      eligibleCount: eligible.length,
+      rejectedCount: rejected.length,
+      excluded: excluded,
+    );
 
     const distance = Distance();
 
@@ -32945,7 +33075,10 @@ class AppStore extends ChangeNotifier {
   }
 
   void _refreshSearchingDispatches() {
-    if (!_providersLoaded) return;
+    if (!_providersLoaded) {
+      _debugDispatch('providersLoaded=false; waiting before dispatch refresh');
+      return;
+    }
 
     for (final request in _requests) {
       if (request.status != RequestStatus.searching) continue;
@@ -32971,7 +33104,8 @@ class AppStore extends ChangeNotifier {
       final stillEligible = offeredProvider != null &&
           offeredProvider.isOnline &&
           !offeredProvider.isBusy &&
-          offeredProvider.isVerified;
+          offeredProvider.isVerified &&
+          offeredProvider.hasValidLocation;
 
       if (!stillEligible) {
         _dispatchTimers[request.id]?.cancel();
@@ -32998,7 +33132,10 @@ class AppStore extends ChangeNotifier {
     _dispatchFallbackInFlight.add(requestId);
 
     try {
-      if (!_providersLoaded) return;
+      if (!_providersLoaded) {
+        _debugDispatch('providersLoaded=false; dispatch deferred');
+        return;
+      }
 
       if (delay > Duration.zero) {
         await Future<void>.delayed(delay);
@@ -33027,6 +33164,10 @@ class AppStore extends ChangeNotifier {
         _dispatchChainIndex[requestId] = 0;
         _scannedProviderCounts[requestId] = allProviders.length;
         _currentDispatchAttempts[requestId] = 0;
+        _debugDispatch(
+          'chain built: totalProviders=${providers.length} '
+          'eligibleProviders=${allProviders.length}',
+        );
       }
 
       // ✅ Find next available provider in chain
@@ -33040,13 +33181,18 @@ class AppStore extends ChangeNotifier {
         if (provider != null &&
             provider.isOnline &&
             !provider.isBusy &&
-            provider.isVerified) {
+            provider.isVerified &&
+            provider.hasValidLocation) {
           nextProviderId = providerId;
           _dispatchChainIndex[requestId] = i;
           _currentDispatchAttempts[requestId] = i + 1;
           break;
         }
       }
+
+      _debugDispatch(
+        'next provider exists: ${nextProviderId != null ? 'yes' : 'no'}',
+      );
 
       // ✅ No more providers in chain - wait for current offer timeout first
       if (nextProviderId == null) {
@@ -33080,6 +33226,30 @@ class AppStore extends ChangeNotifier {
             ));
           });
           notifyListeners();
+          return;
+        }
+
+        final loadedAt = _providersLoadedAt;
+        final justLoaded = loadedAt != null &&
+            DateTime.now().difference(loadedAt) < const Duration(seconds: 2);
+        if (providers.isEmpty && justLoaded) {
+          _debugDispatch(
+            'provider snapshot just loaded empty; delaying no-provider popup',
+          );
+          Timer(const Duration(seconds: 2), () {
+            final retryRequest = findRequest(requestId);
+            if (retryRequest == null ||
+                retryRequest.status != RequestStatus.searching ||
+                noProviderPopupVisible) {
+              return;
+            }
+            unawaited(_attemptFallbackDispatch(
+              requestId,
+              customerPosition: retryRequest.customerPosition,
+              delay: Duration.zero,
+              useDispatchChain: false,
+            ));
+          });
           return;
         }
 
@@ -33467,6 +33637,7 @@ class AppStore extends ChangeNotifier {
       return p.isOnline &&
           !p.isBusy &&
           p.isVerified &&
+          p.hasValidLocation &&
           !rejected.contains(p.id);
     }).toList();
 

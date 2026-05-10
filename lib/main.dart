@@ -34,7 +34,9 @@ Future<void> main() async {
   try {
     await FcmService.init();
   } catch (e) {
-    debugPrint('FCM init skipped: $e');
+    if (kDebugMode) {
+      debugPrint('FCM init skipped.');
+    }
   }
   final store = AppStore(
     requestRepository: FirestoreRequestRepository(),

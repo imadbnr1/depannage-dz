@@ -671,6 +671,8 @@ class AuthService {
   }
 
   Future<String?> _readFcmTokenSafely() async {
+    if (kIsWeb) return null;
+
     try {
       return await FirebaseMessaging.instance.getToken();
     } catch (_) {

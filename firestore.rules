@@ -52,7 +52,7 @@ service cloud.firestore {
       let providerDoc = get(/databases/$(database)/documents/providers/$(request.auth.uid));
 
       return providerDoc.data.isApproved == true &&
-        providerDoc.data.isOnline == true &&
+        (providerDoc.data.isOnline == true || providerDoc.data.online == true) &&
         providerDoc.data.isBusy != true;
     }
 
@@ -62,7 +62,7 @@ service cloud.firestore {
 
       return providerId is string &&
         providerDoc.data.isApproved == true &&
-        providerDoc.data.isOnline == true &&
+        (providerDoc.data.isOnline == true || providerDoc.data.online == true) &&
         providerDoc.data.isBusy != true;
     }
 

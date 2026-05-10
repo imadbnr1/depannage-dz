@@ -1,0 +1,17 @@
+{
+  "name": "depaniny-functions",
+  "description": "Firebase Cloud Functions proxies for map and routing APIs",
+  "private": true,
+  "engines": {
+    "node": "20"
+  },
+  "main": "index.js",
+  "scripts": {
+    "lint": "node --check index.js",
+    "build": "node --check index.js"
+  },
+  "dependencies": {
+    "firebase-functions": "^6.0.1"
+  },
+  "devDependencies": {}
+}

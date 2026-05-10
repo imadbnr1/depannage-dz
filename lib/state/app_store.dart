@@ -86,6 +86,7 @@ class AppStore extends ChangeNotifier {
   Map<String, InAppNotificationItem> _activeAdminPopupItems = {};
   bool _adminNotificationDeliveryReady = false;
   bool _providersLoaded = false;
+  DateTime? _providersLoadedAt;
 
   final Map<String, Timer> _dispatchTimers = {};
   final Map<String, StreamSubscription<Position>> _liveTrackingSubs = {};
@@ -116,6 +117,43 @@ class AppStore extends ChangeNotifier {
   int currentDispatchAttempt(String requestId) =>
       _currentDispatchAttempts[requestId] ?? 0;
 
+  static bool _isValidDispatchPosition(LatLng position) {
+    final lat = position.latitude;
+    final lng = position.longitude;
+    return lat.isFinite &&
+        lng.isFinite &&
+        !lat.isNaN &&
+        !lng.isNaN &&
+        lat >= -90 &&
+        lat <= 90 &&
+        lng >= -180 &&
+        lng <= 180 &&
+        !(lat == 0 && lng == 0);
+  }
+
+  void _debugDispatchDiagnostics({
+    required String? requestId,
+    required int eligibleCount,
+    required int rejectedCount,
+    required Map<String, int> excluded,
+  }) {
+    if (!kDebugMode) return;
+    final excludedSummary = excluded.entries
+        .where((entry) => entry.value > 0)
+        .map((entry) => '${entry.key}=${entry.value}')
+        .join(', ');
+    debugPrint(
+      '[Dispatch] request=${requestId ?? 'none'} providersLoaded=$_providersLoaded '
+      'totalProviders=${providers.length} eligibleProviders=$eligibleCount '
+      'rejectedProviders=$rejectedCount excluded=[$excludedSummary]',
+    );
+  }
+
+  void _debugDispatch(String message) {
+    if (!kDebugMode) return;
+    debugPrint('[Dispatch] $message');
+  }
+
   void bootstrap() {
     _authSub = auth.authStateChanges().listen((user) async {
       await _adminNotificationsSub?.cancel();
@@ -125,6 +163,7 @@ class AppStore extends ChangeNotifier {
       _requests = [];
       providers = [];
       _providersLoaded = false;
+      _providersLoadedAt = null;
       currentUserRoleName = null;
       _currentUserUid = null;
       _currentUserProfile = const {};
@@ -179,24 +218,48 @@ class AppStore extends ChangeNotifier {
       providers = snap.docs.map((doc) {
         final map = doc.data();
 
-        LatLng parsePosition() {
+        ({LatLng position, bool isValid}) parsePosition() {
           final raw = map['position'];
           if (raw is Map<String, dynamic>) {
             final lat = raw['lat'];
             final lng = raw['lng'];
             if (lat is num && lng is num) {
-              return LatLng(lat.toDouble(), lng.toDouble());
+              return (
+                position: LatLng(lat.toDouble(), lng.toDouble()),
+                isValid: _isValidDispatchPosition(
+                  LatLng(lat.toDouble(), lng.toDouble()),
+                )
+              );
             }
           }
-          return const LatLng(36.7538, 3.0588);
+          if (raw is GeoPoint) {
+            final point = LatLng(raw.latitude, raw.longitude);
+            return (
+              position: point,
+              isValid: _isValidDispatchPosition(point),
+            );
+          }
+          final lat = map['latitude'];
+          final lng = map['longitude'] ?? map['lng'];
+          if (lat is num && lng is num) {
+            final point = LatLng(lat.toDouble(), lng.toDouble());
+            return (
+              position: point,
+              isValid: _isValidDispatchPosition(point),
+            );
+          }
+          return (position: const LatLng(36.7538, 3.0588), isValid: false);
         }
 
+        final parsedPosition = parsePosition();
+        final rawUid = (map['uid'] ?? '').toString().trim();
+
         return ProviderAgent(
-          id: (map['uid'] ?? doc.id).toString(),
+          id: rawUid.isEmpty ? doc.id : rawUid,
           name: (map['fullName'] ?? '').toString(),
           phone: (map['phone'] ?? '').toString(),
-          position: parsePosition(),
-          isOnline: map['isOnline'] == true,
+          position: parsedPosition.position,
+          isOnline: map['isOnline'] == true || map['online'] == true,
           isBusy: map['isBusy'] == true,
           rating: ((map['rating'] ?? 5.0) as num).toDouble(),
           ratingCount: ((map['ratingCount'] ?? 0) as num).toInt(),
@@ -205,10 +268,12 @@ class AppStore extends ChangeNotifier {
           missionsCompleted: ((map['missionsCompleted'] ?? 0) as num).toInt(),
           isVerified: map['isApproved'] == true,
           avatarText: (map['avatarText'] ?? 'PR').toString(),
+          hasValidLocation: parsedPosition.isValid,
         );
       }).toList();
 
       _providersLoaded = true;
+      _providersLoadedAt = DateTime.now();
 
       final uid = auth.currentUser?.uid;
       if (uid != null && currentUserRoleName == 'provider') {
@@ -540,13 +605,45 @@ class AppStore extends ChangeNotifier {
   }) {
     final current = requestId == null ? null : findRequest(requestId);
     final rejected = current?.rejectedProviderUids ?? const <String>[];
+    final excluded = <String, int>{
+      'offline': 0,
+      'busy': 0,
+      'not approved': 0,
+      'missing location': 0,
+      'rejected': 0,
+      'too far': 0,
+    };
 
     final eligible = providers.where((p) {
-      return p.isOnline &&
-          !p.isBusy &&
-          p.isVerified &&
-          !rejected.contains(p.id);
+      if (!p.isOnline) {
+        excluded['offline'] = excluded['offline']! + 1;
+        return false;
+      }
+      if (p.isBusy) {
+        excluded['busy'] = excluded['busy']! + 1;
+        return false;
+      }
+      if (!p.isVerified) {
+        excluded['not approved'] = excluded['not approved']! + 1;
+        return false;
+      }
+      if (!p.hasValidLocation || !_isValidDispatchPosition(p.position)) {
+        excluded['missing location'] = excluded['missing location']! + 1;
+        return false;
+      }
+      if (rejected.contains(p.id)) {
+        excluded['rejected'] = excluded['rejected']! + 1;
+        return false;
+      }
+      return true;
     }).toList();
+
+    _debugDispatchDiagnostics(
+      requestId: requestId,
+      eligibleCount: eligible.length,
+      rejectedCount: rejected.length,
+      excluded: excluded,
+    );
 
     const distance = Distance();
 
@@ -622,7 +719,10 @@ class AppStore extends ChangeNotifier {
   }
 
   void _refreshSearchingDispatches() {
-    if (!_providersLoaded) return;
+    if (!_providersLoaded) {
+      _debugDispatch('providersLoaded=false; waiting before dispatch refresh');
+      return;
+    }
 
     for (final request in _requests) {
       if (request.status != RequestStatus.searching) continue;
@@ -648,7 +748,8 @@ class AppStore extends ChangeNotifier {
       final stillEligible = offeredProvider != null &&
           offeredProvider.isOnline &&
           !offeredProvider.isBusy &&
-          offeredProvider.isVerified;
+          offeredProvider.isVerified &&
+          offeredProvider.hasValidLocation;
 
       if (!stillEligible) {
         _dispatchTimers[request.id]?.cancel();
@@ -675,7 +776,10 @@ class AppStore extends ChangeNotifier {
     _dispatchFallbackInFlight.add(requestId);
 
     try {
-      if (!_providersLoaded) return;
+      if (!_providersLoaded) {
+        _debugDispatch('providersLoaded=false; dispatch deferred');
+        return;
+      }
 
       if (delay > Duration.zero) {
         await Future<void>.delayed(delay);
@@ -704,6 +808,10 @@ class AppStore extends ChangeNotifier {
         _dispatchChainIndex[requestId] = 0;
         _scannedProviderCounts[requestId] = allProviders.length;
         _currentDispatchAttempts[requestId] = 0;
+        _debugDispatch(
+          'chain built: totalProviders=${providers.length} '
+          'eligibleProviders=${allProviders.length}',
+        );
       }
 
       // ✅ Find next available provider in chain
@@ -717,13 +825,18 @@ class AppStore extends ChangeNotifier {
         if (provider != null &&
             provider.isOnline &&
             !provider.isBusy &&
-            provider.isVerified) {
+            provider.isVerified &&
+            provider.hasValidLocation) {
           nextProviderId = providerId;
           _dispatchChainIndex[requestId] = i;
           _currentDispatchAttempts[requestId] = i + 1;
           break;
         }
       }
+
+      _debugDispatch(
+        'next provider exists: ${nextProviderId != null ? 'yes' : 'no'}',
+      );
 
       // ✅ No more providers in chain - wait for current offer timeout first
       if (nextProviderId == null) {
@@ -757,6 +870,30 @@ class AppStore extends ChangeNotifier {
             ));
           });
           notifyListeners();
+          return;
+        }
+
+        final loadedAt = _providersLoadedAt;
+        final justLoaded = loadedAt != null &&
+            DateTime.now().difference(loadedAt) < const Duration(seconds: 2);
+        if (providers.isEmpty && justLoaded) {
+          _debugDispatch(
+            'provider snapshot just loaded empty; delaying no-provider popup',
+          );
+          Timer(const Duration(seconds: 2), () {
+            final retryRequest = findRequest(requestId);
+            if (retryRequest == null ||
+                retryRequest.status != RequestStatus.searching ||
+                noProviderPopupVisible) {
+              return;
+            }
+            unawaited(_attemptFallbackDispatch(
+              requestId,
+              customerPosition: retryRequest.customerPosition,
+              delay: Duration.zero,
+              useDispatchChain: false,
+            ));
+          });
           return;
         }
 
@@ -1144,6 +1281,7 @@ class AppStore extends ChangeNotifier {
       return p.isOnline &&
           !p.isBusy &&
           p.isVerified &&
+          p.hasValidLocation &&
           !rejected.contains(p.id);
     }).toList();
 

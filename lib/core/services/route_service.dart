@@ -8,9 +8,11 @@ import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
 import '../../models/route_snapshot.dart';
+import 'map_proxy_service.dart';
 
 class RouteService {
   static final Map<String, RouteSnapshot> _cache = {};
+  static const MapProxyService _mapProxy = MapProxyService();
 
   static const _osrmServers = [
     'https://router.project-osrm.org',
@@ -46,6 +48,15 @@ class RouteService {
     final cacheKey = _buildCacheKey(safeOrigin, safeDestination);
     final cached = _cache[cacheKey];
     if (cached != null) return cached;
+
+    final proxied = await _mapProxy.routeDirections(
+      origin: safeOrigin,
+      destination: safeDestination,
+    );
+    if (proxied != null) {
+      _cache[cacheKey] = proxied;
+      return proxied;
+    }
 
     if (kIsWeb) {
       final fallback = _fallback(safeOrigin, safeDestination);
@@ -238,7 +249,7 @@ class RouteService {
           if (result != null) return result;
         } catch (_) {}
       }
-      return _fetchRouteWithCorsProxy(url);
+      return null;
     } catch (e) {
       return null;
     }
@@ -249,15 +260,6 @@ class RouteService {
       'User-Agent': 'DepannageDZGraduation/1.0 (education project)',
       'Accept': 'application/json, application/geo+json',
     }).timeout(const Duration(seconds: 6),
-        onTimeout: () => http.Response('Timeout', 408));
-    return _processRouteResponse(response, url);
-  }
-
-  Future<RouteSnapshot?> _fetchRouteWithCorsProxy(Uri url) async {
-    final proxyUrl = Uri.parse(
-        'https://api.allorigins.win/raw?url=${Uri.encodeComponent(url.toString())}');
-    final response = await http.get(proxyUrl).timeout(
-        const Duration(seconds: 6),
         onTimeout: () => http.Response('Timeout', 408));
     return _processRouteResponse(response, url);
   }
@@ -347,7 +349,7 @@ class RouteService {
           if (result != null) return result;
         } catch (_) {}
       }
-      return _fetchRouteWithCorsProxyGraphHopper(url);
+      return null;
     } catch (e) {
       return null;
     }
@@ -358,15 +360,6 @@ class RouteService {
       'User-Agent': 'DepannageDZGraduation/1.0 (education project)',
       'Accept': 'application/json',
     }).timeout(const Duration(seconds: 6),
-        onTimeout: () => http.Response('Timeout', 408));
-    return _processRouteResponseGraphHopper(response, url);
-  }
-
-  Future<RouteSnapshot?> _fetchRouteWithCorsProxyGraphHopper(Uri url) async {
-    final proxyUrl = Uri.parse(
-        'https://api.allorigins.win/raw?url=${Uri.encodeComponent(url.toString())}');
-    final response = await http.get(proxyUrl).timeout(
-        const Duration(seconds: 6),
         onTimeout: () => http.Response('Timeout', 408));
     return _processRouteResponseGraphHopper(response, url);
   }
@@ -443,7 +436,7 @@ class RouteService {
           if (result != null) return result;
         } catch (_) {}
       }
-      return _fetchRouteWithCorsProxyMapbox(url);
+      return null;
     } catch (e) {
       return null;
     }
@@ -454,15 +447,6 @@ class RouteService {
       'User-Agent': 'DepannageDZGraduation/1.0 (education project)',
       'Accept': 'application/json',
     }).timeout(const Duration(seconds: 6),
-        onTimeout: () => http.Response('Timeout', 408));
-    return _processRouteResponseMapbox(response, url);
-  }
-
-  Future<RouteSnapshot?> _fetchRouteWithCorsProxyMapbox(Uri url) async {
-    final proxyUrl = Uri.parse(
-        'https://api.allorigins.win/raw?url=${Uri.encodeComponent(url.toString())}');
-    final response = await http.get(proxyUrl).timeout(
-        const Duration(seconds: 6),
         onTimeout: () => http.Response('Timeout', 408));
     return _processRouteResponseMapbox(response, url);
   }

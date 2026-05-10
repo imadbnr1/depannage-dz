@@ -5,13 +5,26 @@ import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
 import '../../models/place_result.dart';
+import 'map_proxy_service.dart';
 
 class GeocodingService {
   static const _userAgent = 'depannage-dz-app';
+  final MapProxyService _mapProxy = const MapProxyService();
 
   Future<List<PlaceResult>> searchPlaces(String query) async {
     final trimmed = query.trim();
     if (trimmed.isEmpty) return const [];
+
+    final proxied = await _mapProxy.mapSearch(trimmed, limit: 6);
+    if (proxied.isNotEmpty) {
+      return proxied
+          .map((place) => PlaceResult(
+                name: place.displayName,
+                position: place.position,
+              ))
+          .toList();
+    }
+    if (kIsWeb) return const [];
 
     try {
       final uri = Uri.https(
@@ -26,18 +39,13 @@ class GeocodingService {
         },
       );
 
-      // Use CORS proxy for web
-      final effectiveUri = kIsWeb
-          ? Uri.parse('https://api.allorigins.win/raw?url=${Uri.encodeComponent(uri.toString())}')
-          : uri;
-
       final response = await http.get(
-        effectiveUri,
-        headers: kIsWeb ? {} : {
+        uri,
+        headers: {
           'User-Agent': _userAgent,
           'Accept': 'application/json',
         },
-      );
+      ).timeout(const Duration(seconds: 6));
 
       if (response.statusCode != 200) {
         return const [];
@@ -70,6 +78,10 @@ class GeocodingService {
   }
 
   Future<String?> reverseGeocode(LatLng position) async {
+    final proxied = await _mapProxy.reverseGeocode(position);
+    if (proxied != null && proxied.isNotEmpty) return proxied;
+    if (kIsWeb) return null;
+
     try {
       final uri = Uri.https(
         'nominatim.openstreetmap.org',
@@ -81,18 +93,13 @@ class GeocodingService {
         },
       );
 
-      // Use CORS proxy for web
-      final effectiveUri = kIsWeb
-          ? Uri.parse('https://api.allorigins.win/raw?url=${Uri.encodeComponent(uri.toString())}')
-          : uri;
-
       final response = await http.get(
-        effectiveUri,
-        headers: kIsWeb ? {} : {
+        uri,
+        headers: {
           'User-Agent': _userAgent,
           'Accept': 'application/json',
         },
-      );
+      ).timeout(const Duration(seconds: 6));
 
       if (response.statusCode != 200) return null;
 

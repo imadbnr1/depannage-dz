@@ -6,16 +6,29 @@ import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
 import '../models/place_search_result.dart';
+import 'map_proxy_service.dart';
 
 class PlaceSearchService {
   static const _headers = {
     'User-Agent': 'DepannageDZGraduation/1.0 (education project)',
     'Accept': 'application/json',
   };
+  final MapProxyService _mapProxy = const MapProxyService();
 
   Future<List<PlaceSearchResult>> searchPlaces(String query) async {
     final cleaned = query.trim();
     if (cleaned.isEmpty) return [];
+
+    final proxied = await _mapProxy.mapSearch(cleaned, limit: 5);
+    if (proxied.isNotEmpty) {
+      return proxied
+          .map((place) => PlaceSearchResult(
+                displayName: place.displayName,
+                position: place.position,
+              ))
+          .toList();
+    }
+    if (kIsWeb) return [];
 
     final uri = Uri.https(
       'nominatim.openstreetmap.org',
@@ -28,22 +41,17 @@ class PlaceSearchService {
       },
     );
 
-    // Try direct connection first on mobile, fallback to CORS proxy on web or failure
-    if (kIsWeb) {
-      return _searchWithCorsProxy(uri);
-    } else {
-      // Try direct connection first on mobile
-      try {
-        return await _searchDirect(uri);
-      } catch (e) {
-        // Fallback to CORS proxy if direct fails
-        return _searchWithCorsProxy(uri);
-      }
+    try {
+      return await _searchDirect(uri);
+    } catch (e) {
+      return [];
     }
   }
 
   Future<List<PlaceSearchResult>> _searchDirect(Uri uri) async {
-    final response = await http.get(uri, headers: _headers);
+    final response = await http
+        .get(uri, headers: _headers)
+        .timeout(const Duration(seconds: 6));
 
     if (response.statusCode != 200) {
       throw Exception('Recherche de destination indisponible.');
@@ -63,67 +71,11 @@ class PlaceSearchService {
         .toList();
   }
 
-  Future<List<PlaceSearchResult>> _searchWithCorsProxy(Uri uri) async {
-    try {
-      final effectiveUri = Uri.parse(
-        'https://api.allorigins.win/raw?url=${Uri.encodeComponent(uri.toString())}',
-      );
-
-      final response = await http.get(effectiveUri);
-
-      if (response.statusCode != 200) {
-        throw Exception('Recherche de destination indisponible.');
-      }
-
-      final contentType = response.headers['content-type'] ?? '';
-      if (!contentType.contains('application/json')) {
-        throw Exception('Recherche de destination indisponible.');
-      }
-
-      final data = jsonDecode(response.body);
-      if (data is! List) return [];
-
-      return data
-          .whereType<Map<String, dynamic>>()
-          .map(PlaceSearchResult.fromJson)
-          .toList();
-    } catch (e) {
-      // If CORS proxy fails, try alternative proxy
-      return _searchWithAlternativeProxy(uri);
-    }
-  }
-
-  Future<List<PlaceSearchResult>> _searchWithAlternativeProxy(Uri uri) async {
-    try {
-      // Try using a different CORS proxy as fallback
-      final effectiveUri = Uri.parse(
-        'https://corsproxy.io/?${Uri.encodeComponent(uri.toString())}',
-      );
-
-      final response = await http.get(effectiveUri);
-
-      if (response.statusCode != 200) {
-        throw Exception('Recherche de destination indisponible.');
-      }
-
-      final contentType = response.headers['content-type'] ?? '';
-      if (!contentType.contains('application/json')) {
-        throw Exception('Recherche de destination indisponible.');
-      }
-
-      final data = jsonDecode(response.body);
-      if (data is! List) return [];
-
-      return data
-          .whereType<Map<String, dynamic>>()
-          .map(PlaceSearchResult.fromJson)
-          .toList();
-    } catch (e) {
-      throw Exception('Recherche de destination indisponible. Verifiez votre connexion.');
-    }
-  }
-
   Future<String?> reverseLookupNearestNamedPlace(LatLng position) async {
+    final proxied = await _mapProxy.reverseGeocode(position);
+    if (proxied != null && proxied.isNotEmpty) return proxied;
+    if (kIsWeb) return null;
+
     final uri = Uri.https(
       'nominatim.openstreetmap.org',
       '/reverse',
@@ -136,22 +88,17 @@ class PlaceSearchService {
       },
     );
 
-    // Try direct connection first on mobile, fallback to CORS proxy on web or failure
-    if (kIsWeb) {
-      return await _reverseLookupWithCorsProxy(uri);
-    } else {
-      // Try direct connection first on mobile
-      try {
-        return await _reverseLookupDirect(uri);
-      } catch (e) {
-        // Fallback to CORS proxy if direct fails
-        return await _reverseLookupWithCorsProxy(uri);
-      }
+    try {
+      return await _reverseLookupDirect(uri);
+    } catch (e) {
+      return null;
     }
   }
 
   Future<String?> _reverseLookupDirect(Uri uri) async {
-    final response = await http.get(uri, headers: _headers);
+    final response = await http
+        .get(uri, headers: _headers)
+        .timeout(const Duration(seconds: 6));
     if (response.statusCode != 200) return null;
 
     final contentType = response.headers['content-type'] ?? '';
@@ -161,27 +108,6 @@ class PlaceSearchService {
     if (data is! Map<String, dynamic>) return null;
 
     return _extractAddressFromReverseData(data);
-  }
-
-  Future<String?> _reverseLookupWithCorsProxy(Uri uri) async {
-    try {
-      final effectiveUri = Uri.parse(
-        'https://api.allorigins.win/raw?url=${Uri.encodeComponent(uri.toString())}',
-      );
-
-      final response = await http.get(effectiveUri);
-      if (response.statusCode != 200) return null;
-
-      final contentType = response.headers['content-type'] ?? '';
-      if (!contentType.contains('application/json')) return null;
-
-      final data = jsonDecode(response.body);
-      if (data is! Map<String, dynamic>) return null;
-
-      return _extractAddressFromReverseData(data);
-    } catch (e) {
-      return null;
-    }
   }
 
   String? _extractAddressFromReverseData(Map<String, dynamic> data) {
@@ -256,6 +182,17 @@ class PlaceSearchService {
     LatLng position, {
     int limit = 12,
   }) async {
+    final proxied = await _mapProxy.nearbyPlaces(position, limit: limit);
+    if (proxied.isNotEmpty) {
+      return proxied
+          .map((place) => PlaceSearchResult(
+                displayName: place.displayName,
+                position: place.position,
+              ))
+          .toList();
+    }
+    if (kIsWeb) return _getAutomotiveFallbackSuggestions(position);
+
     try {
       // Use Overpass API to get automotive-related places
       // Prioritize: garages, mechanics, tire shops, gas stations, car dealerships, auto electricians
@@ -283,16 +220,12 @@ class PlaceSearchService {
         {'data': overpassQuery},
       );
 
-      final effectiveUri = kIsWeb
-          ? Uri.parse(
-              'https://api.allorigins.win/raw?url=${Uri.encodeComponent(uri.toString())}',
-            )
-          : uri;
-
-      final response = await http.get(
-        effectiveUri,
-        headers: kIsWeb ? {} : _headers,
-      ).timeout(const Duration(seconds: 8));
+      final response = await http
+          .get(
+            uri,
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 8));
 
       if (response.statusCode != 200) {
         return _getAutomotiveFallbackSuggestions(position);
@@ -347,19 +280,19 @@ class PlaceSearchService {
         return value.toString().trim();
       }
     }
-    
+
     // No name found, generate descriptive name
     final shop = tags['shop']?.toString() ?? '';
     final amenity = tags['amenity']?.toString() ?? '';
     final craft = tags['craft']?.toString() ?? '';
-    
+
     if (shop == 'car_repair' || craft == 'car_repair') return 'Garage';
     if (shop == 'car_parts') return 'Pièces Auto';
     if (shop == 'tire') return 'Pneumaticien';
     if (amenity == 'fuel') return 'Station Service';
     if (amenity == 'car_wash') return 'Lavage Auto';
     if (shop == 'car') return 'Concessionnaire';
-    
+
     return 'Service Auto';
   }
 
@@ -368,7 +301,7 @@ class PlaceSearchService {
     final shop = tags['shop']?.toString() ?? '';
     final amenity = tags['amenity']?.toString() ?? '';
     final craft = tags['craft']?.toString() ?? '';
-    
+
     // Specific types
     if (shop == 'car_repair' || craft == 'car_repair') {
       final specialty = tags['car_repair']?.toString() ?? '';
@@ -379,7 +312,7 @@ class PlaceSearchService {
       if (specialty == 'glass') return 'Pare-brise';
       return 'Garage/Réparation';
     }
-    
+
     if (shop == 'car_parts') return 'Pièces Détachées';
     if (shop == 'tire') return 'Pneus & Jantes';
     if (amenity == 'fuel') return 'Carburant';
@@ -388,12 +321,13 @@ class PlaceSearchService {
       final brand = tags['brand'] ?? 'Auto';
       return 'Concessionnaire $brand';
     }
-    
+
     return 'Service Automobile';
   }
 
   /// Get fallback suggestions based on known automotive areas in Algeria
-  Future<List<PlaceSearchResult>> _getAutomotiveFallbackSuggestions(LatLng position) async {
+  Future<List<PlaceSearchResult>> _getAutomotiveFallbackSuggestions(
+      LatLng position) async {
     // Known automotive zones, industrial areas, and commercial zones in Algeria
     // These areas typically have many garages and auto services
     final automotiveZones = [
