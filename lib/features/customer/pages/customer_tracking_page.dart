@@ -53,7 +53,7 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
   LatLng? _renderedProviderPosition;
   LatLng? _previousProviderPosition;
   LatLng? _lastTargetPosition;
-  bool _followProvider = true;
+  bool _followProvider = false;
   bool _routeIsFallback = false;
   double _panelExtent = 0.30;
   late final ValueNotifier<double> _panelExtentNotifier =
@@ -978,15 +978,7 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
               onTap: () async {
                 final current = widget.store.findRequest(widget.requestId);
                 if (current != null) {
-                  final latestProviderPosition = _latestProviderPosition(
-                    current,
-                  );
-                  if (latestProviderPosition != null) {
-                    setState(() => _followProvider = true);
-                    _mapController.move(latestProviderPosition, 16);
-                    return;
-                  }
-
+                  setState(() => _followProvider = false);
                   _mapController.move(current.customerPosition, 15);
                   return;
                 }
@@ -1110,20 +1102,26 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
                               ),
                             ),
                           const SizedBox(height: 10),
-                          if (!acceptedProvider)
+                          if (request.status == RequestStatus.searching)
                             SizedBox(
                               width: double.infinity,
                               child: FilledButton.icon(
                                 onPressed: () async {
                                   await widget.store.cancelRequest(request.id);
                                   if (!context.mounted) return;
-                                  Navigator.of(context).pop();
+                                  Navigator.of(context).pushReplacement(
+                                    MaterialPageRoute(
+                                      builder: (_) => CreateOrderPage(
+                                        store: widget.store,
+                                      ),
+                                    ),
+                                  );
                                 },
                                 icon: const Icon(Icons.close),
                                 label: Text(strings.t('annuler_la_demande')),
                               ),
                             )
-                          else
+                          else if (acceptedProvider)
                             Row(
                               children: [
                                 _BottomActionIconButton(

@@ -163,6 +163,26 @@ service cloud.firestore {
       );
     }
 
+    function providerCanRejectOfferedRequest() {
+      return isProvider() &&
+        resource.data.status == 'searching' &&
+        request.resource.data.status == 'searching' &&
+        resource.data.offeredProviderUid == request.auth.uid &&
+        request.resource.data.offeredProviderUid == null &&
+        request.resource.data.offeredAt == null &&
+        request.resource.data.offerExpiresAt == null &&
+        request.resource.data.providerUid == null &&
+        request.resource.data.rejectedProviderUids.hasAll([request.auth.uid]) &&
+        onlyChanged([
+          'offeredProviderUid',
+          'offeredAt',
+          'offerExpiresAt',
+          'rejectedProviderUids',
+          'updatedAt',
+          'updatedAtIso'
+        ]);
+    }
+
     function customerCanUpdateProviderRatingOnly() {
       return isCustomer() &&
         onlyChanged([
@@ -208,6 +228,7 @@ service cloud.firestore {
         customerCanDispatchOwnRequest() ||
         customerCanRetrySearchingRequest() ||
         customerCanRateProvider() ||
+        providerCanRejectOfferedRequest() ||
         providerCanUpdateOfferedOrAssignedRequest() ||
         providerCanRateClient();
 

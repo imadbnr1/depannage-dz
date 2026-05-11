@@ -187,37 +187,48 @@ class FirestoreRequestRepository implements RequestRepository {
     required String requestId,
     required String providerUid,
   }) async {
-    return _firestore.runTransaction((tx) async {
-      final ref = _requests.doc(requestId);
-      final snap = await tx.get(ref);
-      final data = snap.data();
-      if (!snap.exists || data == null) return false;
+    try {
+      return await _firestore.runTransaction((tx) async {
+        final ref = _requests.doc(requestId);
+        final snap = await tx.get(ref);
+        final data = snap.data();
+        if (!snap.exists || data == null) return false;
 
-      final status = (data['status'] ?? '').toString();
-      final offeredUid = (data['offeredProviderUid'] ?? '').toString();
-      final rejected =
-          List<String>.from((data['rejectedProviderUids'] ?? const <String>[]));
+        final status = (data['status'] ?? '').toString();
+        final offeredUid = (data['offeredProviderUid'] ?? '').toString();
+        final rejected = List<String>.from(
+          (data['rejectedProviderUids'] ?? const <String>[]),
+        );
 
-      if (status != RequestStatus.searching.name) return false;
-      if (offeredUid != providerUid) return false;
+        if (status != RequestStatus.searching.name) return false;
+        if (offeredUid != providerUid) return false;
 
-      if (!rejected.contains(providerUid)) {
-        rejected.add(providerUid);
+        if (!rejected.contains(providerUid)) {
+          rejected.add(providerUid);
+        }
+
+        tx.set(
+            ref,
+            {
+              'offeredProviderUid': null,
+              'offeredAt': null,
+              'offerExpiresAt': null,
+              'rejectedProviderUids': rejected,
+              'updatedAt': FieldValue.serverTimestamp(),
+              'updatedAtIso': DateTime.now().toIso8601String(),
+            },
+            SetOptions(merge: true));
+        return true;
+      });
+    } on FirebaseException catch (error) {
+      if (error.code == 'permission-denied') {
+        if (kDebugMode) {
+          debugPrint('[Dispatch] reject failed permission-denied');
+        }
+        return false;
       }
-
-      tx.set(
-          ref,
-          {
-            'offeredProviderUid': null,
-            'offeredAt': null,
-            'offerExpiresAt': null,
-            'rejectedProviderUids': rejected,
-            'updatedAt': FieldValue.serverTimestamp(),
-            'updatedAtIso': DateTime.now().toIso8601String(),
-          },
-          SetOptions(merge: true));
-      return true;
-    });
+      rethrow;
+    }
   }
 
   @override

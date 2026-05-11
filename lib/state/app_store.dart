@@ -2212,7 +2212,7 @@ class AppStore extends ChangeNotifier {
       unawaited(_attemptFallbackDispatch(
         requestId,
         customerPosition: current.customerPosition,
-        delay: const Duration(milliseconds: 500),
+        delay: Duration.zero,
       ));
     }
 

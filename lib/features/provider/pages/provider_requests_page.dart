@@ -44,7 +44,9 @@ class _ProviderRequestsPageState extends State<ProviderRequestsPage> {
   @override
   Widget build(BuildContext context) {
     final store = widget.store;
+    final incoming = store.providerAvailableRequests;
     final active = store.providerAssignedRequests;
+    final hasMissions = incoming.isNotEmpty || active.isNotEmpty;
 
     return Scaffold(
       body: SafeArea(
@@ -53,16 +55,22 @@ class _ProviderRequestsPageState extends State<ProviderRequestsPage> {
           children: [
             const _RequestsHero(),
             const SizedBox(height: 16),
-            if (active.isEmpty)
+            if (!hasMissions)
               const SizedBox(
                 height: 280,
                 child: AppEmptyState(
                   icon: Icons.car_repair_outlined,
                   title: 'Aucune mission active',
                   message:
-                      'Les nouvelles missions arrivent en popup. Seules les missions en cours restent ici.',
+                      'Les nouvelles missions proposees et les missions en cours apparaitront ici.',
                 ),
               ),
+            ...incoming.map(
+              (item) => _IncomingMissionCard(
+                store: store,
+                item: item,
+              ),
+            ),
             ...active.map(
               (item) => _ProviderActiveCard(
                 store: store,
