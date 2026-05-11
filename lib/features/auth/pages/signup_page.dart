@@ -206,7 +206,7 @@ class _SignupPageState extends State<SignupPage>
     final availableHeight = screenSize.height - keyboardInset;
     final compact = keyboardOpen || availableHeight < 720;
 
-   final logoWidth = compact ? 420.0 : 560.0;
+    final logoWidth = compact ? 420.0 : 560.0;
 
     final scrollPadding = EdgeInsets.fromLTRB(
       compact ? 18 : 20,
@@ -253,6 +253,12 @@ class _SignupPageState extends State<SignupPage>
                               color: Colors.white,
                               size: 26,
                             ),
+                          ),
+                          const Spacer(),
+                          LanguageSelector(
+                            compact: compact,
+                            backgroundColor:
+                                Colors.white.withValues(alpha: 0.96),
                           ),
                         ],
                       ),
@@ -307,24 +313,6 @@ class _SignupPageState extends State<SignupPage>
                                 ),
                               ),
                               const SizedBox(height: 12),
-                              Align(
-                                alignment: AlignmentDirectional.centerEnd,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF8F5EF),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: const Color(0xFFE5E7EB),
-                                    ),
-                                  ),
-                                  child: const LanguageSelector(),
-                                ),
-                              ),
-                              const SizedBox(height: 20),
                               _roleTile(
                                 value: 'customer',
                                 title: strings.t('signupCustomer'),

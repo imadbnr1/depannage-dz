@@ -42,7 +42,7 @@ class AuthGate extends StatelessWidget {
         }
 
         return FutureBuilder<AppUser?>(
-          future: authService.getCurrentAppUser(),
+          future: authService.waitForCurrentAppUserProfile(),
           builder: (context, appUserSnapshot) {
             if (appUserSnapshot.connectionState == ConnectionState.waiting) {
               return const Scaffold(
@@ -101,7 +101,7 @@ class _ProviderApprovalPendingScreenState
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted || _dialogShown) return;
       _dialogShown = true;
-      
+
       // Show approval pending dialog
       await showDialog<void>(
         context: context,

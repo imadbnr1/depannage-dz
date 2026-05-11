@@ -37,7 +37,6 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
 
   StreamSubscription? _trackingSub;
   Timer? _routeTimer;
-  Timer? _simulationTimer;
   Timer? _providerAnimationTimer;
 
   List<LatLng> _routePoints = [];
@@ -53,12 +52,6 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
   LatLng? _renderedProviderPosition;
   LatLng? _previousProviderPosition;
   LatLng? _lastTargetPosition;
-  bool _devToolsVisible = false;
-  bool _simulationRunning = false;
-  String _simulationMode = 'Approche client';
-  int _simulationIndex = 0;
-  int _devTapCount = 0;
-  DateTime? _lastDevTapAt;
   bool _followProvider = true;
   bool _routeIsFallback = false;
   double _panelExtent = 0.30;
@@ -115,7 +108,6 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
     _trackingSub?.cancel();
     _trackingService?.stopTracking();
     _routeTimer?.cancel();
-    _simulationTimer?.cancel();
     _providerAnimationTimer?.cancel();
     _panelExtentNotifier.dispose();
     super.dispose();
@@ -135,18 +127,9 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
     AppRequest request, {
     bool immediate = false,
   }) {
-    // During simulation, the simulation timer handles position updates
-    // Don't interfere with the animation system
-    if (_simulationRunning) return;
-
-    final tracking = widget.store.trackingFor(widget.requestId);
-    final targetPosition = tracking?.providerPosition ??
-        widget.store.providerCurrentPosition ??
-        request.providerPosition;
-
+    final targetPosition = _latestProviderPosition(request);
     if (targetPosition == null) return;
 
-    // Update previous position for heading calculation
     if (_lastTargetPosition != null &&
         (_lastTargetPosition!.latitude != targetPosition.latitude ||
             _lastTargetPosition!.longitude != targetPosition.longitude)) {
@@ -173,195 +156,27 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
       return;
     }
 
-    // ✅ ONLY animate for simulation mode - real tracking uses direct GPS position
-    if (!_simulationRunning) {
-      // For real tracking: instantly update to actual GPS position (no animation)
-      _providerAnimationTimer?.cancel();
-      _renderedProviderPosition = targetPosition;
-
-      // Calculate heading from actual movement
-      final bearing = _bearingRadians(currentPosition, targetPosition);
-      final markerRotation = bearing + (math.pi / 2);
-
-      setState(() {
-        _lastProviderHeadingRadians = markerRotation;
-      });
-
-      if (_followProvider) {
-        _mapController.move(
-          targetPosition,
-          _mapController.camera.zoom,
-          id: 'follow',
-        );
-      }
-      return;
-    }
-
-    // ✅ For simulation only: follow green polyline route
-    final startedAt = DateTime.now();
-    const minDurationMs = 400;
-    const maxDurationMs = 1600;
-    const idealSpeed = 80;
-    final calculatedDuration = (distanceMeters / idealSpeed * 1000).round();
-    final durationMs = calculatedDuration.clamp(minDurationMs, maxDurationMs);
-    final duration = Duration(milliseconds: durationMs);
-    const animationCurve = Curves.easeInOutCubic;
-
     _providerAnimationTimer?.cancel();
-
-    // ✅ Calculate correct bearing between actual positions
     final bearing = _bearingRadians(currentPosition, targetPosition);
     final markerRotation = bearing + (math.pi / 2);
 
-    _providerAnimationTimer = Timer.periodic(
-      const Duration(milliseconds: 16),
-      (timer) {
-        if (!mounted) {
-          timer.cancel();
-          return;
-        }
+    setState(() {
+      _renderedProviderPosition = targetPosition;
+      _lastProviderHeadingRadians = markerRotation;
+    });
 
-        final elapsed = DateTime.now().difference(startedAt);
-        final t =
-            (elapsed.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
-        final easedT = animationCurve.transform(t);
-
-        final newPosition = _lerpLatLng(
-          currentPosition,
-          targetPosition,
-          easedT,
-        );
-
-        setState(() {
-          _renderedProviderPosition = newPosition;
-          _lastProviderHeadingRadians = markerRotation;
-        });
-
-        if (_followProvider) {
-          _mapController.move(
-            newPosition,
-            _mapController.camera.zoom,
-            id: 'follow',
-          );
-        }
-
-        if (t >= 1) {
-          timer.cancel();
-
-          // ✅ Continue only for simulation
-          if (_simulationRunning &&
-              _routePoints.isNotEmpty &&
-              _simulationIndex < _routePoints.length - 1) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) _syncAnimatedProviderPosition(request);
-            });
-          }
-        }
-      },
-    );
-  }
-
-  LatLng _lerpLatLng(LatLng from, LatLng to, double t) {
-    return LatLng(
-      from.latitude + ((to.latitude - from.latitude) * t),
-      from.longitude + ((to.longitude - from.longitude) * t),
-    );
+    if (_followProvider) {
+      _mapController.move(
+        targetPosition,
+        _mapController.camera.zoom,
+        id: 'follow',
+      );
+    }
   }
 
   void _scheduleRouteUpdate() {
-    // Don't update route during simulation - route is already calculated
-    // Updating during simulation causes unnecessary API calls and can result in fallback (red line)
-    if (_simulationRunning) return;
-
     _routeTimer?.cancel();
     _routeTimer = Timer(const Duration(milliseconds: 350), _loadRoute);
-  }
-
-  void _handleHiddenDevTap() {
-    final now = DateTime.now();
-    final lastTapAt = _lastDevTapAt;
-    if (lastTapAt == null ||
-        now.difference(lastTapAt) > const Duration(seconds: 2)) {
-      _devTapCount = 0;
-    }
-
-    _lastDevTapAt = now;
-    _devTapCount += 1;
-
-    if (_devTapCount < 6) return;
-
-    _devTapCount = 0;
-    _lastDevTapAt = null;
-    if (!mounted) return;
-
-    setState(() {
-      _devToolsVisible = !_devToolsVisible;
-    });
-  }
-
-  Future<void> _toggleSimulation() async {
-    if (_simulationRunning) {
-      _simulationTimer?.cancel();
-      if (!mounted) return;
-      setState(() => _simulationRunning = false);
-      return;
-    }
-
-    if (_routePoints.length < 2) {
-      await _loadRoute();
-    }
-    if (_routePoints.length < 2 || !mounted) return;
-
-    final request = widget.store.findRequest(widget.requestId);
-    if (request == null) return;
-
-    if (_simulationIndex <= 0 || _simulationIndex >= _routePoints.length) {
-      _simulationIndex = 0;
-      await widget.store.devSetProviderTrackingPosition(
-        request.id,
-        _routePoints.first,
-      );
-    }
-
-    _simulationTimer?.cancel();
-    setState(() => _simulationRunning = true);
-
-    _simulationTimer = Timer.periodic(const Duration(milliseconds: 70), (
-      timer,
-    ) async {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-
-      final currentRequest = widget.store.findRequest(widget.requestId);
-      if (currentRequest == null || _routePoints.length < 2) {
-        timer.cancel();
-        if (mounted) {
-          setState(() => _simulationRunning = false);
-        }
-        return;
-      }
-
-      _simulationIndex += 1;
-      if (_simulationIndex >= _routePoints.length) {
-        _simulationIndex = _routePoints.length - 1;
-        await widget.store.devSetProviderTrackingPosition(
-          currentRequest.id,
-          _routePoints[_simulationIndex],
-        );
-        timer.cancel();
-        if (mounted) {
-          setState(() => _simulationRunning = false);
-        }
-        return;
-      }
-
-      await widget.store.devSetProviderTrackingPosition(
-        currentRequest.id,
-        _routePoints[_simulationIndex],
-      );
-    });
   }
 
   Future<void> _startNavigation(LatLng destination) async {
@@ -373,71 +188,6 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
     );
 
     await launchUrl(url, mode: LaunchMode.externalApplication);
-  }
-
-  Future<void> _simulateTowToDestination() async {
-    final request = widget.store.findRequest(widget.requestId);
-    if (request == null) return;
-
-    _simulationTimer?.cancel();
-    if (mounted) {
-      setState(() {
-        _simulationRunning = false;
-        _simulationMode = 'Vers destination';
-      });
-    }
-
-    if (request.status == RequestStatus.accepted) {
-      await widget.store.advanceMission(request.id);
-    }
-
-    final afterAccepted = widget.store.findRequest(widget.requestId);
-    if (afterAccepted == null) return;
-    if (afterAccepted.status == RequestStatus.onTheWay) {
-      await widget.store.advanceMission(afterAccepted.id);
-    }
-
-    final arrivedRequest = widget.store.findRequest(widget.requestId);
-    if (arrivedRequest == null) return;
-
-    await widget.store.devSetProviderTrackingPosition(
-      arrivedRequest.id,
-      arrivedRequest.customerPosition,
-    );
-
-    if (arrivedRequest.status == RequestStatus.arrived) {
-      await widget.store.advanceMission(arrivedRequest.id);
-    }
-
-    _simulationIndex = 0;
-    _lastRouteStart = null;
-    _lastRouteTarget = null;
-    _lastRouteStatus = null;
-    await _loadRoute();
-    await _toggleSimulation();
-  }
-
-  Future<void> _resetSimulation() async {
-    _simulationTimer?.cancel();
-    final request = widget.store.findRequest(widget.requestId);
-    if (request == null) return;
-
-    if (_routePoints.length < 2) {
-      await _loadRoute();
-    }
-    if (_routePoints.isEmpty) return;
-
-    _simulationIndex = 0;
-    await widget.store.devSetProviderTrackingPosition(
-      request.id,
-      _routePoints.first,
-    );
-
-    if (!mounted) return;
-    setState(() {
-      _simulationRunning = false;
-      _simulationMode = 'Approche client';
-    });
   }
 
   Future<void> _loadRoute() async {
@@ -865,6 +615,27 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
     return request.customerName;
   }
 
+  String _customerMarkerLabel(AppRequest request) {
+    final name = request.customerName.trim();
+    return name.isEmpty ? 'Client' : name;
+  }
+
+  String _providerMarkerLabel(AppRequest request) {
+    final provider = request.providerUid == null
+        ? null
+        : widget.store.findProviderById(request.providerUid!);
+    final name = (provider?.name ?? request.providerName ?? '').trim();
+    return name.isEmpty ? 'Provider' : name;
+  }
+
+  LatLng? _latestProviderPosition(AppRequest request) {
+    final tracking = widget.store.trackingFor(widget.requestId);
+    return tracking?.providerPosition ??
+        widget.store.providerCurrentPosition ??
+        _renderedProviderPosition ??
+        request.providerPosition;
+  }
+
   void _handlePanelNotification(DraggableScrollableNotification notification) {
     final nextExtent = notification.extent;
     if ((nextExtent - _panelExtent).abs() < 0.002) return;
@@ -892,23 +663,13 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
         widget.store.providerCurrentPosition ??
         request.providerPosition;
     final providerPosition =
-        _renderedProviderPosition ?? actualProviderPosition;
+        actualProviderPosition ?? _renderedProviderPosition;
     final routeTarget = _routeTarget(request, customerPosition);
+    final customerMarkerLabel = _customerMarkerLabel(request);
+    final providerMarkerLabel = _providerMarkerLabel(request);
     final destinationStage = request.status == RequestStatus.arrived ||
         request.status == RequestStatus.inService ||
         request.status == RequestStatus.completed;
-    final providerAtPickup = providerPosition != null &&
-        const Distance().as(
-              LengthUnit.Meter,
-              providerPosition,
-              customerPosition,
-            ) <=
-            18;
-    final customerMarkerOffset =
-        providerAtPickup ? const Offset(-32, -14) : Offset.zero;
-    // ignore: unused_local_variable
-    final providerMarkerOffset =
-        providerAtPickup ? const Offset(32, 10) : Offset.zero;
     // ignore: unused_local_variable
     final providerHeadingRadians = providerPosition == null
         ? null
@@ -926,12 +687,11 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
           width: RoleMapMarker.outerSize,
           height: RoleMapMarker.outerSize,
           child: _PinnedMarker(
-            label: destinationStage ? 'Pick up' : 'Client',
+            label: customerMarkerLabel,
             type: RoleMapMarkerType.customer,
             icon: Icons.person_pin_circle_rounded,
             color: Colors.red,
             compactLabel: true,
-            offset: customerMarkerOffset,
           ),
         ),
       );
@@ -962,12 +722,11 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
           width: RoleMapMarker.outerSize,
           height: RoleMapMarker.outerSize,
           child: _PinnedMarker(
-            label: strings.t('provider'),
+            label: providerMarkerLabel,
             type: RoleMapMarkerType.provider,
             icon: Icons.car_repair_rounded,
             color: const Color(0xFFF59E0B),
             compactLabel: true,
-            offset: providerMarkerOffset,
             rotationRadians: providerHeadingRadians,
           ),
         ),
@@ -1048,30 +807,15 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: GestureDetector(
-                    onTap: _handleHiddenDevTap,
-                    child: _TopTrackingBanner(
-                      title: request.customerName,
-                      status: _statusLabel(request.status),
-                      color: _statusColor(request.status),
-                    ),
+                  child: _TopTrackingBanner(
+                    title: request.customerName,
+                    status: _statusLabel(request.status),
+                    color: _statusColor(request.status),
                   ),
                 ),
               ],
             ),
           ),
-          if (_devToolsVisible)
-            Positioned(
-              top: topInset + 84,
-              right: 12,
-              child: _DevSimulationCard(
-                running: _simulationRunning,
-                simulationMode: _simulationMode,
-                onStartPause: _toggleSimulation,
-                onTowSimulation: _simulateTowToDestination,
-                onReset: _resetSimulation,
-              ),
-            ),
           ValueListenableBuilder<double>(
             valueListenable: _panelExtentNotifier,
             builder: (context, panelExtent, child) {
@@ -1084,8 +828,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
             child: _MapGlassButton(
               icon: Icons.my_location_outlined,
               onTap: () {
-                final currentPos = widget.store.providerCurrentPosition ??
-                    actualProviderPosition;
+                final currentPos = _latestProviderPosition(request);
                 if (currentPos == null) {
                   widget.store.requestProviderLocation();
                   return;
@@ -1263,7 +1006,6 @@ class _PinnedMarker extends StatelessWidget {
     required this.icon,
     required this.color,
     this.compactLabel = false,
-    this.offset = Offset.zero,
     // ignore: unused_element_parameter
     this.rotationRadians,
   });
@@ -1275,7 +1017,6 @@ class _PinnedMarker extends StatelessWidget {
   // ignore: unused_field
   final double? rotationRadians;
   final bool compactLabel;
-  final Offset offset;
 
   @override
   Widget build(BuildContext context) {
@@ -1292,101 +1033,7 @@ class _PinnedMarker extends StatelessWidget {
     return SizedBox(
       width: RoleMapMarker.outerSize,
       height: RoleMapMarker.outerSize,
-      child: Transform.translate(
-        offset: offset,
-        child: marker,
-      ),
-    );
-  }
-}
-
-class _DevSimulationCard extends StatelessWidget {
-  const _DevSimulationCard({
-    required this.running,
-    required this.simulationMode,
-    required this.onStartPause,
-    required this.onTowSimulation,
-    required this.onReset,
-  });
-
-  final bool running;
-  final String simulationMode;
-  final Future<void> Function() onStartPause;
-  final Future<void> Function() onTowSimulation;
-  final Future<void> Function() onReset;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 220,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.96),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 18,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            'Dev Simulation',
-            style: TextStyle(
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Tap banner 6 times to hide',
-            style: TextStyle(
-              color: Colors.black54,
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Mode: $simulationMode',
-            style: const TextStyle(
-              color: Colors.black87,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: onStartPause,
-              icon: Icon(running ? Icons.pause : Icons.play_arrow),
-              label: Text(running ? 'Pause simulation' : 'Start simulation'),
-            ),
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: onTowSimulation,
-              icon: const Icon(Icons.alt_route),
-              label: const Text('Simuler vers destination'),
-            ),
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: onReset,
-              icon: const Icon(Icons.restart_alt),
-              label: const Text('Reset to route start'),
-            ),
-          ),
-        ],
-      ),
+      child: marker,
     );
   }
 }

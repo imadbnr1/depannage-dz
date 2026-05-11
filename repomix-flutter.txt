@@ -3837,388 +3837,6 @@ class StatusChip extends StatelessWidget {
 }
 </file>
 
-<file path="AGENTS.md">
-# AGENTS.md
-
-## Project Context
-
-This repository contains a production-style Flutter roadside assistance / towing / dépannage platform developed as a final graduation project.
-
-This is NOT a demo project.
-
-All changes must preserve:
-
-* production readiness
-* Firebase security
-* realtime dispatch integrity
-* customer/provider/admin flows
-* multilingual support
-* responsive UI
-* Flutter Web and Android compatibility
-
-The application uses:
-
-* Flutter
-* Firebase Auth
-* Cloud Firestore
-* Firebase Realtime Database
-* Firebase Messaging
-* Firebase Hosting
-* Firebase Functions when available
-* Provider / ChangeNotifier state management
-* Flutter Map / OpenStreetMap-based maps
-
----
-
-## Critical Security Rules
-
-Never commit secrets.
-
-Never commit:
-
-* firebase-admin.json
-* service-account JSON files
-* .env
-* private keys
-* API secrets
-* webhook secrets
-* raw FCM tokens
-* credential exports
-
-If a credential was ever committed:
-
-1. revoke/delete the exposed key
-2. rotate it
-3. remove it from Git history
-4. force-push cleaned history only after confirmation
-
-Public Firebase client config may remain public if required by FlutterFire, but Firebase Admin SDK credentials must never be public.
-
----
-
-## GitHub Safety Rules
-
-Before any public push:
-
-* check `git status --short`
-* confirm `.env` is ignored
-* confirm `firebase-admin.json` is not tracked
-* confirm `.firebase/` cache is not tracked
-* confirm `.env.example` contains placeholders only
-* do not push generated build files unless intentionally required
-
-Use `.gitignore` for:
-
-* `.env`
-* `.env.*`
-* `!.env.example`
-* `firebase-admin.json`
-* `**/firebase-admin.json`
-* `service-account*.json`
-* `*.p12`
-* `*.pem`
-* `*.key`
-* `.firebase/`
-* `build/`
-* `.dart_tool/`
-
----
-
-## Architecture Rules
-
-Do NOT rewrite large systems unnecessarily.
-
-Do NOT replace:
-
-* Provider/ChangeNotifier
-* repository structure
-* auth architecture
-* dispatch architecture
-* provider presence system
-* localization system
-
-Prefer:
-
-* minimal safe edits
-* targeted fixes
-* backwards-compatible additions
-* production-safe fallbacks
-
----
-
-## Firebase Rules
-
-Security rules must be production-safe.
-
-Never use:
-
-```js
-allow read, write: if true;
-```
-
-Rule changes must:
-
-* validate ownership
-* validate roles
-* validate state transitions
-* restrict allowed fields
-* avoid broad admin bypasses unless explicitly required and protected
-
----
-
-## Dispatch System Rules
-
-The dispatch system is business-critical.
-
-Provider dispatch must depend only on Firestore app providers.
-
-Do NOT make dispatch depend on:
-
-* Nominatim
-* Overpass
-* route APIs
-* map proxy
-* geocoding
-* nearby places
-* external POI search
-
-Expected dispatch behavior:
-
-1. load Firestore providers
-2. filter eligible providers
-3. sort by distance
-4. offer mission one provider at a time
-5. respect provider timeout
-6. retry safely if customer chooses to keep waiting
-7. show “Aucun provider disponible” only after true dispatch exhaustion
-
-Eligible provider must be:
-
-* online
-* approved
-* not busy
-* not on active mission
-* has valid location
-* within dispatch radius if radius is enabled
-
-When debugging dispatch, log only safe diagnostics:
-
-* provider uid
-* total providers count
-* eligible count
-* online/approved/busy flags
-* has location
-* distance
-* exclusion reason
-
-Never log:
-
-* phone
-* email
-* FCM token
-* private user data
-
----
-
-## Provider Presence Rules
-
-Provider online/offline state uses:
-
-* Firebase Realtime Database presence
-* Firestore availability mirror/fallback
-
-Do not break:
-
-* onDisconnect behavior
-* offline fallback
-* busy-state protection
-* active mission protection
-
-A provider on an active mission must not receive another mission.
-
----
-
-## Tracking and Map Rules
-
-Tracking must:
-
-* update in realtime
-* show route/ETA/distance when available
-* degrade gracefully on Flutter Web
-* never crash because a map API fails
-
-On Flutter Web:
-
-* browser CORS can block direct third-party map/search APIs
-* use Firebase Functions proxy when available
-* otherwise fallback safely
-* straight-line route fallback is acceptable
-
-External map/search failures must never affect provider dispatch.
-
----
-
-## Firebase Functions Rules
-
-Use Firebase Functions as a backend proxy for web map/search/routing when possible.
-
-Spark/free-plan compatibility:
-
-* do not require Secret Manager unless project is on Blaze
-* support `functions.config()` or `process.env`
-* fail gracefully if a key is missing
-* never expose API keys to Flutter frontend
-
-Cloud Function endpoints may include:
-
-* `mapSearch`
-* `reverseGeocode`
-* `nearbyPlaces`
-* `routeDirections`
-
-Functions must:
-
-* validate input
-* apply timeouts
-* catch upstream errors
-* normalize responses
-* return empty/fallback results instead of crashing
-
----
-
-## UI/UX Rules
-
-Do NOT redesign pages unless explicitly requested.
-
-Preserve:
-
-* current branding
-* layout language
-* customer/provider/admin flows
-* localization behavior
-
-Fixes should:
-
-* remove overflow
-* avoid layout jumps
-* keep mobile/web responsive
-* keep animations lightweight
-
----
-
-## Marker and Animation Rules
-
-Map markers must:
-
-* use fixed/constrained dimensions
-* avoid unconstrained `Column`
-* avoid RenderFlex overflow
-* keep marker and pulse centered
-
-Searching marker pulse:
-
-* use `Stack(alignment: Alignment.center)`
-* place pulse behind marker
-* match marker widget width/height with map marker width/height
-* avoid offset Transform bugs
-* stop animation when status is no longer searching
-
----
-
-## Localization Rules
-
-The project supports:
-
-* French
-* English
-* Arabic
-
-Avoid hardcoded strings for new production UI.
-Prefer existing localization architecture.
-
-Temporary debug-only text is acceptable during diagnosis but should not remain in final production UI.
-
----
-
-## FCM Rules
-
-Never print raw FCM tokens.
-
-Allowed logs:
-
-* `FCM token saved`
-* `FCM token refreshed`
-* `FCM unavailable on web`
-
-Not allowed:
-
-* token value
-* raw exception payloads containing sensitive details
-
-On Flutter Web:
-
-* FCM may fail because of service worker/browser push restrictions
-* failure must not crash UI
-
----
-
-## Code Quality Rules
-
-After edits:
-
-* run `dart format`
-* run `flutter analyze`
-* run `npm run lint` / `npm run build` for functions when changed
-
-Avoid:
-
-* noisy permanent logs
-* dead code
-* duplicated logic
-* unrelated refactors
-* repeated failed network retries
-
----
-
-## Final Response Format
-
-Every coding task response must include:
-
-* root cause
-* files changed
-* what was fixed
-* commands run
-* remaining risks/TODOs
-
-For dispatch bugs, also include:
-
-* exact reason provider was excluded
-* how eligibility was corrected
-
-For Functions changes, also include:
-
-* setup commands
-* deploy commands
-* any Blaze-only limitations
-
----
-
-## Goal
-
-Every change should move the project toward:
-
-* production readiness
-* secure Firebase architecture
-* stable realtime dispatch
-* professional UX
-* graduation-project presentation quality
-
-<!-- SPECKIT START -->
-For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan
-<!-- SPECKIT END -->
-</file>
-
 <file path="functions/package.json">
 {
   "name": "depaniny-functions",
@@ -7119,7 +6737,7 @@ class RoleMapMarker extends StatelessWidget {
   final bool compactLabel;
   final bool showPulse;
 
-  static const double outerSize = 88;
+  static const double outerSize = 104;
   static const double labelHeight = 22;
 
   @override
@@ -7141,11 +6759,10 @@ class RoleMapMarker extends StatelessWidget {
         alignment: Alignment.center,
         clipBehavior: Clip.none,
         children: [
-          Positioned(
-            top: 28,
+          Center(
             child: SizedBox(
-              width: 76,
-              height: 58,
+              width: 78,
+              height: 78,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
@@ -7157,7 +6774,7 @@ class RoleMapMarker extends StatelessWidget {
           ),
           if (showLabel)
             Positioned(
-              top: 0,
+              top: 2,
               left: 2,
               right: 2,
               child: Center(
@@ -7317,6 +6934,388 @@ class _FallbackMarkerIcon extends StatelessWidget {
     );
   }
 }
+</file>
+
+<file path="AGENTS.md">
+# AGENTS.md
+
+## Project Context
+
+This repository contains a production-style Flutter roadside assistance / towing / dépannage platform developed as a final graduation project.
+
+This is NOT a demo project.
+
+All changes must preserve:
+
+* production readiness
+* Firebase security
+* realtime dispatch integrity
+* customer/provider/admin flows
+* multilingual support
+* responsive UI
+* Flutter Web and Android compatibility
+
+The application uses:
+
+* Flutter
+* Firebase Auth
+* Cloud Firestore
+* Firebase Realtime Database
+* Firebase Messaging
+* Firebase Hosting
+* Firebase Functions when available
+* Provider / ChangeNotifier state management
+* Flutter Map / OpenStreetMap-based maps
+
+---
+
+## Critical Security Rules
+
+Never commit secrets.
+
+Never commit:
+
+* firebase-admin.json
+* service-account JSON files
+* .env
+* private keys
+* API secrets
+* webhook secrets
+* raw FCM tokens
+* credential exports
+
+If a credential was ever committed:
+
+1. revoke/delete the exposed key
+2. rotate it
+3. remove it from Git history
+4. force-push cleaned history only after confirmation
+
+Public Firebase client config may remain public if required by FlutterFire, but Firebase Admin SDK credentials must never be public.
+
+---
+
+## GitHub Safety Rules
+
+Before any public push:
+
+* check `git status --short`
+* confirm `.env` is ignored
+* confirm `firebase-admin.json` is not tracked
+* confirm `.firebase/` cache is not tracked
+* confirm `.env.example` contains placeholders only
+* do not push generated build files unless intentionally required
+
+Use `.gitignore` for:
+
+* `.env`
+* `.env.*`
+* `!.env.example`
+* `firebase-admin.json`
+* `**/firebase-admin.json`
+* `service-account*.json`
+* `*.p12`
+* `*.pem`
+* `*.key`
+* `.firebase/`
+* `build/`
+* `.dart_tool/`
+
+---
+
+## Architecture Rules
+
+Do NOT rewrite large systems unnecessarily.
+
+Do NOT replace:
+
+* Provider/ChangeNotifier
+* repository structure
+* auth architecture
+* dispatch architecture
+* provider presence system
+* localization system
+
+Prefer:
+
+* minimal safe edits
+* targeted fixes
+* backwards-compatible additions
+* production-safe fallbacks
+
+---
+
+## Firebase Rules
+
+Security rules must be production-safe.
+
+Never use:
+
+```js
+allow read, write: if true;
+```
+
+Rule changes must:
+
+* validate ownership
+* validate roles
+* validate state transitions
+* restrict allowed fields
+* avoid broad admin bypasses unless explicitly required and protected
+
+---
+
+## Dispatch System Rules
+
+The dispatch system is business-critical.
+
+Provider dispatch must depend only on Firestore app providers.
+
+Do NOT make dispatch depend on:
+
+* Nominatim
+* Overpass
+* route APIs
+* map proxy
+* geocoding
+* nearby places
+* external POI search
+
+Expected dispatch behavior:
+
+1. load Firestore providers
+2. filter eligible providers
+3. sort by distance
+4. offer mission one provider at a time
+5. respect provider timeout
+6. retry safely if customer chooses to keep waiting
+7. show “Aucun provider disponible” only after true dispatch exhaustion
+
+Eligible provider must be:
+
+* online
+* approved
+* not busy
+* not on active mission
+* has valid location
+* within dispatch radius if radius is enabled
+
+When debugging dispatch, log only safe diagnostics:
+
+* provider uid
+* total providers count
+* eligible count
+* online/approved/busy flags
+* has location
+* distance
+* exclusion reason
+
+Never log:
+
+* phone
+* email
+* FCM token
+* private user data
+
+---
+
+## Provider Presence Rules
+
+Provider online/offline state uses:
+
+* Firebase Realtime Database presence
+* Firestore availability mirror/fallback
+
+Do not break:
+
+* onDisconnect behavior
+* offline fallback
+* busy-state protection
+* active mission protection
+
+A provider on an active mission must not receive another mission.
+
+---
+
+## Tracking and Map Rules
+
+Tracking must:
+
+* update in realtime
+* show route/ETA/distance when available
+* degrade gracefully on Flutter Web
+* never crash because a map API fails
+
+On Flutter Web:
+
+* browser CORS can block direct third-party map/search APIs
+* use Firebase Functions proxy when available
+* otherwise fallback safely
+* straight-line route fallback is acceptable
+
+External map/search failures must never affect provider dispatch.
+
+---
+
+## Firebase Functions Rules
+
+Use Firebase Functions as a backend proxy for web map/search/routing when possible.
+
+Spark/free-plan compatibility:
+
+* do not require Secret Manager unless project is on Blaze
+* support `functions.config()` or `process.env`
+* fail gracefully if a key is missing
+* never expose API keys to Flutter frontend
+
+Cloud Function endpoints may include:
+
+* `mapSearch`
+* `reverseGeocode`
+* `nearbyPlaces`
+* `routeDirections`
+
+Functions must:
+
+* validate input
+* apply timeouts
+* catch upstream errors
+* normalize responses
+* return empty/fallback results instead of crashing
+
+---
+
+## UI/UX Rules
+
+Do NOT redesign pages unless explicitly requested.
+
+Preserve:
+
+* current branding
+* layout language
+* customer/provider/admin flows
+* localization behavior
+
+Fixes should:
+
+* remove overflow
+* avoid layout jumps
+* keep mobile/web responsive
+* keep animations lightweight
+
+---
+
+## Marker and Animation Rules
+
+Map markers must:
+
+* use fixed/constrained dimensions
+* avoid unconstrained `Column`
+* avoid RenderFlex overflow
+* keep marker and pulse centered
+
+Searching marker pulse:
+
+* use `Stack(alignment: Alignment.center)`
+* place pulse behind marker
+* match marker widget width/height with map marker width/height
+* avoid offset Transform bugs
+* stop animation when status is no longer searching
+
+---
+
+## Localization Rules
+
+The project supports:
+
+* French
+* English
+* Arabic
+
+Avoid hardcoded strings for new production UI.
+Prefer existing localization architecture.
+
+Temporary debug-only text is acceptable during diagnosis but should not remain in final production UI.
+
+---
+
+## FCM Rules
+
+Never print raw FCM tokens.
+
+Allowed logs:
+
+* `FCM token saved`
+* `FCM token refreshed`
+* `FCM unavailable on web`
+
+Not allowed:
+
+* token value
+* raw exception payloads containing sensitive details
+
+On Flutter Web:
+
+* FCM may fail because of service worker/browser push restrictions
+* failure must not crash UI
+
+---
+
+## Code Quality Rules
+
+After edits:
+
+* run `dart format`
+* run `flutter analyze`
+* run `npm run lint` / `npm run build` for functions when changed
+
+Avoid:
+
+* noisy permanent logs
+* dead code
+* duplicated logic
+* unrelated refactors
+* repeated failed network retries
+
+---
+
+## Final Response Format
+
+Every coding task response must include:
+
+* root cause
+* files changed
+* what was fixed
+* commands run
+* remaining risks/TODOs
+
+For dispatch bugs, also include:
+
+* exact reason provider was excluded
+* how eligibility was corrected
+
+For Functions changes, also include:
+
+* setup commands
+* deploy commands
+* any Blaze-only limitations
+
+---
+
+## Goal
+
+Every change should move the project toward:
+
+* production readiness
+* secure Firebase architecture
+* stable realtime dispatch
+* professional UX
+* graduation-project presentation quality
+
+<!-- SPECKIT START -->
+For additional context about technologies to be used, project structure,
+shell commands, and other important information, read the current plan
+<!-- SPECKIT END -->
 </file>
 
 <file path="firebase.json">
@@ -12278,7 +12277,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
                           ),
                         ),
                         const Spacer(),
-                        const LanguageSelector(compact: true),
+                        ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: veryNarrow ? 56 : 144,
+                          ),
+                          child: const LanguageSelector(compact: true),
+                        ),
                         SizedBox(width: veryNarrow ? 4 : 8),
                         Flexible(
                           child: Align(
@@ -12536,127 +12540,188 @@ class LanguageSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ctrl = context.watch<AppLanguageController>();
+    final current = _LanguageOption.fromCode(ctrl.locale.languageCode);
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final tight = compact || constraints.maxWidth < 96;
-        final maxWidth = tight ? 48.0 : 92.0;
+        final showLabel = constraints.maxWidth >= 132;
+        final maxWidth = compact ? 144.0 : 168.0;
 
         return ConstrainedBox(
           constraints: BoxConstraints(
-            minWidth: tight ? 42 : 64,
+            minWidth: showLabel ? 118 : 52,
             maxWidth: maxWidth,
           ),
           child: PopupMenuButton<String>(
             tooltip: 'Language',
             initialValue: ctrl.locale.languageCode,
-            onSelected: (code) => ctrl.setLanguage(code),
+            onSelected: ctrl.setLanguage,
+            offset: const Offset(0, 10),
+            elevation: 10,
+            color: Colors.white,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+              side: const BorderSide(color: Color(0xFFEADFCC)),
+            ),
+            itemBuilder: (context) => _LanguageOption.values.map((option) {
+              final selected = option.code == ctrl.locale.languageCode;
+              return PopupMenuItem<String>(
+                value: option.code,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: _LanguageMenuItem(
+                  option: option,
+                  selected: selected,
+                ),
+              );
+            }).toList(),
             child: Container(
-              height: compact ? 38 : 42,
+              height: compact ? 40 : 44,
               padding: EdgeInsets.symmetric(
-                horizontal: tight ? 9 : 12,
+                horizontal: showLabel ? 14 : 10,
                 vertical: 6,
               ),
               decoration: BoxDecoration(
                 color: backgroundColor ?? Colors.white.withValues(alpha: 0.92),
                 borderRadius: BorderRadius.circular(999),
                 border: Border.all(
-                  color: const Color(0xFFE2D6C2).withValues(alpha: 0.86),
+                  color: Colors.white.withValues(alpha: 0.58),
                 ),
                 boxShadow: const [
                   BoxShadow(
-                    color: Color(0x140F172A),
-                    blurRadius: 14,
-                    offset: Offset(0, 7),
+                    color: Color(0x1F0F172A),
+                    blurRadius: 18,
+                    offset: Offset(0, 8),
                   ),
                 ],
               ),
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _flag(ctrl.locale.languageCode),
-                      style: TextStyle(fontSize: compact ? 16 : 20),
-                    ),
-                    if (!tight) ...[
-                      const SizedBox(width: 7),
-                      Text(
-                        _label(ctrl.locale.languageCode),
-                        overflow: TextOverflow.fade,
-                        softWrap: false,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    current.flag,
+                    style: TextStyle(fontSize: compact ? 18 : 20),
+                  ),
+                  if (showLabel) ...[
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        current.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 13,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w900,
                           color: Color(0xFF0F172A),
                         ),
                       ),
-                      const SizedBox(width: 2),
-                    ],
-                    Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      size: compact ? 15 : 18,
-                      color: const Color(0xFF0F172A),
                     ),
+                    const SizedBox(width: 4),
                   ],
-                ),
+                  Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: compact ? 16 : 18,
+                    color: const Color(0xFF0F172A),
+                  ),
+                ],
               ),
             ),
-            itemBuilder: (context) => [
-              _buildItem('fr', 'FR', 'Francais'),
-              _buildItem('en', 'EN', 'English'),
-              _buildItem('ar', 'AR', 'Arabic'),
-            ],
           ),
         );
       },
     );
   }
+}
 
-  PopupMenuItem<String> _buildItem(String code, String flag, String label) {
-    return PopupMenuItem<String>(
-      value: code,
+class _LanguageMenuItem extends StatelessWidget {
+  const _LanguageMenuItem({
+    required this.option,
+    required this.selected,
+  });
+
+  final _LanguageOption option;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: selected ? const Color(0xFFFFF4DE) : Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        border: selected
+            ? Border.all(
+                color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
+              )
+            : null,
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          Text(
+            option.flag,
+            style: const TextStyle(fontSize: 20),
+          ),
+          const SizedBox(width: 10),
           SizedBox(
-            width: 28,
+            width: 92,
             child: Text(
-              flag,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w900,
+              option.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: selected ? FontWeight.w900 : FontWeight.w700,
+                color: const Color(0xFF0F172A),
               ),
             ),
           ),
-          const SizedBox(width: 10),
-          Text(label, style: const TextStyle(fontSize: 15)),
+          const SizedBox(width: 8),
+          Icon(
+            selected ? Icons.check_circle_rounded : Icons.circle_outlined,
+            size: 18,
+            color: selected ? const Color(0xFFF59E0B) : const Color(0xFFCBD5E1),
+          ),
         ],
       ),
     );
   }
+}
 
-  String _flag(String code) {
-    switch (code) {
-      case 'en':
-        return 'EN';
-      case 'ar':
-        return 'AR';
-      default:
-        return 'FR';
-    }
-  }
+class _LanguageOption {
+  const _LanguageOption({
+    required this.code,
+    required this.flag,
+    required this.label,
+  });
 
-  String _label(String code) {
-    switch (code) {
-      case 'en':
-        return 'EN';
-      case 'ar':
-        return 'AR';
-      default:
-        return 'FR';
-    }
+  final String code;
+  final String flag;
+  final String label;
+
+  static const values = [
+    _LanguageOption(
+      code: 'ar',
+      flag: '\u{1F1E9}\u{1F1FF}',
+      label: '\u0627\u0644\u0639\u0631\u0628\u064A\u0629',
+    ),
+    _LanguageOption(
+      code: 'en',
+      flag: '\u{1F1EC}\u{1F1E7}',
+      label: 'English',
+    ),
+    _LanguageOption(
+      code: 'fr',
+      flag: '\u{1F1EB}\u{1F1F7}',
+      label: 'Fran\u00E7ais',
+    ),
+  ];
+
+  static _LanguageOption fromCode(String code) {
+    return values.firstWhere(
+      (option) => option.code == code,
+      orElse: () => values.last,
+    );
   }
 }
 </file>
@@ -13203,407 +13268,6 @@ class PlaceSearchService {
   }
 
   double _toRadians(double degrees) => degrees * math.pi / 180;
-}
-</file>
-
-<file path="lib/features/customer/pages/customer_home_page.dart">
-import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
-
-import '../../../core/i18n/app_localizations.dart';
-import '../../../models/service_type.dart';
-import '../../../state/app_store.dart';
-import '../../../widgets/map_pin.dart';
-import '../../../widgets/role_map_marker.dart';
-import 'create_order_page.dart';
-import 'customer_tracking_page.dart';
-
-class CustomerHomePage extends StatefulWidget {
-  const CustomerHomePage({
-    super.key,
-    required this.store,
-  });
-
-  final AppStore store;
-
-  @override
-  State<CustomerHomePage> createState() => _CustomerHomePageState();
-}
-
-class _CustomerHomePageState extends State<CustomerHomePage> {
-  final MapController _mapController = MapController();
-  bool _mapReady = false;
-  double _panelExtent = 0.24;
-  late final ValueNotifier<double> _panelExtentNotifier =
-      ValueNotifier<double>(_panelExtent);
-
-  void _handlePanelNotification(DraggableScrollableNotification notification) {
-    final nextExtent = notification.extent;
-    if ((nextExtent - _panelExtent).abs() < 0.002) return;
-
-    _panelExtent = nextExtent;
-    _panelExtentNotifier.value = nextExtent;
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    widget.store.addListener(_refresh);
-  }
-
-  @override
-  void dispose() {
-    widget.store.removeListener(_refresh);
-    _panelExtentNotifier.dispose();
-    super.dispose();
-  }
-
-  void _refresh() {
-    if (!mounted) return;
-    setState(() {});
-  }
-
-  Future<void> _centerCustomer() async {
-    await widget.store.requestCustomerLocation();
-    final position =
-        widget.store.customerCurrentPosition ?? const LatLng(36.7538, 3.0588);
-
-    if (!_mapReady) return;
-
-    try {
-      _mapController.move(position, 16);
-    } catch (_) {}
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final strings = AppLocalizations.of(context);
-    final store = widget.store;
-    final customerPosition =
-        store.customerCurrentPosition ?? const LatLng(36.7538, 3.0588);
-    final activeRequest = store.activeCustomerRequests.isNotEmpty
-        ? store.activeCustomerRequests.first
-        : null;
-
-    return Scaffold(
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final safe = MediaQuery.paddingOf(context);
-          final compactHeight = constraints.maxHeight < 620;
-          final minExtent = compactHeight ? 0.18 : 0.16;
-          final initialExtent = compactHeight ? 0.28 : 0.24;
-          final maxExtent = compactHeight ? 0.62 : 0.52;
-          double buttonBottom(double extent) {
-            final clampedExtent = extent.clamp(minExtent, maxExtent).toDouble();
-            return (constraints.maxHeight * clampedExtent) + safe.bottom + 14;
-          }
-
-          return Stack(
-            children: [
-              FlutterMap(
-                mapController: _mapController,
-                options: MapOptions(
-                  initialCenter: customerPosition,
-                  initialZoom: 13.5,
-                  onMapReady: () {
-                    _mapReady = true;
-                    try {
-                      _mapController.move(customerPosition, 15);
-                    } catch (_) {}
-                  },
-                ),
-                children: [
-                  TileLayer(
-                    urlTemplate:
-                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    userAgentPackageName: 'dz.depannage.customer',
-                  ),
-                  MarkerLayer(
-                    markers: [
-                      Marker(
-                        point: customerPosition,
-                        width: RoleMapMarker.outerSize,
-                        height: RoleMapMarker.outerSize,
-                        child: MapPin(
-                          label: strings.t('vous'),
-                          icon: Icons.place,
-                          color: Colors.red,
-                          markerType: RoleMapMarkerType.customer,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              ValueListenableBuilder<double>(
-                valueListenable: _panelExtentNotifier,
-                builder: (context, panelExtent, child) {
-                  return Positioned(
-                    right: 16 + safe.right,
-                    bottom: buttonBottom(panelExtent),
-                    child: child!,
-                  );
-                },
-                child: Material(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  shape: const CircleBorder(),
-                  elevation: 3,
-                  child: InkWell(
-                    onTap: _centerCustomer,
-                    customBorder: const CircleBorder(),
-                    child: SizedBox(
-                      width: 52,
-                      height: 52,
-                      child: store.customerLocationLoading
-                          ? const Padding(
-                              padding: EdgeInsets.all(14),
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.gps_fixed),
-                    ),
-                  ),
-                ),
-              ),
-              NotificationListener<DraggableScrollableNotification>(
-                onNotification: (notification) {
-                  _handlePanelNotification(notification);
-                  return false;
-                },
-                child: DraggableScrollableSheet(
-                  minChildSize: minExtent,
-                  initialChildSize: initialExtent,
-                  maxChildSize: maxExtent,
-                  snap: false,
-                  expand: false,
-                  builder: (context, scrollController) {
-                    return DecoratedBox(
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.vertical(
-                          top: Radius.circular(28),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Color(0x1A000000),
-                            blurRadius: 20,
-                            offset: Offset(0, -4),
-                          ),
-                        ],
-                      ),
-                      child: SafeArea(
-                        top: false,
-                        child: ListView(
-                          controller: scrollController,
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-                          children: [
-                            const _SheetHandle(),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        strings.t('need_service'),
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w900,
-                                          fontSize: 22,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        store.customerLocationLoading
-                                            ? strings.t('locating')
-                                            : (store.customerLocationMessage ??
-                                                strings.t(
-                                                  'choose_trip_quickly',
-                                                )),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          color: Colors.black54,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Icon(
-                                  activeRequest == null
-                                      ? Icons.route_outlined
-                                      : Icons.radar_rounded,
-                                  color: const Color(0xFFF59E0B),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 14),
-                            SizedBox(
-                              width: double.infinity,
-                              child: FilledButton.icon(
-                                onPressed: () {
-                                  if (activeRequest != null) {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) => CustomerTrackingPage(
-                                          store: store,
-                                          requestId: activeRequest.id,
-                                        ),
-                                      ),
-                                    );
-                                    return;
-                                  }
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => CreateOrderPage(
-                                        store: store,
-                                        service: ServiceType.values.first,
-                                      ),
-                                    ),
-                                  );
-                                },
-                                icon: const Icon(Icons.route_outlined),
-                                label: Text(
-                                  activeRequest != null
-                                      ? strings.t('track_current_mission')
-                                      : strings.t('choisir_destination'),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            _CustomerPanelDetails(
-                              activeRequestLabel: activeRequest == null
-                                  ? strings.t('no_active_request_short')
-                                  : strings.t('active_request_running'),
-                              pickupLabel: activeRequest?.pickupLabel ??
-                                  strings.t('vous'),
-                              destinationLabel: activeRequest?.destination ??
-                                  strings.t('destination_waiting'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _SheetHandle extends StatelessWidget {
-  const _SheetHandle();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        width: 42,
-        height: 4,
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: Colors.black26,
-          borderRadius: BorderRadius.circular(10),
-        ),
-      ),
-    );
-  }
-}
-
-class _CustomerPanelDetails extends StatelessWidget {
-  const _CustomerPanelDetails({
-    required this.activeRequestLabel,
-    required this.pickupLabel,
-    required this.destinationLabel,
-  });
-
-  final String activeRequestLabel;
-  final String pickupLabel;
-  final String destinationLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    final strings = AppLocalizations.of(context);
-
-    return Column(
-      children: [
-        _DetailRow(
-          icon: Icons.assignment_turned_in_outlined,
-          title: strings.t('status'),
-          value: activeRequestLabel,
-        ),
-        const SizedBox(height: 10),
-        _DetailRow(
-          icon: Icons.my_location_outlined,
-          title: strings.t('depart'),
-          value: pickupLabel,
-        ),
-        const SizedBox(height: 10),
-        _DetailRow(
-          icon: Icons.flag_outlined,
-          title: strings.t('destination'),
-          value: destinationLabel,
-        ),
-      ],
-    );
-  }
-}
-
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({
-    required this.icon,
-    required this.title,
-    required this.value,
-  });
-
-  final IconData icon;
-  final String title;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFF4D6),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(icon, color: const Color(0xFFF59E0B), size: 18),
-        ),
-        const SizedBox(width: 10),
-        SizedBox(
-          width: 92,
-          child: Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.black54,
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.w800),
-          ),
-        ),
-      ],
-    );
-  }
 }
 </file>
 
@@ -18233,6 +17897,408 @@ class RouteService {
 }
 </file>
 
+<file path="lib/features/customer/pages/customer_home_page.dart">
+import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+
+import '../../../core/i18n/app_localizations.dart';
+import '../../../models/service_type.dart';
+import '../../../state/app_store.dart';
+import '../../../widgets/map_pin.dart';
+import '../../../widgets/role_map_marker.dart';
+import 'create_order_page.dart';
+import 'customer_tracking_page.dart';
+
+class CustomerHomePage extends StatefulWidget {
+  const CustomerHomePage({
+    super.key,
+    required this.store,
+  });
+
+  final AppStore store;
+
+  @override
+  State<CustomerHomePage> createState() => _CustomerHomePageState();
+}
+
+class _CustomerHomePageState extends State<CustomerHomePage> {
+  final MapController _mapController = MapController();
+  bool _mapReady = false;
+  double _panelExtent = 0.24;
+  late final ValueNotifier<double> _panelExtentNotifier =
+      ValueNotifier<double>(_panelExtent);
+
+  void _handlePanelNotification(DraggableScrollableNotification notification) {
+    final nextExtent = notification.extent;
+    if ((nextExtent - _panelExtent).abs() < 0.002) return;
+
+    _panelExtent = nextExtent;
+    _panelExtentNotifier.value = nextExtent;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    widget.store.addListener(_refresh);
+  }
+
+  @override
+  void dispose() {
+    widget.store.removeListener(_refresh);
+    _panelExtentNotifier.dispose();
+    super.dispose();
+  }
+
+  void _refresh() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  Future<void> _centerCustomer() async {
+    await widget.store.requestCustomerLocation();
+    final position =
+        widget.store.customerCurrentPosition ?? const LatLng(36.7538, 3.0588);
+
+    if (!_mapReady) return;
+
+    try {
+      _mapController.move(position, 16);
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
+    final store = widget.store;
+    final customerPosition =
+        store.customerCurrentPosition ?? const LatLng(36.7538, 3.0588);
+    final activeRequest = store.activeCustomerRequests.isNotEmpty
+        ? store.activeCustomerRequests.first
+        : null;
+
+    return Scaffold(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final safe = MediaQuery.paddingOf(context);
+          final compactHeight = constraints.maxHeight < 620;
+          final minExtent = compactHeight ? 0.18 : 0.16;
+          final initialExtent = compactHeight ? 0.28 : 0.24;
+          final maxExtent = compactHeight ? 0.62 : 0.52;
+          double buttonBottom(double extent) {
+            final clampedExtent = extent.clamp(minExtent, maxExtent).toDouble();
+            return (constraints.maxHeight * clampedExtent) + safe.bottom + 14;
+          }
+
+          return Stack(
+            children: [
+              Positioned.fill(
+                child: FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(
+                    initialCenter: customerPosition,
+                    initialZoom: 13.5,
+                    onMapReady: () {
+                      _mapReady = true;
+                      try {
+                        _mapController.move(customerPosition, 15);
+                      } catch (_) {}
+                    },
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate:
+                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'dz.depannage.customer',
+                    ),
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: customerPosition,
+                          width: RoleMapMarker.outerSize,
+                          height: RoleMapMarker.outerSize,
+                          child: MapPin(
+                            label: strings.t('vous'),
+                            icon: Icons.place,
+                            color: Colors.red,
+                            markerType: RoleMapMarkerType.customer,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              ValueListenableBuilder<double>(
+                valueListenable: _panelExtentNotifier,
+                builder: (context, panelExtent, child) {
+                  return Positioned(
+                    right: 16 + safe.right,
+                    bottom: buttonBottom(panelExtent),
+                    child: child!,
+                  );
+                },
+                child: Material(
+                  color: Colors.white.withValues(alpha: 0.9),
+                  shape: const CircleBorder(),
+                  elevation: 3,
+                  child: InkWell(
+                    onTap: _centerCustomer,
+                    customBorder: const CircleBorder(),
+                    child: SizedBox(
+                      width: 52,
+                      height: 52,
+                      child: store.customerLocationLoading
+                          ? const Padding(
+                              padding: EdgeInsets.all(14),
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.gps_fixed),
+                    ),
+                  ),
+                ),
+              ),
+              NotificationListener<DraggableScrollableNotification>(
+                onNotification: (notification) {
+                  _handlePanelNotification(notification);
+                  return false;
+                },
+                child: DraggableScrollableSheet(
+                  minChildSize: minExtent,
+                  initialChildSize: initialExtent,
+                  maxChildSize: maxExtent,
+                  snap: false,
+                  builder: (context, scrollController) {
+                    return DecoratedBox(
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(28),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Color(0x1A000000),
+                            blurRadius: 20,
+                            offset: Offset(0, -4),
+                          ),
+                        ],
+                      ),
+                      child: SafeArea(
+                        top: false,
+                        child: ListView(
+                          controller: scrollController,
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+                          children: [
+                            const _SheetHandle(),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        strings.t('need_service'),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 22,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        store.customerLocationLoading
+                                            ? strings.t('locating')
+                                            : (store.customerLocationMessage ??
+                                                strings.t(
+                                                  'choose_trip_quickly',
+                                                )),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: Colors.black54,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Icon(
+                                  activeRequest == null
+                                      ? Icons.route_outlined
+                                      : Icons.radar_rounded,
+                                  color: const Color(0xFFF59E0B),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            SizedBox(
+                              width: double.infinity,
+                              child: FilledButton.icon(
+                                onPressed: () {
+                                  if (activeRequest != null) {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => CustomerTrackingPage(
+                                          store: store,
+                                          requestId: activeRequest.id,
+                                        ),
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => CreateOrderPage(
+                                        store: store,
+                                        service: ServiceType.values.first,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(Icons.route_outlined),
+                                label: Text(
+                                  activeRequest != null
+                                      ? strings.t('track_current_mission')
+                                      : strings.t('choisir_destination'),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            _CustomerPanelDetails(
+                              activeRequestLabel: activeRequest == null
+                                  ? strings.t('no_active_request_short')
+                                  : strings.t('active_request_running'),
+                              pickupLabel: activeRequest?.pickupLabel ??
+                                  strings.t('vous'),
+                              destinationLabel: activeRequest?.destination ??
+                                  strings.t('destination_waiting'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _SheetHandle extends StatelessWidget {
+  const _SheetHandle();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        width: 42,
+        height: 4,
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: Colors.black26,
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+    );
+  }
+}
+
+class _CustomerPanelDetails extends StatelessWidget {
+  const _CustomerPanelDetails({
+    required this.activeRequestLabel,
+    required this.pickupLabel,
+    required this.destinationLabel,
+  });
+
+  final String activeRequestLabel;
+  final String pickupLabel;
+  final String destinationLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
+
+    return Column(
+      children: [
+        _DetailRow(
+          icon: Icons.assignment_turned_in_outlined,
+          title: strings.t('status'),
+          value: activeRequestLabel,
+        ),
+        const SizedBox(height: 10),
+        _DetailRow(
+          icon: Icons.my_location_outlined,
+          title: strings.t('depart'),
+          value: pickupLabel,
+        ),
+        const SizedBox(height: 10),
+        _DetailRow(
+          icon: Icons.flag_outlined,
+          title: strings.t('destination'),
+          value: destinationLabel,
+        ),
+      ],
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  const _DetailRow({
+    required this.icon,
+    required this.title,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String title;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF4D6),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: const Color(0xFFF59E0B), size: 18),
+        ),
+        const SizedBox(width: 10),
+        SizedBox(
+          width: 92,
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.black54,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+        ),
+      ],
+    );
+  }
+}
+</file>
+
 <file path="lib/core/i18n/app_localizations.dart">
 // lib/core/i18n/app_localizations.dart
 // ✅ FULL LOCALIZATION — FR / EN / AR with all required keys
@@ -18335,6 +18401,7 @@ class AppLocalizations {
       'action': 'Action',
       'blocked': 'Bloquee',
       'open_google_maps': 'Ouvrir Google Maps',
+      'focus_provider': 'Suivre le provider',
       'support_client_title': 'Support client',
       'support_client_subtitle':
           'Besoin d aide ? Contactez notre equipe via le canal le plus rapide pour vous.',
@@ -18939,6 +19006,7 @@ class AppLocalizations {
       'action': 'Action',
       'blocked': 'Blocked',
       'open_google_maps': 'Open Google Maps',
+      'focus_provider': 'Focus provider',
       'support_client_title': 'Customer support',
       'support_client_subtitle':
           'Need help? Contact our team through the fastest channel for you.',
@@ -19580,6 +19648,8 @@ class AppLocalizations {
       'action': 'الإجراء',
       'blocked': 'محظور',
       'open_google_maps': 'فتح خرائط Google',
+      'focus_provider':
+          '\u062a\u062a\u0628\u0639 \u0627\u0644\u0645\u0632\u0648\u062f',
       'support_client_title': 'دعم العميل',
       'support_client_subtitle':
           'تحتاج مساعدة؟ تواصل مع فريقنا عبر أسرع قناة مناسبة لك.',
@@ -23890,7 +23960,7 @@ class _SignupPageState extends State<SignupPage>
     final availableHeight = screenSize.height - keyboardInset;
     final compact = keyboardOpen || availableHeight < 720;
 
-   final logoWidth = compact ? 420.0 : 560.0;
+    final logoWidth = compact ? 420.0 : 560.0;
 
     final scrollPadding = EdgeInsets.fromLTRB(
       compact ? 18 : 20,
@@ -23937,6 +24007,12 @@ class _SignupPageState extends State<SignupPage>
                               color: Colors.white,
                               size: 26,
                             ),
+                          ),
+                          const Spacer(),
+                          LanguageSelector(
+                            compact: compact,
+                            backgroundColor:
+                                Colors.white.withValues(alpha: 0.96),
                           ),
                         ],
                       ),
@@ -23991,24 +24067,6 @@ class _SignupPageState extends State<SignupPage>
                                 ),
                               ),
                               const SizedBox(height: 12),
-                              Align(
-                                alignment: AlignmentDirectional.centerEnd,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF8F5EF),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: const Color(0xFFE5E7EB),
-                                    ),
-                                  ),
-                                  child: const LanguageSelector(),
-                                ),
-                              ),
-                              const SizedBox(height: 20),
                               _roleTile(
                                 value: 'customer',
                                 title: strings.t('signupCustomer'),
@@ -24548,635 +24606,6 @@ class _CustomerShellPageState extends State<CustomerShellPage> {
             icon: Icons.headset_mic_outlined,
             selectedIcon: Icons.headset_mic,
             semanticLabel: strings.t('support'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-</file>
-
-<file path="lib/features/provider/pages/provider_dashboard_page.dart">
-import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
-
-import '../../../core/i18n/app_localizations.dart';
-import '../../../core/services/auth_service.dart';
-import '../../../models/request_status.dart';
-import '../../../state/app_store.dart';
-import '../../../widgets/map_pin.dart';
-import '../../../widgets/role_map_marker.dart';
-import 'provider_earnings_page.dart';
-
-class ProviderDashboardPage extends StatefulWidget {
-  const ProviderDashboardPage({
-    super.key,
-    required this.store,
-  });
-
-  final AppStore store;
-
-  @override
-  State<ProviderDashboardPage> createState() => _ProviderDashboardPageState();
-}
-
-class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
-  final MapController _mapController = MapController();
-  bool _mapReady = false;
-  double _panelExtent = 0.22;
-  late final ValueNotifier<double> _panelExtentNotifier =
-      ValueNotifier<double>(_panelExtent);
-
-  @override
-  void initState() {
-    super.initState();
-    widget.store.addListener(_refresh);
-  }
-
-  @override
-  void dispose() {
-    widget.store.removeListener(_refresh);
-    _panelExtentNotifier.dispose();
-    super.dispose();
-  }
-
-  void _refresh() {
-    if (!mounted) return;
-    setState(() {});
-  }
-
-  bool _isToday(DateTime date) {
-    final now = DateTime.now();
-    return now.year == date.year &&
-        now.month == date.month &&
-        now.day == date.day;
-  }
-
-  double _todayNetRevenue() {
-    final provider = widget.store.selectedProviderOrNull;
-    if (provider == null) return 0;
-
-    final todayCompleted = widget.store.requests.where((r) {
-      if (r.providerUid != provider.id) return false;
-      if (r.status != RequestStatus.completed) return false;
-      final completedAt = r.completedAt ?? r.createdAt;
-      return _isToday(completedAt);
-    });
-
-    final gross = todayCompleted.fold<double>(
-      0,
-      (sum, item) => sum + (item.estimatedPrice ?? 0),
-    );
-
-    final commission = todayCompleted.fold<double>(
-      0,
-      (sum, item) =>
-          sum + widget.store.estimateCommissionAmount(item.estimatedPrice ?? 0),
-    );
-
-    return gross - commission;
-  }
-
-  void _navigateToAvailableMissions() {
-    widget.store.setProviderTab(1);
-  }
-
-  void _navigateToActiveMissions() {
-    widget.store.setProviderTab(1);
-  }
-
-  void _navigateToProfile() {
-    widget.store.setProviderTab(3);
-  }
-
-  void _navigateToEarnings() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ProviderEarningsPage(store: widget.store),
-      ),
-    );
-  }
-
-  Future<void> _centerProvider() async {
-    await widget.store.requestProviderLocation();
-
-    final provider = widget.store.selectedProviderOrNull;
-    final position = widget.store.providerCurrentPosition ??
-        provider?.position ??
-        const LatLng(36.7538, 3.0588);
-
-    if (!_mapReady) return;
-
-    try {
-      _mapController.move(position, 16);
-    } catch (_) {}
-  }
-
-  void _handlePanelNotification(DraggableScrollableNotification notification) {
-    final nextExtent = notification.extent;
-    if ((nextExtent - _panelExtent).abs() < 0.002) return;
-
-    _panelExtent = nextExtent;
-    _panelExtentNotifier.value = nextExtent;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final strings = AppLocalizations.of(context);
-    final store = widget.store;
-    final provider = store.selectedProviderOrNull;
-    if (provider == null) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
-    final providerPosition = store.providerCurrentPosition ?? provider.position;
-
-    final active = store.providerAssignedRequests;
-    final available = store.providerAvailableRequests;
-    final markers = <Marker>[
-      Marker(
-        point: providerPosition,
-        width: RoleMapMarker.outerSize,
-        height: RoleMapMarker.outerSize,
-        child: MapPin(
-          label: strings.t('provider'),
-          icon: Icons.car_repair_rounded,
-          color: const Color(0xFFF59E0B),
-          markerType: RoleMapMarkerType.provider,
-        ),
-      ),
-    ];
-
-    for (final item in active.take(1)) {
-      markers.add(
-        Marker(
-          point: item.customerPosition,
-          width: RoleMapMarker.outerSize,
-          height: RoleMapMarker.outerSize,
-          child: MapPin(
-            label: strings.t('client'),
-            icon: Icons.place,
-            color: Colors.red,
-            markerType: RoleMapMarkerType.customer,
-          ),
-        ),
-      );
-    }
-
-    final netRevenue = _todayNetRevenue();
-
-    return Scaffold(
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final safe = MediaQuery.paddingOf(context);
-          final compactHeight = constraints.maxHeight < 620;
-          final minExtent = compactHeight ? 0.18 : 0.16;
-          final initialExtent = compactHeight ? 0.28 : 0.22;
-          final maxExtent = compactHeight ? 0.62 : 0.50;
-          double buttonBottom(double extent) {
-            final clampedExtent = extent.clamp(minExtent, maxExtent).toDouble();
-            return (constraints.maxHeight * clampedExtent) + safe.bottom + 14;
-          }
-
-          return Stack(
-            children: [
-              FlutterMap(
-                mapController: _mapController,
-                options: MapOptions(
-                  initialCenter: providerPosition,
-                  initialZoom: 13.5,
-                  onMapReady: () {
-                    _mapReady = true;
-                    try {
-                      _mapController.move(providerPosition, 15);
-                    } catch (_) {}
-                  },
-                ),
-                children: [
-                  TileLayer(
-                    urlTemplate:
-                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    userAgentPackageName: 'dz.depannage.provider',
-                  ),
-                  MarkerLayer(markers: markers),
-                ],
-              ),
-              Positioned(
-                top: safe.top + 12,
-                left: 14 + safe.left,
-                child: _FloatingPill(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        provider.isOnline ? 'ON' : 'OFF',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w900,
-                          color: provider.isOnline
-                              ? const Color(0xFF16A34A)
-                              : const Color(0xFF64748B),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Switch(
-                        value: provider.isOnline,
-                        onChanged: (value) async {
-                          await store.updateProviderOnlineStatus(
-                            provider.id,
-                            value,
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Positioned(
-                top: safe.top + 12,
-                right: 14 + safe.right,
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(18),
-                    onTap: _navigateToEarnings,
-                    child: _FloatingPill(
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.payments_outlined, size: 18),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${netRevenue.toStringAsFixed(0)} DA',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              ValueListenableBuilder<double>(
-                valueListenable: _panelExtentNotifier,
-                builder: (context, panelExtent, child) {
-                  return Positioned(
-                    right: 14 + safe.right,
-                    bottom: buttonBottom(panelExtent),
-                    child: child!,
-                  );
-                },
-                child: Column(
-                  children: [
-                    _RoundMapButton(
-                      icon: Icons.gps_fixed,
-                      tooltip: strings.t('center_location'),
-                      onTap: _centerProvider,
-                    ),
-                    const SizedBox(height: 10),
-                    _RoundMapButton(
-                      icon: Icons.payments_outlined,
-                      tooltip: strings.t('earnings'),
-                      onTap: _navigateToEarnings,
-                    ),
-                    const SizedBox(height: 10),
-                    _RoundMapButton(
-                      icon: Icons.logout,
-                      tooltip: strings.t('admin_logout'),
-                      onTap: () async {
-                        await AuthService().signOut();
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              NotificationListener<DraggableScrollableNotification>(
-                onNotification: (notification) {
-                  _handlePanelNotification(notification);
-                  return false;
-                },
-                child: DraggableScrollableSheet(
-                  minChildSize: minExtent,
-                  initialChildSize: initialExtent,
-                  maxChildSize: maxExtent,
-                  snap: false,
-                  expand: false,
-                  builder: (context, scrollController) {
-                    return DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.94),
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(28),
-                        ),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x1A000000),
-                            blurRadius: 20,
-                            offset: Offset(0, -4),
-                          ),
-                        ],
-                      ),
-                      child: SafeArea(
-                        top: false,
-                        child: ListView(
-                          controller: scrollController,
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-                          children: [
-                            const _SheetHandle(),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        strings.t('provider_dashboard_title'),
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w900,
-                                          fontSize: 21,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        provider.name.trim().isEmpty
-                                            ? strings.t('provider')
-                                            : provider.name,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          color: Colors.black54,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                _OnlineBadge(isOnline: provider.isOnline),
-                              ],
-                            ),
-                            const SizedBox(height: 14),
-                            LayoutBuilder(
-                              builder: (context, cardConstraints) {
-                                final compact = cardConstraints.maxWidth < 360;
-                                final children = [
-                                  _StatAction(
-                                    onTap: available.isNotEmpty
-                                        ? _navigateToAvailableMissions
-                                        : null,
-                                    child: _MiniStat(
-                                      title: strings.t('available'),
-                                      value: '${available.length}',
-                                      highlight: available.isNotEmpty,
-                                    ),
-                                  ),
-                                  _StatAction(
-                                    onTap: active.isNotEmpty
-                                        ? _navigateToActiveMissions
-                                        : null,
-                                    child: _MiniStat(
-                                      title: strings.t('actives'),
-                                      value: '${active.length}',
-                                      highlight: active.isNotEmpty,
-                                    ),
-                                  ),
-                                  _StatAction(
-                                    onTap: _navigateToProfile,
-                                    child: _MiniStat(
-                                      title: strings.t('note'),
-                                      value: provider.rating.toStringAsFixed(1),
-                                    ),
-                                  ),
-                                  _StatAction(
-                                    onTap: _navigateToEarnings,
-                                    child: _MiniStat(
-                                      title: strings.t('net_today'),
-                                      value:
-                                          '${netRevenue.toStringAsFixed(0)} DA',
-                                      highlight: netRevenue > 0,
-                                    ),
-                                  ),
-                                ];
-
-                                if (compact) {
-                                  return Wrap(
-                                    spacing: 10,
-                                    runSpacing: 10,
-                                    children: [
-                                      for (final child in children)
-                                        SizedBox(
-                                          width:
-                                              (cardConstraints.maxWidth - 10) /
-                                                  2,
-                                          child: child,
-                                        ),
-                                    ],
-                                  );
-                                }
-
-                                return Column(
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(child: children[0]),
-                                        const SizedBox(width: 10),
-                                        Expanded(child: children[1]),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 10),
-                                    Row(
-                                      children: [
-                                        Expanded(child: children[2]),
-                                        const SizedBox(width: 10),
-                                        Expanded(child: children[3]),
-                                      ],
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _FloatingPill extends StatelessWidget {
-  const _FloatingPill({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.82),
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x14000000),
-            blurRadius: 12,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: child,
-    );
-  }
-}
-
-class _RoundMapButton extends StatelessWidget {
-  const _RoundMapButton({
-    required this.icon,
-    required this.tooltip,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: Colors.white.withValues(alpha: 0.9),
-        shape: const CircleBorder(),
-        elevation: 3,
-        child: InkWell(
-          onTap: onTap,
-          customBorder: const CircleBorder(),
-          child: SizedBox(
-            width: 50,
-            height: 50,
-            child: Icon(icon),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SheetHandle extends StatelessWidget {
-  const _SheetHandle();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        width: 42,
-        height: 4,
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: Colors.black26,
-          borderRadius: BorderRadius.circular(10),
-        ),
-      ),
-    );
-  }
-}
-
-class _OnlineBadge extends StatelessWidget {
-  const _OnlineBadge({required this.isOnline});
-
-  final bool isOnline;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration: BoxDecoration(
-        color: isOnline ? const Color(0xFFDCFCE7) : const Color(0xFFF1F5F9),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        isOnline ? 'ON' : 'OFF',
-        style: TextStyle(
-          color: isOnline ? const Color(0xFF166534) : const Color(0xFF475569),
-          fontWeight: FontWeight.w900,
-          fontSize: 12,
-        ),
-      ),
-    );
-  }
-}
-
-class _StatAction extends StatelessWidget {
-  const _StatAction({
-    required this.child,
-    this.onTap,
-  });
-
-  final Widget child;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: child,
-    );
-  }
-}
-
-class _MiniStat extends StatelessWidget {
-  const _MiniStat({
-    required this.title,
-    required this.value,
-    this.highlight = false,
-  });
-
-  final String title;
-  final String value;
-  final bool highlight;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: highlight
-            ? const Color(0xFFF59E0B).withValues(alpha: 0.08)
-            : const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: highlight ? const Color(0xFFF59E0B) : Colors.black54,
-              fontSize: 11,
-              fontWeight: highlight ? FontWeight.w700 : FontWeight.normal,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontWeight: FontWeight.w900,
-              fontSize: 16,
-              color: highlight ? const Color(0xFFF59E0B) : Colors.black,
-            ),
           ),
         ],
       ),
@@ -26021,6 +25450,636 @@ Developed as a final graduation project.
 **Region focus:** Algeria
 </file>
 
+<file path="lib/features/provider/pages/provider_dashboard_page.dart">
+import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+
+import '../../../core/i18n/app_localizations.dart';
+import '../../../core/services/auth_service.dart';
+import '../../../models/request_status.dart';
+import '../../../state/app_store.dart';
+import '../../../widgets/map_pin.dart';
+import '../../../widgets/role_map_marker.dart';
+import 'provider_earnings_page.dart';
+
+class ProviderDashboardPage extends StatefulWidget {
+  const ProviderDashboardPage({
+    super.key,
+    required this.store,
+  });
+
+  final AppStore store;
+
+  @override
+  State<ProviderDashboardPage> createState() => _ProviderDashboardPageState();
+}
+
+class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
+  final MapController _mapController = MapController();
+  bool _mapReady = false;
+  double _panelExtent = 0.22;
+  late final ValueNotifier<double> _panelExtentNotifier =
+      ValueNotifier<double>(_panelExtent);
+
+  @override
+  void initState() {
+    super.initState();
+    widget.store.addListener(_refresh);
+  }
+
+  @override
+  void dispose() {
+    widget.store.removeListener(_refresh);
+    _panelExtentNotifier.dispose();
+    super.dispose();
+  }
+
+  void _refresh() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  bool _isToday(DateTime date) {
+    final now = DateTime.now();
+    return now.year == date.year &&
+        now.month == date.month &&
+        now.day == date.day;
+  }
+
+  double _todayNetRevenue() {
+    final provider = widget.store.selectedProviderOrNull;
+    if (provider == null) return 0;
+
+    final todayCompleted = widget.store.requests.where((r) {
+      if (r.providerUid != provider.id) return false;
+      if (r.status != RequestStatus.completed) return false;
+      final completedAt = r.completedAt ?? r.createdAt;
+      return _isToday(completedAt);
+    });
+
+    final gross = todayCompleted.fold<double>(
+      0,
+      (sum, item) => sum + (item.estimatedPrice ?? 0),
+    );
+
+    final commission = todayCompleted.fold<double>(
+      0,
+      (sum, item) =>
+          sum + widget.store.estimateCommissionAmount(item.estimatedPrice ?? 0),
+    );
+
+    return gross - commission;
+  }
+
+  void _navigateToAvailableMissions() {
+    widget.store.setProviderTab(1);
+  }
+
+  void _navigateToActiveMissions() {
+    widget.store.setProviderTab(1);
+  }
+
+  void _navigateToProfile() {
+    widget.store.setProviderTab(3);
+  }
+
+  void _navigateToEarnings() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ProviderEarningsPage(store: widget.store),
+      ),
+    );
+  }
+
+  Future<void> _centerProvider() async {
+    await widget.store.requestProviderLocation();
+
+    final provider = widget.store.selectedProviderOrNull;
+    final position = widget.store.providerCurrentPosition ??
+        provider?.position ??
+        const LatLng(36.7538, 3.0588);
+
+    if (!_mapReady) return;
+
+    try {
+      _mapController.move(position, 16);
+    } catch (_) {}
+  }
+
+  void _handlePanelNotification(DraggableScrollableNotification notification) {
+    final nextExtent = notification.extent;
+    if ((nextExtent - _panelExtent).abs() < 0.002) return;
+
+    _panelExtent = nextExtent;
+    _panelExtentNotifier.value = nextExtent;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context);
+    final store = widget.store;
+    final provider = store.selectedProviderOrNull;
+    if (provider == null) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+    final providerPosition = store.providerCurrentPosition ?? provider.position;
+
+    final active = store.providerAssignedRequests;
+    final available = store.providerAvailableRequests;
+    final markers = <Marker>[
+      Marker(
+        point: providerPosition,
+        width: RoleMapMarker.outerSize,
+        height: RoleMapMarker.outerSize,
+        child: MapPin(
+          label: strings.t('provider'),
+          icon: Icons.car_repair_rounded,
+          color: const Color(0xFFF59E0B),
+          markerType: RoleMapMarkerType.provider,
+        ),
+      ),
+    ];
+
+    for (final item in active.take(1)) {
+      markers.add(
+        Marker(
+          point: item.customerPosition,
+          width: RoleMapMarker.outerSize,
+          height: RoleMapMarker.outerSize,
+          child: MapPin(
+            label: strings.t('client'),
+            icon: Icons.place,
+            color: Colors.red,
+            markerType: RoleMapMarkerType.customer,
+          ),
+        ),
+      );
+    }
+
+    final netRevenue = _todayNetRevenue();
+
+    return Scaffold(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final safe = MediaQuery.paddingOf(context);
+          final compactHeight = constraints.maxHeight < 620;
+          final minExtent = compactHeight ? 0.18 : 0.16;
+          final initialExtent = compactHeight ? 0.28 : 0.22;
+          final maxExtent = compactHeight ? 0.62 : 0.50;
+          double buttonBottom(double extent) {
+            final clampedExtent = extent.clamp(minExtent, maxExtent).toDouble();
+            return (constraints.maxHeight * clampedExtent) + safe.bottom + 14;
+          }
+
+          return Stack(
+            children: [
+              Positioned.fill(
+                child: FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(
+                    initialCenter: providerPosition,
+                    initialZoom: 13.5,
+                    onMapReady: () {
+                      _mapReady = true;
+                      try {
+                        _mapController.move(providerPosition, 15);
+                      } catch (_) {}
+                    },
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate:
+                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'dz.depannage.provider',
+                    ),
+                    MarkerLayer(markers: markers),
+                  ],
+                ),
+              ),
+              Positioned(
+                top: safe.top + 12,
+                left: 14 + safe.left,
+                child: _FloatingPill(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        provider.isOnline ? 'ON' : 'OFF',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          color: provider.isOnline
+                              ? const Color(0xFF16A34A)
+                              : const Color(0xFF64748B),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Switch(
+                        value: provider.isOnline,
+                        onChanged: (value) async {
+                          await store.updateProviderOnlineStatus(
+                            provider.id,
+                            value,
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Positioned(
+                top: safe.top + 12,
+                right: 14 + safe.right,
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(18),
+                    onTap: _navigateToEarnings,
+                    child: _FloatingPill(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.payments_outlined, size: 18),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${netRevenue.toStringAsFixed(0)} DA',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              ValueListenableBuilder<double>(
+                valueListenable: _panelExtentNotifier,
+                builder: (context, panelExtent, child) {
+                  return Positioned(
+                    right: 14 + safe.right,
+                    bottom: buttonBottom(panelExtent),
+                    child: child!,
+                  );
+                },
+                child: Column(
+                  children: [
+                    _RoundMapButton(
+                      icon: Icons.gps_fixed,
+                      tooltip: strings.t('center_location'),
+                      onTap: _centerProvider,
+                    ),
+                    const SizedBox(height: 10),
+                    _RoundMapButton(
+                      icon: Icons.payments_outlined,
+                      tooltip: strings.t('earnings'),
+                      onTap: _navigateToEarnings,
+                    ),
+                    const SizedBox(height: 10),
+                    _RoundMapButton(
+                      icon: Icons.logout,
+                      tooltip: strings.t('admin_logout'),
+                      onTap: () async {
+                        await AuthService().signOut();
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              NotificationListener<DraggableScrollableNotification>(
+                onNotification: (notification) {
+                  _handlePanelNotification(notification);
+                  return false;
+                },
+                child: DraggableScrollableSheet(
+                  minChildSize: minExtent,
+                  initialChildSize: initialExtent,
+                  maxChildSize: maxExtent,
+                  snap: false,
+                  builder: (context, scrollController) {
+                    return DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.94),
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(28),
+                        ),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x1A000000),
+                            blurRadius: 20,
+                            offset: Offset(0, -4),
+                          ),
+                        ],
+                      ),
+                      child: SafeArea(
+                        top: false,
+                        child: ListView(
+                          controller: scrollController,
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+                          children: [
+                            const _SheetHandle(),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        strings.t('provider_dashboard_title'),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 21,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        provider.name.trim().isEmpty
+                                            ? strings.t('provider')
+                                            : provider.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: Colors.black54,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                _OnlineBadge(isOnline: provider.isOnline),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            LayoutBuilder(
+                              builder: (context, cardConstraints) {
+                                final compact = cardConstraints.maxWidth < 360;
+                                final children = [
+                                  _StatAction(
+                                    onTap: available.isNotEmpty
+                                        ? _navigateToAvailableMissions
+                                        : null,
+                                    child: _MiniStat(
+                                      title: strings.t('available'),
+                                      value: '${available.length}',
+                                      highlight: available.isNotEmpty,
+                                    ),
+                                  ),
+                                  _StatAction(
+                                    onTap: active.isNotEmpty
+                                        ? _navigateToActiveMissions
+                                        : null,
+                                    child: _MiniStat(
+                                      title: strings.t('actives'),
+                                      value: '${active.length}',
+                                      highlight: active.isNotEmpty,
+                                    ),
+                                  ),
+                                  _StatAction(
+                                    onTap: _navigateToProfile,
+                                    child: _MiniStat(
+                                      title: strings.t('note'),
+                                      value: provider.rating.toStringAsFixed(1),
+                                    ),
+                                  ),
+                                  _StatAction(
+                                    onTap: _navigateToEarnings,
+                                    child: _MiniStat(
+                                      title: strings.t('net_today'),
+                                      value:
+                                          '${netRevenue.toStringAsFixed(0)} DA',
+                                      highlight: netRevenue > 0,
+                                    ),
+                                  ),
+                                ];
+
+                                if (compact) {
+                                  return Wrap(
+                                    spacing: 10,
+                                    runSpacing: 10,
+                                    children: [
+                                      for (final child in children)
+                                        SizedBox(
+                                          width:
+                                              (cardConstraints.maxWidth - 10) /
+                                                  2,
+                                          child: child,
+                                        ),
+                                    ],
+                                  );
+                                }
+
+                                return Column(
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(child: children[0]),
+                                        const SizedBox(width: 10),
+                                        Expanded(child: children[1]),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      children: [
+                                        Expanded(child: children[2]),
+                                        const SizedBox(width: 10),
+                                        Expanded(child: children[3]),
+                                      ],
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _FloatingPill extends StatelessWidget {
+  const _FloatingPill({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.82),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
+class _RoundMapButton extends StatelessWidget {
+  const _RoundMapButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.white.withValues(alpha: 0.9),
+        shape: const CircleBorder(),
+        elevation: 3,
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: SizedBox(
+            width: 50,
+            height: 50,
+            child: Icon(icon),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SheetHandle extends StatelessWidget {
+  const _SheetHandle();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        width: 42,
+        height: 4,
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: Colors.black26,
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+    );
+  }
+}
+
+class _OnlineBadge extends StatelessWidget {
+  const _OnlineBadge({required this.isOnline});
+
+  final bool isOnline;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: isOnline ? const Color(0xFFDCFCE7) : const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        isOnline ? 'ON' : 'OFF',
+        style: TextStyle(
+          color: isOnline ? const Color(0xFF166534) : const Color(0xFF475569),
+          fontWeight: FontWeight.w900,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+}
+
+class _StatAction extends StatelessWidget {
+  const _StatAction({
+    required this.child,
+    this.onTap,
+  });
+
+  final Widget child;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: child,
+    );
+  }
+}
+
+class _MiniStat extends StatelessWidget {
+  const _MiniStat({
+    required this.title,
+    required this.value,
+    this.highlight = false,
+  });
+
+  final String title;
+  final String value;
+  final bool highlight;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: highlight
+            ? const Color(0xFFF59E0B).withValues(alpha: 0.08)
+            : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: highlight ? const Color(0xFFF59E0B) : Colors.black54,
+              fontSize: 11,
+              fontWeight: highlight ? FontWeight.w700 : FontWeight.normal,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 16,
+              color: highlight ? const Color(0xFFF59E0B) : Colors.black,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+</file>
+
 <file path="lib/features/auth/pages/login_page.dart">
 import 'package:flutter/material.dart';
 
@@ -26373,6 +26432,14 @@ class _LoginPageState extends State<LoginPage> {
                 constraints: const BoxConstraints(maxWidth: 500),
                 child: Column(
                   children: [
+                    Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: LanguageSelector(
+                        compact: compact,
+                        backgroundColor: Colors.white.withValues(alpha: 0.96),
+                      ),
+                    ),
+                    SizedBox(height: compact ? 4 : 8),
                     GestureDetector(
                       onTap: _handleLogoTap,
                       child: Column(
@@ -26430,24 +26497,6 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            Align(
-                              alignment: AlignmentDirectional.centerEnd,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF8F5EF),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: const Color(0xFFE5E7EB),
-                                  ),
-                                ),
-                                child: const LanguageSelector(),
-                              ),
-                            ),
-                            const SizedBox(height: 20),
                             TextFormField(
                               controller: _identifierController,
                               textInputAction: TextInputAction.next,
@@ -27979,16 +28028,6 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
     await launchUrl(uri);
   }
 
-  Future<void> _startNavigation(LatLng destination) async {
-    final googleUri = Uri.parse(
-      'https://www.google.com/maps/dir/?api=1'
-      '&destination=${destination.latitude},${destination.longitude}'
-      '&travelmode=driving&dir_action=navigate',
-    );
-
-    await launchUrl(googleUri, mode: LaunchMode.externalApplication);
-  }
-
   String _routeStageTitle(AppRequest request) {
     if (request.status == RequestStatus.arrived ||
         request.status == RequestStatus.inService ||
@@ -28013,6 +28052,36 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
 
     _panelExtent = nextExtent;
     _panelExtentNotifier.value = nextExtent;
+  }
+
+  String _customerMarkerLabel(AppRequest request, bool acceptedProvider) {
+    if (!acceptedProvider) return 'Client';
+    final name = request.customerName.trim();
+    return name.isEmpty ? 'Client' : name;
+  }
+
+  String _providerMarkerLabel(AppRequest request, bool acceptedProvider) {
+    if (!acceptedProvider) return 'Provider';
+    final provider = request.providerUid == null
+        ? null
+        : widget.store.findProviderById(request.providerUid!);
+    final name = (provider?.name ?? request.providerName ?? '').trim();
+    return name.isEmpty ? 'Provider' : name;
+  }
+
+  LatLng? _latestProviderPosition(AppRequest request) {
+    final tracking = widget.store.trackingFor(widget.requestId);
+    return tracking?.providerPosition ??
+        _renderedProviderPosition ??
+        request.providerPosition;
+  }
+
+  void _focusProvider(AppRequest request) {
+    final latestProviderPosition = _latestProviderPosition(request);
+    if (latestProviderPosition == null) return;
+
+    setState(() => _followProvider = true);
+    _mapController.move(latestProviderPosition, 16);
   }
 
   @override
@@ -28047,21 +28116,13 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
     final scannedProviderCount = widget.store.scannedProviderCount(request.id);
     final dispatchAttempt = widget.store.currentDispatchAttempt(request.id);
     final acceptedProvider = _hasAcceptedProvider(request.status);
+    final customerMarkerLabel = _customerMarkerLabel(request, acceptedProvider);
+    final providerMarkerLabel = _providerMarkerLabel(request, acceptedProvider);
     final destinationStage = request.status == RequestStatus.arrived ||
         request.status == RequestStatus.inService ||
         request.status == RequestStatus.completed;
-    final providerAtPickup = providerPosition != null &&
-        const Distance().as(
-              LengthUnit.Meter,
-              providerPosition,
-              customerPosition,
-            ) <=
-            18;
-    final customerMarkerOffset =
-        providerAtPickup ? const Offset(-32, -14) : Offset.zero;
-    // ignore: unused_local_variable
-    final providerMarkerOffset =
-        providerAtPickup ? const Offset(32, 10) : Offset.zero;
+    // Keep production markers anchored to their real coordinates.
+    // The enlarged marker canvas keeps labels above the route without offsets.
     // ignore: unused_local_variable
     final providerHeadingRadians = providerPosition == null
         ? null
@@ -28078,12 +28139,11 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
         width: RoleMapMarker.outerSize,
         height: RoleMapMarker.outerSize,
         child: _PinnedMarker(
-          label: destinationStage ? 'Pick up' : 'Client',
+          label: customerMarkerLabel,
           type: RoleMapMarkerType.customer,
           icon: Icons.person_pin_circle_rounded,
           color: Colors.red,
           compactLabel: true,
-          offset: customerMarkerOffset,
           pulse: request.status == RequestStatus.searching,
         ),
       ),
@@ -28132,12 +28192,11 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
           width: RoleMapMarker.outerSize,
           height: RoleMapMarker.outerSize,
           child: _PinnedMarker(
-            label: strings.t('provider'),
+            label: providerMarkerLabel,
             type: RoleMapMarkerType.provider,
             icon: Icons.car_repair_rounded,
             color: const Color(0xFFF59E0B),
             compactLabel: true,
-            offset: providerMarkerOffset,
             rotationRadians: providerHeadingRadians,
           ),
         ),
@@ -28264,8 +28323,16 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
               onTap: () async {
                 final current = widget.store.findRequest(widget.requestId);
                 if (current != null) {
+                  final latestProviderPosition = _latestProviderPosition(
+                    current,
+                  );
+                  if (latestProviderPosition != null) {
+                    setState(() => _followProvider = true);
+                    _mapController.move(latestProviderPosition, 16);
+                    return;
+                  }
+
                   _mapController.move(current.customerPosition, 15);
-                  setState(() => _followProvider = false);
                   return;
                 }
 
@@ -28274,7 +28341,6 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
                     widget.store.findRequest(widget.requestId);
                 if (updatedRequest != null) {
                   _mapController.move(updatedRequest.customerPosition, 15);
-                  setState(() => _followProvider = false);
                 }
               },
             ),
@@ -28289,7 +28355,6 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
               initialChildSize: initialExtent,
               maxChildSize: maxExtent,
               snap: false,
-              expand: false,
               builder: (context, scrollController) {
                 return _TrackingOverlayCard(
                   child: ListView(
@@ -28361,8 +28426,7 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
                             _SummaryInlineRow(
                               icon: Icons.person_rounded,
                               title: strings.t('provider'),
-                              value: _acceptedProviderMapLabel(
-                                  request.providerName),
+                              value: providerMarkerLabel,
                             ),
                             if (request.providerVehicle != null ||
                                 request.providerPlate != null) ...[
@@ -28433,10 +28497,13 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: FilledButton.icon(
-                                    onPressed: () =>
-                                        _startNavigation(routeTarget),
-                                    icon: const Icon(Icons.navigation_outlined),
-                                    label: Text(strings.t('ouvrir_Maps')),
+                                    onPressed: providerPosition == null
+                                        ? null
+                                        : () => _focusProvider(request),
+                                    icon: const Icon(Icons.my_location),
+                                    label: Text(
+                                      strings.t('focus_provider'),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -28495,7 +28562,6 @@ class _PinnedMarker extends StatelessWidget {
     required this.icon,
     required this.color,
     this.compactLabel = false,
-    this.offset = Offset.zero,
     this.pulse = false,
     // ignore: unused_element_parameter
     this.rotationRadians,
@@ -28508,7 +28574,6 @@ class _PinnedMarker extends StatelessWidget {
   // ignore: unused_field
   final double? rotationRadians;
   final bool compactLabel;
-  final Offset offset;
   final bool pulse;
 
   @override
@@ -28527,10 +28592,7 @@ class _PinnedMarker extends StatelessWidget {
     return SizedBox(
       width: RoleMapMarker.outerSize,
       height: RoleMapMarker.outerSize,
-      child: Transform.translate(
-        offset: offset,
-        child: marker,
-      ),
+      child: marker,
     );
   }
 }
@@ -29354,6 +29416,7 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.3
+  flutter_native_splash: ^2.4.7
 
 flutter:
   uses-material-design: true
@@ -29371,6 +29434,11 @@ flutter_launcher_icons:
     image_path: assets/icon/app_icon.png
     background_color: "#0F172A"
     theme_color: "#2563EB"
+
+flutter_native_splash:
+  color: "#0F172A"
+  image: assets/icon/app_icon.png
+  android: true
 </file>
 
 <file path="lib/features/provider/pages/provider_tracking_page.dart">
@@ -29413,7 +29481,6 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
 
   StreamSubscription? _trackingSub;
   Timer? _routeTimer;
-  Timer? _simulationTimer;
   Timer? _providerAnimationTimer;
 
   List<LatLng> _routePoints = [];
@@ -29429,12 +29496,6 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
   LatLng? _renderedProviderPosition;
   LatLng? _previousProviderPosition;
   LatLng? _lastTargetPosition;
-  bool _devToolsVisible = false;
-  bool _simulationRunning = false;
-  String _simulationMode = 'Approche client';
-  int _simulationIndex = 0;
-  int _devTapCount = 0;
-  DateTime? _lastDevTapAt;
   bool _followProvider = true;
   bool _routeIsFallback = false;
   double _panelExtent = 0.30;
@@ -29491,7 +29552,6 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
     _trackingSub?.cancel();
     _trackingService?.stopTracking();
     _routeTimer?.cancel();
-    _simulationTimer?.cancel();
     _providerAnimationTimer?.cancel();
     _panelExtentNotifier.dispose();
     super.dispose();
@@ -29511,18 +29571,9 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
     AppRequest request, {
     bool immediate = false,
   }) {
-    // During simulation, the simulation timer handles position updates
-    // Don't interfere with the animation system
-    if (_simulationRunning) return;
-
-    final tracking = widget.store.trackingFor(widget.requestId);
-    final targetPosition = tracking?.providerPosition ??
-        widget.store.providerCurrentPosition ??
-        request.providerPosition;
-
+    final targetPosition = _latestProviderPosition(request);
     if (targetPosition == null) return;
 
-    // Update previous position for heading calculation
     if (_lastTargetPosition != null &&
         (_lastTargetPosition!.latitude != targetPosition.latitude ||
             _lastTargetPosition!.longitude != targetPosition.longitude)) {
@@ -29549,195 +29600,27 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
       return;
     }
 
-    // ✅ ONLY animate for simulation mode - real tracking uses direct GPS position
-    if (!_simulationRunning) {
-      // For real tracking: instantly update to actual GPS position (no animation)
-      _providerAnimationTimer?.cancel();
-      _renderedProviderPosition = targetPosition;
-
-      // Calculate heading from actual movement
-      final bearing = _bearingRadians(currentPosition, targetPosition);
-      final markerRotation = bearing + (math.pi / 2);
-
-      setState(() {
-        _lastProviderHeadingRadians = markerRotation;
-      });
-
-      if (_followProvider) {
-        _mapController.move(
-          targetPosition,
-          _mapController.camera.zoom,
-          id: 'follow',
-        );
-      }
-      return;
-    }
-
-    // ✅ For simulation only: follow green polyline route
-    final startedAt = DateTime.now();
-    const minDurationMs = 400;
-    const maxDurationMs = 1600;
-    const idealSpeed = 80;
-    final calculatedDuration = (distanceMeters / idealSpeed * 1000).round();
-    final durationMs = calculatedDuration.clamp(minDurationMs, maxDurationMs);
-    final duration = Duration(milliseconds: durationMs);
-    const animationCurve = Curves.easeInOutCubic;
-
     _providerAnimationTimer?.cancel();
-
-    // ✅ Calculate correct bearing between actual positions
     final bearing = _bearingRadians(currentPosition, targetPosition);
     final markerRotation = bearing + (math.pi / 2);
 
-    _providerAnimationTimer = Timer.periodic(
-      const Duration(milliseconds: 16),
-      (timer) {
-        if (!mounted) {
-          timer.cancel();
-          return;
-        }
+    setState(() {
+      _renderedProviderPosition = targetPosition;
+      _lastProviderHeadingRadians = markerRotation;
+    });
 
-        final elapsed = DateTime.now().difference(startedAt);
-        final t =
-            (elapsed.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
-        final easedT = animationCurve.transform(t);
-
-        final newPosition = _lerpLatLng(
-          currentPosition,
-          targetPosition,
-          easedT,
-        );
-
-        setState(() {
-          _renderedProviderPosition = newPosition;
-          _lastProviderHeadingRadians = markerRotation;
-        });
-
-        if (_followProvider) {
-          _mapController.move(
-            newPosition,
-            _mapController.camera.zoom,
-            id: 'follow',
-          );
-        }
-
-        if (t >= 1) {
-          timer.cancel();
-
-          // ✅ Continue only for simulation
-          if (_simulationRunning &&
-              _routePoints.isNotEmpty &&
-              _simulationIndex < _routePoints.length - 1) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) _syncAnimatedProviderPosition(request);
-            });
-          }
-        }
-      },
-    );
-  }
-
-  LatLng _lerpLatLng(LatLng from, LatLng to, double t) {
-    return LatLng(
-      from.latitude + ((to.latitude - from.latitude) * t),
-      from.longitude + ((to.longitude - from.longitude) * t),
-    );
+    if (_followProvider) {
+      _mapController.move(
+        targetPosition,
+        _mapController.camera.zoom,
+        id: 'follow',
+      );
+    }
   }
 
   void _scheduleRouteUpdate() {
-    // Don't update route during simulation - route is already calculated
-    // Updating during simulation causes unnecessary API calls and can result in fallback (red line)
-    if (_simulationRunning) return;
-
     _routeTimer?.cancel();
     _routeTimer = Timer(const Duration(milliseconds: 350), _loadRoute);
-  }
-
-  void _handleHiddenDevTap() {
-    final now = DateTime.now();
-    final lastTapAt = _lastDevTapAt;
-    if (lastTapAt == null ||
-        now.difference(lastTapAt) > const Duration(seconds: 2)) {
-      _devTapCount = 0;
-    }
-
-    _lastDevTapAt = now;
-    _devTapCount += 1;
-
-    if (_devTapCount < 6) return;
-
-    _devTapCount = 0;
-    _lastDevTapAt = null;
-    if (!mounted) return;
-
-    setState(() {
-      _devToolsVisible = !_devToolsVisible;
-    });
-  }
-
-  Future<void> _toggleSimulation() async {
-    if (_simulationRunning) {
-      _simulationTimer?.cancel();
-      if (!mounted) return;
-      setState(() => _simulationRunning = false);
-      return;
-    }
-
-    if (_routePoints.length < 2) {
-      await _loadRoute();
-    }
-    if (_routePoints.length < 2 || !mounted) return;
-
-    final request = widget.store.findRequest(widget.requestId);
-    if (request == null) return;
-
-    if (_simulationIndex <= 0 || _simulationIndex >= _routePoints.length) {
-      _simulationIndex = 0;
-      await widget.store.devSetProviderTrackingPosition(
-        request.id,
-        _routePoints.first,
-      );
-    }
-
-    _simulationTimer?.cancel();
-    setState(() => _simulationRunning = true);
-
-    _simulationTimer = Timer.periodic(const Duration(milliseconds: 70), (
-      timer,
-    ) async {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-
-      final currentRequest = widget.store.findRequest(widget.requestId);
-      if (currentRequest == null || _routePoints.length < 2) {
-        timer.cancel();
-        if (mounted) {
-          setState(() => _simulationRunning = false);
-        }
-        return;
-      }
-
-      _simulationIndex += 1;
-      if (_simulationIndex >= _routePoints.length) {
-        _simulationIndex = _routePoints.length - 1;
-        await widget.store.devSetProviderTrackingPosition(
-          currentRequest.id,
-          _routePoints[_simulationIndex],
-        );
-        timer.cancel();
-        if (mounted) {
-          setState(() => _simulationRunning = false);
-        }
-        return;
-      }
-
-      await widget.store.devSetProviderTrackingPosition(
-        currentRequest.id,
-        _routePoints[_simulationIndex],
-      );
-    });
   }
 
   Future<void> _startNavigation(LatLng destination) async {
@@ -29749,71 +29632,6 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
     );
 
     await launchUrl(url, mode: LaunchMode.externalApplication);
-  }
-
-  Future<void> _simulateTowToDestination() async {
-    final request = widget.store.findRequest(widget.requestId);
-    if (request == null) return;
-
-    _simulationTimer?.cancel();
-    if (mounted) {
-      setState(() {
-        _simulationRunning = false;
-        _simulationMode = 'Vers destination';
-      });
-    }
-
-    if (request.status == RequestStatus.accepted) {
-      await widget.store.advanceMission(request.id);
-    }
-
-    final afterAccepted = widget.store.findRequest(widget.requestId);
-    if (afterAccepted == null) return;
-    if (afterAccepted.status == RequestStatus.onTheWay) {
-      await widget.store.advanceMission(afterAccepted.id);
-    }
-
-    final arrivedRequest = widget.store.findRequest(widget.requestId);
-    if (arrivedRequest == null) return;
-
-    await widget.store.devSetProviderTrackingPosition(
-      arrivedRequest.id,
-      arrivedRequest.customerPosition,
-    );
-
-    if (arrivedRequest.status == RequestStatus.arrived) {
-      await widget.store.advanceMission(arrivedRequest.id);
-    }
-
-    _simulationIndex = 0;
-    _lastRouteStart = null;
-    _lastRouteTarget = null;
-    _lastRouteStatus = null;
-    await _loadRoute();
-    await _toggleSimulation();
-  }
-
-  Future<void> _resetSimulation() async {
-    _simulationTimer?.cancel();
-    final request = widget.store.findRequest(widget.requestId);
-    if (request == null) return;
-
-    if (_routePoints.length < 2) {
-      await _loadRoute();
-    }
-    if (_routePoints.isEmpty) return;
-
-    _simulationIndex = 0;
-    await widget.store.devSetProviderTrackingPosition(
-      request.id,
-      _routePoints.first,
-    );
-
-    if (!mounted) return;
-    setState(() {
-      _simulationRunning = false;
-      _simulationMode = 'Approche client';
-    });
   }
 
   Future<void> _loadRoute() async {
@@ -30241,6 +30059,27 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
     return request.customerName;
   }
 
+  String _customerMarkerLabel(AppRequest request) {
+    final name = request.customerName.trim();
+    return name.isEmpty ? 'Client' : name;
+  }
+
+  String _providerMarkerLabel(AppRequest request) {
+    final provider = request.providerUid == null
+        ? null
+        : widget.store.findProviderById(request.providerUid!);
+    final name = (provider?.name ?? request.providerName ?? '').trim();
+    return name.isEmpty ? 'Provider' : name;
+  }
+
+  LatLng? _latestProviderPosition(AppRequest request) {
+    final tracking = widget.store.trackingFor(widget.requestId);
+    return tracking?.providerPosition ??
+        widget.store.providerCurrentPosition ??
+        _renderedProviderPosition ??
+        request.providerPosition;
+  }
+
   void _handlePanelNotification(DraggableScrollableNotification notification) {
     final nextExtent = notification.extent;
     if ((nextExtent - _panelExtent).abs() < 0.002) return;
@@ -30268,23 +30107,13 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
         widget.store.providerCurrentPosition ??
         request.providerPosition;
     final providerPosition =
-        _renderedProviderPosition ?? actualProviderPosition;
+        actualProviderPosition ?? _renderedProviderPosition;
     final routeTarget = _routeTarget(request, customerPosition);
+    final customerMarkerLabel = _customerMarkerLabel(request);
+    final providerMarkerLabel = _providerMarkerLabel(request);
     final destinationStage = request.status == RequestStatus.arrived ||
         request.status == RequestStatus.inService ||
         request.status == RequestStatus.completed;
-    final providerAtPickup = providerPosition != null &&
-        const Distance().as(
-              LengthUnit.Meter,
-              providerPosition,
-              customerPosition,
-            ) <=
-            18;
-    final customerMarkerOffset =
-        providerAtPickup ? const Offset(-32, -14) : Offset.zero;
-    // ignore: unused_local_variable
-    final providerMarkerOffset =
-        providerAtPickup ? const Offset(32, 10) : Offset.zero;
     // ignore: unused_local_variable
     final providerHeadingRadians = providerPosition == null
         ? null
@@ -30302,12 +30131,11 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
           width: RoleMapMarker.outerSize,
           height: RoleMapMarker.outerSize,
           child: _PinnedMarker(
-            label: destinationStage ? 'Pick up' : 'Client',
+            label: customerMarkerLabel,
             type: RoleMapMarkerType.customer,
             icon: Icons.person_pin_circle_rounded,
             color: Colors.red,
             compactLabel: true,
-            offset: customerMarkerOffset,
           ),
         ),
       );
@@ -30338,12 +30166,11 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
           width: RoleMapMarker.outerSize,
           height: RoleMapMarker.outerSize,
           child: _PinnedMarker(
-            label: strings.t('provider'),
+            label: providerMarkerLabel,
             type: RoleMapMarkerType.provider,
             icon: Icons.car_repair_rounded,
             color: const Color(0xFFF59E0B),
             compactLabel: true,
-            offset: providerMarkerOffset,
             rotationRadians: providerHeadingRadians,
           ),
         ),
@@ -30424,30 +30251,15 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: GestureDetector(
-                    onTap: _handleHiddenDevTap,
-                    child: _TopTrackingBanner(
-                      title: request.customerName,
-                      status: _statusLabel(request.status),
-                      color: _statusColor(request.status),
-                    ),
+                  child: _TopTrackingBanner(
+                    title: request.customerName,
+                    status: _statusLabel(request.status),
+                    color: _statusColor(request.status),
                   ),
                 ),
               ],
             ),
           ),
-          if (_devToolsVisible)
-            Positioned(
-              top: topInset + 84,
-              right: 12,
-              child: _DevSimulationCard(
-                running: _simulationRunning,
-                simulationMode: _simulationMode,
-                onStartPause: _toggleSimulation,
-                onTowSimulation: _simulateTowToDestination,
-                onReset: _resetSimulation,
-              ),
-            ),
           ValueListenableBuilder<double>(
             valueListenable: _panelExtentNotifier,
             builder: (context, panelExtent, child) {
@@ -30460,8 +30272,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
             child: _MapGlassButton(
               icon: Icons.my_location_outlined,
               onTap: () {
-                final currentPos = widget.store.providerCurrentPosition ??
-                    actualProviderPosition;
+                final currentPos = _latestProviderPosition(request);
                 if (currentPos == null) {
                   widget.store.requestProviderLocation();
                   return;
@@ -30482,7 +30293,6 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
               initialChildSize: initialExtent,
               maxChildSize: maxExtent,
               snap: false,
-              expand: false,
               builder: (context, scrollController) {
                 return _TrackingOverlayCard(
                   child: ListView(
@@ -30640,7 +30450,6 @@ class _PinnedMarker extends StatelessWidget {
     required this.icon,
     required this.color,
     this.compactLabel = false,
-    this.offset = Offset.zero,
     // ignore: unused_element_parameter
     this.rotationRadians,
   });
@@ -30652,7 +30461,6 @@ class _PinnedMarker extends StatelessWidget {
   // ignore: unused_field
   final double? rotationRadians;
   final bool compactLabel;
-  final Offset offset;
 
   @override
   Widget build(BuildContext context) {
@@ -30669,101 +30477,7 @@ class _PinnedMarker extends StatelessWidget {
     return SizedBox(
       width: RoleMapMarker.outerSize,
       height: RoleMapMarker.outerSize,
-      child: Transform.translate(
-        offset: offset,
-        child: marker,
-      ),
-    );
-  }
-}
-
-class _DevSimulationCard extends StatelessWidget {
-  const _DevSimulationCard({
-    required this.running,
-    required this.simulationMode,
-    required this.onStartPause,
-    required this.onTowSimulation,
-    required this.onReset,
-  });
-
-  final bool running;
-  final String simulationMode;
-  final Future<void> Function() onStartPause;
-  final Future<void> Function() onTowSimulation;
-  final Future<void> Function() onReset;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 220,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.96),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 18,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            'Dev Simulation',
-            style: TextStyle(
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Tap banner 6 times to hide',
-            style: TextStyle(
-              color: Colors.black54,
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Mode: $simulationMode',
-            style: const TextStyle(
-              color: Colors.black87,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: onStartPause,
-              icon: Icon(running ? Icons.pause : Icons.play_arrow),
-              label: Text(running ? 'Pause simulation' : 'Start simulation'),
-            ),
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: onTowSimulation,
-              icon: const Icon(Icons.alt_route),
-              label: const Text('Simuler vers destination'),
-            ),
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: onReset,
-              icon: const Icon(Icons.restart_alt),
-              label: const Text('Reset to route start'),
-            ),
-          ),
-        ],
-      ),
+      child: marker,
     );
   }
 }
@@ -32673,35 +32387,6 @@ class AppStore extends ChangeNotifier {
 
   Stream<TrackingSnapshot?> watchTracking(String requestId) {
     return trackingRepository.watchTracking(requestId);
-  }
-
-  Future<void> devSetProviderTrackingPosition(
-    String requestId,
-    LatLng providerPosition,
-  ) async {
-    final request = findRequest(requestId);
-    if (request == null) return;
-
-    await trackingRepository.setTracking(
-      TrackingSnapshot(
-        requestId: requestId,
-        customerPosition: request.customerPosition,
-        providerPosition: providerPosition,
-      ),
-    );
-
-    await requestRepository.updateRequest(
-      requestId,
-      request.copyWith(providerPosition: providerPosition),
-    );
-
-    final providerUid = request.providerUid;
-    if (providerUid != null && providerUid.trim().isNotEmpty) {
-      await updateProviderPosition(providerUid, providerPosition);
-    } else {
-      providerCurrentPosition = providerPosition;
-      notifyListeners();
-    }
   }
 
   Future<void> requestCustomerLocation() async {

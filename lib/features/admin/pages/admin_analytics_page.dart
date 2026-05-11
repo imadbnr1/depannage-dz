@@ -200,7 +200,7 @@ class _AdminAnalyticsPageState extends State<AdminAnalyticsPage> {
         data['pickup'],
         data['destination'],
         _toDouble(data['estimatedPrice']).toStringAsFixed(0),
-        data['serviceType'],
+        data['service'],
       ]);
     }
 

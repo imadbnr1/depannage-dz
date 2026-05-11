@@ -458,12 +458,6 @@ class _AdminOverviewPage extends StatelessWidget {
                 final cancelled = requests
                     .where((d) => (d.data()['status'] ?? '') == 'cancelled')
                     .length;
-                final urgent = requests.where((d) {
-                  final urgency =
-                      (d.data()['urgency'] ?? '').toString().toLowerCase();
-                  return urgency.contains('urgent') || urgency.contains('crit');
-                }).length;
-
                 final onlineProviders =
                     providers.where((d) => d.data()['isOnline'] == true).length;
                 final busyProviders =
@@ -559,11 +553,11 @@ class _AdminOverviewPage extends StatelessWidget {
                           onTap: () => onNavigate(5),
                         ),
                         _KpiCard(
-                          title: t.t('overview_urgent'),
-                          value: '$urgent',
-                          subtitle: t.t('overview_urgent_sub'),
+                          title: t.t('status_cancelled'),
+                          value: '$cancelled',
+                          subtitle: t.t('insight_cancellations'),
                           accent: const Color(0xFFDC2626),
-                          icon: Icons.priority_high_outlined,
+                          icon: Icons.cancel_outlined,
                           onTap: () => onNavigate(1),
                         ),
                         _KpiCard(
@@ -632,8 +626,8 @@ class _AdminOverviewPage extends StatelessWidget {
                                   value: '$cancelled',
                                 ),
                                 _InsightRow(
-                                  label: t.t('insight_critical_demands'),
-                                  value: '$urgent',
+                                  label: t.t('overview_searching'),
+                                  value: '$searching',
                                 ),
                                 _InsightRow(
                                   label: t.t('insight_pending_approval'),
@@ -710,8 +704,8 @@ class _AdminOverviewPage extends StatelessWidget {
                                     value: '$cancelled',
                                   ),
                                   _InsightRow(
-                                    label: t.t('insight_critical_demands'),
-                                    value: '$urgent',
+                                    label: t.t('overview_searching'),
+                                    value: '$searching',
                                   ),
                                   _InsightRow(
                                     label: t.t('insight_pending_approval'),
@@ -1021,6 +1015,65 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
     );
   }
 
+  Future<void> _setVerified(String uid, bool value) async {
+    final now = DateTime.now().toIso8601String();
+    await FirebaseFirestore.instance.collection('providers').doc(uid).set({
+      'isVerified': value,
+      'verified': value,
+      'updatedAtIso': now,
+      'verifiedUpdatedAtIso': now,
+      if (value) 'verifiedAtIso': now,
+    }, SetOptions(merge: true));
+
+    await _auditService.logAction(
+      action: value ? 'verify_provider' : 'unverify_provider',
+      targetCollection: 'providers',
+      targetId: uid,
+      summary: value ? 'Provider verifie' : 'Verification provider retiree',
+      metadata: {'isVerified': value},
+    );
+  }
+
+  Future<void> _forceOffline(String uid) async {
+    final now = DateTime.now().toIso8601String();
+    await FirebaseFirestore.instance.collection('providers').doc(uid).set({
+      'isOnline': false,
+      'online': false,
+      'lastSeenIso': now,
+      'forcedOfflineAtIso': now,
+      'updatedAtIso': now,
+    }, SetOptions(merge: true));
+
+    await _auditService.logAction(
+      action: 'force_provider_offline',
+      targetCollection: 'providers',
+      targetId: uid,
+      summary: 'Provider force hors ligne',
+    );
+  }
+
+  Future<void> _markAvailable(String uid) async {
+    final now = DateTime.now().toIso8601String();
+    await FirebaseFirestore.instance.collection('providers').doc(uid).set({
+      'isBusy': false,
+      'busy': false,
+      'hasActiveMission': false,
+      'activeMissionId': null,
+      'currentRequestId': null,
+      'assignedRequestId': null,
+      'offeredRequestId': null,
+      'updatedAtIso': now,
+      'adminAvailabilityResetAtIso': now,
+    }, SetOptions(merge: true));
+
+    await _auditService.logAction(
+      action: 'reset_provider_session',
+      targetCollection: 'providers',
+      targetId: uid,
+      summary: 'Session provider remise disponible',
+    );
+  }
+
   bool _matchesFilter(Map<String, dynamic> data) {
     final approved = data['isApproved'] == true;
     final online = data['isOnline'] == true;
@@ -1216,6 +1269,8 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
               final online = data['isOnline'] == true;
               final busy = data['isBusy'] == true;
               final blocked = data['isBlocked'] == true;
+              final verified =
+                  data['isVerified'] == true || data['verified'] == true;
               final vehicleImageUrl =
                   (data['vehicleImageUrl'] ?? '').toString().trim();
 
@@ -1310,6 +1365,11 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
                             label: t('status_blocked'),
                             background: const Color(0xFFFECACA),
                           ),
+                        if (verified)
+                          const _StatusPill(
+                            label: 'Verified',
+                            background: Color(0xFFE0F2FE),
+                          ),
                       ],
                     ),
                     const SizedBox(height: 14),
@@ -1325,6 +1385,30 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
                       title: t('performance_label'),
                       value:
                           '${data['missionsCompleted'] ?? 0} missions · rating ${data['rating'] ?? 5.0}',
+                    ),
+                    _InfoLine(
+                      title: 'Last seen',
+                      value: (data['lastSeenIso'] ??
+                              data['lastSeen'] ??
+                              data['updatedAtIso'] ??
+                              '--')
+                          .toString(),
+                    ),
+                    _InfoLine(
+                      title: 'Active mission',
+                      value: (data['activeMissionId'] ??
+                              data['currentRequestId'] ??
+                              data['assignedRequestId'] ??
+                              '--')
+                          .toString(),
+                    ),
+                    _InfoLine(
+                      title: 'Location',
+                      value: data['position'] == null &&
+                              data['location'] == null &&
+                              data['currentLocation'] == null
+                          ? '--'
+                          : 'Available',
                     ),
                     if (vehicleImageUrl.isNotEmpty) ...[
                       const SizedBox(height: 14),
@@ -1381,6 +1465,30 @@ class _AdminProvidersPageState extends State<_AdminProvidersPage> {
                                 : Icons.block_outlined),
                             label: Text(blocked ? t('unblock') : t('block')),
                           ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: () => _setVerified(uid, !verified),
+                          icon: Icon(verified
+                              ? Icons.verified_user_outlined
+                              : Icons.verified_outlined),
+                          label: Text(verified ? 'Unverify' : 'Verify'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: () => _forceOffline(uid),
+                          icon: const Icon(Icons.power_settings_new_outlined),
+                          label: const Text('Force offline'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: () => _markAvailable(uid),
+                          icon: const Icon(Icons.cleaning_services_outlined),
+                          label: const Text('Clear busy'),
                         ),
                       ],
                     ),

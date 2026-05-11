@@ -30,7 +30,7 @@ class RoleMapMarker extends StatelessWidget {
   final bool compactLabel;
   final bool showPulse;
 
-  static const double outerSize = 88;
+  static const double outerSize = 104;
   static const double labelHeight = 22;
 
   @override
@@ -52,11 +52,10 @@ class RoleMapMarker extends StatelessWidget {
         alignment: Alignment.center,
         clipBehavior: Clip.none,
         children: [
-          Positioned(
-            top: 28,
+          Center(
             child: SizedBox(
-              width: 76,
-              height: 58,
+              width: 78,
+              height: 78,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
@@ -68,7 +67,7 @@ class RoleMapMarker extends StatelessWidget {
           ),
           if (showLabel)
             Positioned(
-              top: 0,
+              top: 2,
               left: 2,
               right: 2,
               child: Center(

@@ -683,16 +683,6 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
     await launchUrl(uri);
   }
 
-  Future<void> _startNavigation(LatLng destination) async {
-    final googleUri = Uri.parse(
-      'https://www.google.com/maps/dir/?api=1'
-      '&destination=${destination.latitude},${destination.longitude}'
-      '&travelmode=driving&dir_action=navigate',
-    );
-
-    await launchUrl(googleUri, mode: LaunchMode.externalApplication);
-  }
-
   String _routeStageTitle(AppRequest request) {
     if (request.status == RequestStatus.arrived ||
         request.status == RequestStatus.inService ||
@@ -717,6 +707,36 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
 
     _panelExtent = nextExtent;
     _panelExtentNotifier.value = nextExtent;
+  }
+
+  String _customerMarkerLabel(AppRequest request, bool acceptedProvider) {
+    if (!acceptedProvider) return 'Client';
+    final name = request.customerName.trim();
+    return name.isEmpty ? 'Client' : name;
+  }
+
+  String _providerMarkerLabel(AppRequest request, bool acceptedProvider) {
+    if (!acceptedProvider) return 'Provider';
+    final provider = request.providerUid == null
+        ? null
+        : widget.store.findProviderById(request.providerUid!);
+    final name = (provider?.name ?? request.providerName ?? '').trim();
+    return name.isEmpty ? 'Provider' : name;
+  }
+
+  LatLng? _latestProviderPosition(AppRequest request) {
+    final tracking = widget.store.trackingFor(widget.requestId);
+    return tracking?.providerPosition ??
+        _renderedProviderPosition ??
+        request.providerPosition;
+  }
+
+  void _focusProvider(AppRequest request) {
+    final latestProviderPosition = _latestProviderPosition(request);
+    if (latestProviderPosition == null) return;
+
+    setState(() => _followProvider = true);
+    _mapController.move(latestProviderPosition, 16);
   }
 
   @override
@@ -751,21 +771,13 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
     final scannedProviderCount = widget.store.scannedProviderCount(request.id);
     final dispatchAttempt = widget.store.currentDispatchAttempt(request.id);
     final acceptedProvider = _hasAcceptedProvider(request.status);
+    final customerMarkerLabel = _customerMarkerLabel(request, acceptedProvider);
+    final providerMarkerLabel = _providerMarkerLabel(request, acceptedProvider);
     final destinationStage = request.status == RequestStatus.arrived ||
         request.status == RequestStatus.inService ||
         request.status == RequestStatus.completed;
-    final providerAtPickup = providerPosition != null &&
-        const Distance().as(
-              LengthUnit.Meter,
-              providerPosition,
-              customerPosition,
-            ) <=
-            18;
-    final customerMarkerOffset =
-        providerAtPickup ? const Offset(-32, -14) : Offset.zero;
-    // ignore: unused_local_variable
-    final providerMarkerOffset =
-        providerAtPickup ? const Offset(32, 10) : Offset.zero;
+    // Keep production markers anchored to their real coordinates.
+    // The enlarged marker canvas keeps labels above the route without offsets.
     // ignore: unused_local_variable
     final providerHeadingRadians = providerPosition == null
         ? null
@@ -782,12 +794,11 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
         width: RoleMapMarker.outerSize,
         height: RoleMapMarker.outerSize,
         child: _PinnedMarker(
-          label: destinationStage ? 'Pick up' : 'Client',
+          label: customerMarkerLabel,
           type: RoleMapMarkerType.customer,
           icon: Icons.person_pin_circle_rounded,
           color: Colors.red,
           compactLabel: true,
-          offset: customerMarkerOffset,
           pulse: request.status == RequestStatus.searching,
         ),
       ),
@@ -836,12 +847,11 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
           width: RoleMapMarker.outerSize,
           height: RoleMapMarker.outerSize,
           child: _PinnedMarker(
-            label: strings.t('provider'),
+            label: providerMarkerLabel,
             type: RoleMapMarkerType.provider,
             icon: Icons.car_repair_rounded,
             color: const Color(0xFFF59E0B),
             compactLabel: true,
-            offset: providerMarkerOffset,
             rotationRadians: providerHeadingRadians,
           ),
         ),
@@ -968,8 +978,16 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
               onTap: () async {
                 final current = widget.store.findRequest(widget.requestId);
                 if (current != null) {
+                  final latestProviderPosition = _latestProviderPosition(
+                    current,
+                  );
+                  if (latestProviderPosition != null) {
+                    setState(() => _followProvider = true);
+                    _mapController.move(latestProviderPosition, 16);
+                    return;
+                  }
+
                   _mapController.move(current.customerPosition, 15);
-                  setState(() => _followProvider = false);
                   return;
                 }
 
@@ -978,7 +996,6 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
                     widget.store.findRequest(widget.requestId);
                 if (updatedRequest != null) {
                   _mapController.move(updatedRequest.customerPosition, 15);
-                  setState(() => _followProvider = false);
                 }
               },
             ),
@@ -1064,8 +1081,7 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
                             _SummaryInlineRow(
                               icon: Icons.person_rounded,
                               title: strings.t('provider'),
-                              value: _acceptedProviderMapLabel(
-                                  request.providerName),
+                              value: providerMarkerLabel,
                             ),
                             if (request.providerVehicle != null ||
                                 request.providerPlate != null) ...[
@@ -1136,10 +1152,13 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: FilledButton.icon(
-                                    onPressed: () =>
-                                        _startNavigation(routeTarget),
-                                    icon: const Icon(Icons.navigation_outlined),
-                                    label: Text(strings.t('ouvrir_Maps')),
+                                    onPressed: providerPosition == null
+                                        ? null
+                                        : () => _focusProvider(request),
+                                    icon: const Icon(Icons.my_location),
+                                    label: Text(
+                                      strings.t('focus_provider'),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -1174,7 +1193,6 @@ class _CustomerTrackingPageState extends State<CustomerTrackingPage> {
                             MaterialPageRoute(
                               builder: (_) => CreateOrderPage(
                                 store: widget.store,
-                                service: request.service,
                               ),
                             ),
                           );
@@ -1198,7 +1216,6 @@ class _PinnedMarker extends StatelessWidget {
     required this.icon,
     required this.color,
     this.compactLabel = false,
-    this.offset = Offset.zero,
     this.pulse = false,
     // ignore: unused_element_parameter
     this.rotationRadians,
@@ -1211,7 +1228,6 @@ class _PinnedMarker extends StatelessWidget {
   // ignore: unused_field
   final double? rotationRadians;
   final bool compactLabel;
-  final Offset offset;
   final bool pulse;
 
   @override
@@ -1230,10 +1246,7 @@ class _PinnedMarker extends StatelessWidget {
     return SizedBox(
       width: RoleMapMarker.outerSize,
       height: RoleMapMarker.outerSize,
-      child: Transform.translate(
-        offset: offset,
-        child: marker,
-      ),
+      child: marker,
     );
   }
 }

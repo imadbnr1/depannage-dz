@@ -3,7 +3,6 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../core/i18n/app_localizations.dart';
-import '../../../models/service_type.dart';
 import '../../../state/app_store.dart';
 import '../../../widgets/map_pin.dart';
 import '../../../widgets/role_map_marker.dart';
@@ -251,7 +250,6 @@ class _CustomerHomePageState extends State<CustomerHomePage> {
                                     MaterialPageRoute(
                                       builder: (_) => CreateOrderPage(
                                         store: store,
-                                        service: ServiceType.values.first,
                                       ),
                                     ),
                                   );

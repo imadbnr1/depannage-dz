@@ -349,6 +349,14 @@ class _LoginPageState extends State<LoginPage> {
                 constraints: const BoxConstraints(maxWidth: 500),
                 child: Column(
                   children: [
+                    Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: LanguageSelector(
+                        compact: compact,
+                        backgroundColor: Colors.white.withValues(alpha: 0.96),
+                      ),
+                    ),
+                    SizedBox(height: compact ? 4 : 8),
                     GestureDetector(
                       onTap: _handleLogoTap,
                       child: Column(
@@ -406,24 +414,6 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            Align(
-                              alignment: AlignmentDirectional.centerEnd,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF8F5EF),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: const Color(0xFFE5E7EB),
-                                  ),
-                                ),
-                                child: const LanguageSelector(),
-                              ),
-                            ),
-                            const SizedBox(height: 20),
                             TextFormField(
                               controller: _identifierController,
                               textInputAction: TextInputAction.next,

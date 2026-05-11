@@ -717,6 +717,22 @@ class AuthService {
     return AppUser.fromMap(data);
   }
 
+  Future<AppUser?> waitForCurrentAppUserProfile({
+    Duration timeout = const Duration(seconds: 4),
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) return null;
+
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      final profile = await getCurrentAppUser();
+      if (profile != null) return profile;
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+    }
+
+    return getCurrentAppUser();
+  }
+
   Future<String> getUserRole(String uid) async {
     final doc = await _firestore.collection('users').doc(uid).get();
     final data = doc.data();

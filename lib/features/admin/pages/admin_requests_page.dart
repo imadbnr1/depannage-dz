@@ -16,7 +16,6 @@ class _AdminRequestsPageState extends State<AdminRequestsPage> {
   String _statusFilter = 'all';
   String _assignmentFilter = 'all';
   String _sortMode = 'newest';
-  bool _onlyUrgent = false;
 
   @override
   void dispose() {
@@ -75,7 +74,6 @@ class _AdminRequestsPageState extends State<AdminRequestsPage> {
 
   bool _matchesFilters(Map<String, dynamic> data) {
     final status = (data['status'] ?? 'searching').toString();
-    final urgency = (data['urgency'] ?? '').toString().toLowerCase();
     final providerName = (data['providerName'] ?? '').toString().trim();
 
     if (_statusFilter != 'all' && status != _statusFilter) {
@@ -90,18 +88,15 @@ class _AdminRequestsPageState extends State<AdminRequestsPage> {
       return false;
     }
 
-    if (_onlyUrgent &&
-        !urgency.contains('urgent') &&
-        !urgency.contains('crit')) {
-      return false;
-    }
-
     return _matchesSearch(data);
   }
 
   Future<void> _forceCancel(String requestId) async {
     await FirebaseFirestore.instance.collection('requests').doc(requestId).set({
       'status': 'cancelled',
+      'offeredProviderUid': null,
+      'offeredAt': null,
+      'offerExpiresAt': null,
       'updatedAt': DateTime.now().toIso8601String(),
       'updatedAtIso': DateTime.now().toIso8601String(),
       'cancelledAtIso': DateTime.now().toIso8601String(),
@@ -116,6 +111,158 @@ class _AdminRequestsPageState extends State<AdminRequestsPage> {
       metadata: {
         'status': 'cancelled',
       },
+    );
+  }
+
+  Future<void> _clearOffer(String requestId) async {
+    final now = DateTime.now().toIso8601String();
+    await FirebaseFirestore.instance.collection('requests').doc(requestId).set({
+      'offeredProviderUid': null,
+      'offeredAt': null,
+      'offerExpiresAt': null,
+      'updatedAt': FieldValue.serverTimestamp(),
+      'updatedAtIso': now,
+    }, SetOptions(merge: true));
+
+    await _auditService.logAction(
+      action: 'clear_request_offer',
+      targetCollection: 'requests',
+      targetId: requestId,
+      summary: 'Offre provider active effacee par l administration',
+    );
+  }
+
+  Future<void> _resetSearching(String requestId) async {
+    final now = DateTime.now().toIso8601String();
+    await FirebaseFirestore.instance.collection('requests').doc(requestId).set({
+      'status': 'searching',
+      'providerUid': null,
+      'providerName': null,
+      'providerPhone': null,
+      'providerVehicle': null,
+      'providerPlate': null,
+      'providerPosition': null,
+      'offeredProviderUid': null,
+      'offeredAt': null,
+      'offerExpiresAt': null,
+      'rejectedProviderUids': <String>[],
+      'updatedAt': FieldValue.serverTimestamp(),
+      'updatedAtIso': now,
+      'statusChangedAtIso': now,
+    }, SetOptions(merge: true));
+
+    await _auditService.logAction(
+      action: 'reset_searching_request',
+      targetCollection: 'requests',
+      targetId: requestId,
+      summary: 'Mission remise en recherche par l administration',
+    );
+  }
+
+  Future<void> _forceComplete(String requestId) async {
+    final now = DateTime.now().toIso8601String();
+    await FirebaseFirestore.instance.collection('requests').doc(requestId).set({
+      'status': 'completed',
+      'offeredProviderUid': null,
+      'offeredAt': null,
+      'offerExpiresAt': null,
+      'completedAt': now,
+      'updatedAt': FieldValue.serverTimestamp(),
+      'updatedAtIso': now,
+      'statusChangedAtIso': now,
+    }, SetOptions(merge: true));
+
+    await _auditService.logAction(
+      action: 'force_complete_request',
+      targetCollection: 'requests',
+      targetId: requestId,
+      summary: 'Mission forcee terminee par l administration',
+    );
+  }
+
+  Future<void> _reassignRequest(String requestId) async {
+    final providers = await FirebaseFirestore.instance
+        .collection('providers')
+        .where('isApproved', isEqualTo: true)
+        .get();
+
+    if (!mounted) return;
+
+    final providerId = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Reassigner a un provider'),
+          content: SizedBox(
+            width: 420,
+            child: providers.docs.isEmpty
+                ? const Text('Aucun provider approuve disponible.')
+                : ListView(
+                    shrinkWrap: true,
+                    children: providers.docs.map((doc) {
+                      final data = doc.data();
+                      return ListTile(
+                        leading: const Icon(Icons.local_shipping_outlined),
+                        title: Text((data['fullName'] ?? doc.id).toString()),
+                        subtitle: Text(
+                          'Online: ${data['isOnline'] == true ? 'oui' : 'non'} - Busy: ${data['isBusy'] == true ? 'oui' : 'non'}',
+                        ),
+                        onTap: () => Navigator.of(context).pop(doc.id),
+                      );
+                    }).toList(),
+                  ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Annuler'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (providerId == null) return;
+
+    final provider = providers.docs.firstWhere((doc) => doc.id == providerId);
+    final data = provider.data();
+    final now = DateTime.now().toIso8601String();
+
+    await FirebaseFirestore.instance.collection('requests').doc(requestId).set({
+      'status': 'accepted',
+      'providerUid': providerId,
+      'providerName': (data['fullName'] ?? '').toString(),
+      'providerPhone': (data['phone'] ?? '').toString(),
+      'providerVehicle': (data['vehicleType'] ?? '').toString(),
+      'providerPlate': (data['plate'] ?? '').toString(),
+      'offeredProviderUid': null,
+      'offeredAt': null,
+      'offerExpiresAt': null,
+      'acceptedAt': now,
+      'updatedAt': FieldValue.serverTimestamp(),
+      'updatedAtIso': now,
+      'statusChangedAtIso': now,
+    }, SetOptions(merge: true));
+
+    await FirebaseFirestore.instance
+        .collection('providers')
+        .doc(providerId)
+        .set({
+      'isBusy': true,
+      'busy': true,
+      'hasActiveMission': true,
+      'activeMissionId': requestId,
+      'currentRequestId': requestId,
+      'assignedRequestId': requestId,
+      'updatedAtIso': now,
+    }, SetOptions(merge: true));
+
+    await _auditService.logAction(
+      action: 'reassign_request',
+      targetCollection: 'requests',
+      targetId: requestId,
+      summary: 'Mission reaffectee manuellement',
+      metadata: {'providerUid': providerId},
     );
   }
 
@@ -158,12 +305,14 @@ class _AdminRequestsPageState extends State<AdminRequestsPage> {
               final bPrice = (bData['estimatedPrice'] as num?)?.toDouble() ?? 0;
               return bPrice.compareTo(aPrice);
             }
-            final aDate = DateTime.tryParse((aData['createdAt'] ?? '').toString()) ??
-                DateTime.tryParse((aData['updatedAt'] ?? '').toString()) ??
-                DateTime.fromMillisecondsSinceEpoch(0);
-            final bDate = DateTime.tryParse((bData['createdAt'] ?? '').toString()) ??
-                DateTime.tryParse((bData['updatedAt'] ?? '').toString()) ??
-                DateTime.fromMillisecondsSinceEpoch(0);
+            final aDate =
+                DateTime.tryParse((aData['createdAt'] ?? '').toString()) ??
+                    DateTime.tryParse((aData['updatedAt'] ?? '').toString()) ??
+                    DateTime.fromMillisecondsSinceEpoch(0);
+            final bDate =
+                DateTime.tryParse((bData['createdAt'] ?? '').toString()) ??
+                    DateTime.tryParse((bData['updatedAt'] ?? '').toString()) ??
+                    DateTime.fromMillisecondsSinceEpoch(0);
             return _sortMode == 'oldest'
                 ? aDate.compareTo(bDate)
                 : bDate.compareTo(aDate);
@@ -179,12 +328,11 @@ class _AdminRequestsPageState extends State<AdminRequestsPage> {
         final searchingCount = docs
             .where((doc) => (doc.data()['status'] ?? '') == 'searching')
             .length;
-        final urgentCount = docs.where((doc) {
-          final urgency = (doc.data()['urgency'] ?? '').toString().toLowerCase();
-          return urgency.contains('urgent') || urgency.contains('crit');
-        }).length;
         final assignedCount = docs.where((doc) {
-          return (doc.data()['providerName'] ?? '').toString().trim().isNotEmpty;
+          return (doc.data()['providerName'] ?? '')
+              .toString()
+              .trim()
+              .isNotEmpty;
         }).length;
 
         final compactStats = MediaQuery.of(context).size.width < 720;
@@ -194,7 +342,7 @@ class _AdminRequestsPageState extends State<AdminRequestsPage> {
             _Panel(
               title: 'Mission filters',
               subtitle:
-                  'Chercher vite, isoler les urgences et suivre les demandes sensibles.',
+                  'Chercher vite, isoler les missions bloquees et suivre les demandes sensibles.',
               child: Column(
                 children: [
                   TextField(
@@ -231,14 +379,12 @@ class _AdminRequestsPageState extends State<AdminRequestsPage> {
                       _Chip(
                         label: 'Actives',
                         selected: _statusFilter == 'accepted',
-                        onTap: () =>
-                            setState(() => _statusFilter = 'accepted'),
+                        onTap: () => setState(() => _statusFilter = 'accepted'),
                       ),
                       _Chip(
                         label: 'En route',
                         selected: _statusFilter == 'onTheWay',
-                        onTap: () =>
-                            setState(() => _statusFilter = 'onTheWay'),
+                        onTap: () => setState(() => _statusFilter = 'onTheWay'),
                       ),
                       _Chip(
                         label: 'Terminees',
@@ -332,8 +478,8 @@ class _AdminRequestsPageState extends State<AdminRequestsPage> {
                         SizedBox(
                           width: 150,
                           child: _MiniStat(
-                            label: 'Urgentes',
-                            value: '$urgentCount',
+                            label: 'Sans provider',
+                            value: '${docs.length - assignedCount}',
                           ),
                         ),
                         SizedBox(
@@ -364,8 +510,8 @@ class _AdminRequestsPageState extends State<AdminRequestsPage> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: _MiniStat(
-                            label: 'Urgentes',
-                            value: '$urgentCount',
+                            label: 'Sans provider',
+                            value: '${docs.length - assignedCount}',
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -377,18 +523,6 @@ class _AdminRequestsPageState extends State<AdminRequestsPage> {
                         ),
                       ],
                     ),
-                  const SizedBox(height: 12),
-                  SwitchListTile.adaptive(
-                    contentPadding: EdgeInsets.zero,
-                    value: _onlyUrgent,
-                    onChanged: (value) {
-                      setState(() => _onlyUrgent = value);
-                    },
-                    title: const Text(
-                      'Montrer seulement les missions urgentes',
-                      style: TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -402,7 +536,6 @@ class _AdminRequestsPageState extends State<AdminRequestsPage> {
             ...filtered.map((doc) {
               final data = doc.data();
               final status = (data['status'] ?? 'searching').toString();
-              final urgency = (data['urgency'] ?? 'Standard').toString();
               final statusColor = _statusColor(status);
               final estimatedPrice = data['estimatedPrice'];
 
@@ -469,16 +602,6 @@ class _AdminRequestsPageState extends State<AdminRequestsPage> {
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        _Pill(
-                          label: urgency,
-                          background: urgency.toLowerCase().contains('urgent')
-                              ? const Color(0xFFFEF3C7)
-                              : const Color(0xFFEFF6FF),
-                        ),
-                        _Pill(
-                          label: (data['service'] ?? '--').toString(),
-                          background: const Color(0xFFF8FAFC),
-                        ),
                         if (estimatedPrice is num)
                           _Pill(
                             label: '${estimatedPrice.toStringAsFixed(0)} DA',
@@ -504,20 +627,42 @@ class _AdminRequestsPageState extends State<AdminRequestsPage> {
                       value:
                           '${data['vehicleType'] ?? '--'} · ${data['brandModel'] ?? '--'}',
                     ),
-                    if ((data['offeredProviderUid'] ?? '').toString().isNotEmpty)
+                    if ((data['offeredProviderUid'] ?? '')
+                        .toString()
+                        .isNotEmpty)
                       _InfoRow(
                         title: 'Offre active',
                         value: (data['offeredProviderUid'] ?? '--').toString(),
                       ),
                     const SizedBox(height: 12),
-                    Row(
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
                       children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () => _forceCancel(doc.id),
-                            icon: const Icon(Icons.cancel_outlined),
-                            label: const Text('Forcer annulation'),
-                          ),
+                        _ActionButton(
+                          icon: Icons.clear_all_outlined,
+                          label: 'Effacer offre',
+                          onPressed: () => _clearOffer(doc.id),
+                        ),
+                        _ActionButton(
+                          icon: Icons.restart_alt_outlined,
+                          label: 'Relancer recherche',
+                          onPressed: () => _resetSearching(doc.id),
+                        ),
+                        _ActionButton(
+                          icon: Icons.assignment_ind_outlined,
+                          label: 'Reassigner',
+                          onPressed: () => _reassignRequest(doc.id),
+                        ),
+                        _ActionButton(
+                          icon: Icons.task_alt_outlined,
+                          label: 'Terminer',
+                          onPressed: () => _forceComplete(doc.id),
+                        ),
+                        _ActionButton(
+                          icon: Icons.cancel_outlined,
+                          label: 'Forcer annulation',
+                          onPressed: () => _forceCancel(doc.id),
                         ),
                       ],
                     ),
@@ -674,6 +819,27 @@ class _Pill extends StatelessWidget {
           fontSize: 12,
         ),
       ),
+    );
+  }
+}
+
+class _ActionButton extends StatelessWidget {
+  const _ActionButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon),
+      label: Text(label),
     );
   }
 }

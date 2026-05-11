@@ -25,7 +25,8 @@ class AdminAuditService {
 
     if (actorUid != null) {
       try {
-        final userDoc = await _firestore.collection('users').doc(actorUid).get();
+        final userDoc =
+            await _firestore.collection('users').doc(actorUid).get();
         final data = userDoc.data();
         if (data != null) {
           actorName = (data['fullName'] ?? 'Admin').toString();
@@ -35,7 +36,7 @@ class AdminAuditService {
     }
 
     final now = DateTime.now();
-    await _firestore.collection('admin_activity_logs').add({
+    final payload = {
       'action': action,
       'targetCollection': targetCollection,
       'targetId': targetId,
@@ -46,6 +47,17 @@ class AdminAuditService {
       'actorRole': actorRole,
       'createdAt': FieldValue.serverTimestamp(),
       'createdAtIso': now.toIso8601String(),
+    };
+
+    await _firestore.collection('admin_activity_logs').add(payload);
+    await _firestore.collection('adminLogs').add({
+      'adminUid': actorUid,
+      'action': action,
+      'targetType': targetCollection,
+      'targetId': targetId,
+      'createdAt': FieldValue.serverTimestamp(),
+      'createdAtIso': now.toIso8601String(),
+      'metadata': metadata ?? <String, dynamic>{},
     });
   }
 }

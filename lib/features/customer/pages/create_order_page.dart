@@ -4,7 +4,6 @@ import 'package:latlong2/latlong.dart';
 import 'dart:async' show unawaited;
 
 import '../../../core/i18n/app_localizations.dart';
-import '../../../models/service_type.dart';
 import '../../../state/app_store.dart';
 import 'pick_destination_page.dart';
 import 'customer_tracking_page.dart';
@@ -13,11 +12,9 @@ class CreateOrderPage extends StatefulWidget {
   const CreateOrderPage({
     super.key,
     required this.store,
-    required this.service,
   });
 
   final AppStore store;
-  final ServiceType service;
 
   @override
   State<CreateOrderPage> createState() => _CreateOrderPageState();
@@ -50,16 +47,15 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
   int get _estimatedEtaMinutes {
     return widget.store.estimateDurationMinutes(
       distanceKm: _estimatedDistanceKm,
-      service: widget.service,
+      service: AppStore.defaultRequestService,
     );
   }
 
   double get _estimatedPrice {
     return widget.store.estimatePrice(
-      service: widget.service,
+      service: AppStore.defaultRequestService,
       distanceKm: _estimatedDistanceKm,
       hasDestination: _destinationController.text.trim().isNotEmpty,
-      urgency: 'Standard',
     );
   }
 
@@ -175,7 +171,6 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
 
       // ✅ Create the Firestore request — this is lightweight and fast.
       final requestId = await widget.store.createRequest(
-        service: widget.service,
         customerPosition: _pickupPoint!,
         pickupLabel: _pickupController.text.trim(),
         pickupSubtitle: strings.t('departure_point'),
@@ -184,7 +179,6 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
         payment: 'Especes',
         landmark: '',
         issueDescription: 'Demande rapide',
-        urgency: 'Standard',
         destination: _destinationController.text.trim(),
         destinationPosition: _destinationPoint!,
         photoHint: '',

@@ -112,7 +112,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
                           ),
                         ),
                         const Spacer(),
-                        const LanguageSelector(compact: true),
+                        ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: veryNarrow ? 56 : 144,
+                          ),
+                          child: const LanguageSelector(compact: true),
+                        ),
                         SizedBox(width: veryNarrow ? 4 : 8),
                         Flexible(
                           child: Align(

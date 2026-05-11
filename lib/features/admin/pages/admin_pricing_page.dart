@@ -16,11 +16,14 @@ class _AdminPricingPageState extends State<AdminPricingPage> {
 
   final _basePriceController = TextEditingController();
   final _pricePerKmController = TextEditingController();
-  final _urgentFeeController = TextEditingController();
   final _commissionController = TextEditingController();
+  final _dispatchRadiusController = TextEditingController();
+  final _providerTimeoutController = TextEditingController();
 
   bool _loading = true;
   bool _saving = false;
+  bool _maintenanceMode = false;
+  bool _appEnabled = true;
 
   @override
   void initState() {
@@ -32,8 +35,9 @@ class _AdminPricingPageState extends State<AdminPricingPage> {
   void dispose() {
     _basePriceController.dispose();
     _pricePerKmController.dispose();
-    _urgentFeeController.dispose();
     _commissionController.dispose();
+    _dispatchRadiusController.dispose();
+    _providerTimeoutController.dispose();
     super.dispose();
   }
 
@@ -44,13 +48,22 @@ class _AdminPricingPageState extends State<AdminPricingPage> {
         .collection('app_config')
         .doc('pricing')
         .get();
+    final settingsDoc = await FirebaseFirestore.instance
+        .collection('app_settings')
+        .doc('main')
+        .get();
 
     final data = doc.data() ?? <String, dynamic>{};
+    final settings = settingsDoc.data() ?? <String, dynamic>{};
 
     _basePriceController.text = '${data['basePrice'] ?? 1500}';
     _pricePerKmController.text = '${data['pricePerKm'] ?? 80}';
-    _urgentFeeController.text = '${data['urgentFee'] ?? 500}';
     _commissionController.text = '${data['commissionPercent'] ?? 10}';
+    _dispatchRadiusController.text = '${settings['dispatchRadiusKm'] ?? 15}';
+    _providerTimeoutController.text =
+        '${settings['providerOfferTimeoutSec'] ?? 20}';
+    _maintenanceMode = settings['maintenanceMode'] == true;
+    _appEnabled = settings['appEnabled'] != false;
 
     if (mounted) {
       setState(() => _loading = false);
@@ -66,8 +79,15 @@ class _AdminPricingPageState extends State<AdminPricingPage> {
     final pricingData = {
       'basePrice': double.parse(_basePriceController.text.trim()),
       'pricePerKm': double.parse(_pricePerKmController.text.trim()),
-      'urgentFee': double.parse(_urgentFeeController.text.trim()),
       'commissionPercent': double.parse(_commissionController.text.trim()),
+      'updatedAt': DateTime.now().toIso8601String(),
+    };
+    final settingsData = {
+      'dispatchRadiusKm': double.parse(_dispatchRadiusController.text.trim()),
+      'providerOfferTimeoutSec':
+          int.parse(_providerTimeoutController.text.trim()),
+      'maintenanceMode': _maintenanceMode,
+      'appEnabled': _appEnabled,
       'updatedAt': DateTime.now().toIso8601String(),
     };
 
@@ -76,6 +96,10 @@ class _AdminPricingPageState extends State<AdminPricingPage> {
           .collection('app_config')
           .doc('pricing')
           .set(pricingData, SetOptions(merge: true));
+      await FirebaseFirestore.instance
+          .collection('app_settings')
+          .doc('main')
+          .set(settingsData, SetOptions(merge: true));
 
       try {
         await _auditService.logAction(
@@ -86,8 +110,11 @@ class _AdminPricingPageState extends State<AdminPricingPage> {
           metadata: {
             'basePrice': _basePriceController.text.trim(),
             'pricePerKm': _pricePerKmController.text.trim(),
-            'urgentFee': _urgentFeeController.text.trim(),
             'commissionPercent': _commissionController.text.trim(),
+            'dispatchRadiusKm': _dispatchRadiusController.text.trim(),
+            'providerOfferTimeoutSec': _providerTimeoutController.text.trim(),
+            'maintenanceMode': _maintenanceMode,
+            'appEnabled': _appEnabled,
           },
         );
       } catch (e) {
@@ -155,7 +182,7 @@ class _AdminPricingPageState extends State<AdminPricingPage> {
               ),
               SizedBox(height: 6),
               Text(
-                'Modifiez la base, le km, l urgence et la commission avec une lecture plus premium.',
+                'Modifiez la base, le kilometre et la commission avec une lecture plus premium.',
                 style: TextStyle(
                   color: Colors.white70,
                   height: 1.35,
@@ -187,13 +214,33 @@ class _AdminPricingPageState extends State<AdminPricingPage> {
                 ),
                 const SizedBox(height: 12),
                 _Field(
-                  controller: _urgentFeeController,
-                  label: 'Frais urgence (DA)',
+                  controller: _commissionController,
+                  label: 'Commission (%)',
                 ),
                 const SizedBox(height: 12),
                 _Field(
-                  controller: _commissionController,
-                  label: 'Commission (%)',
+                  controller: _dispatchRadiusController,
+                  label: 'Rayon dispatch (km)',
+                ),
+                const SizedBox(height: 12),
+                _Field(
+                  controller: _providerTimeoutController,
+                  label: 'Timeout offre provider (sec)',
+                  integerOnly: true,
+                ),
+                const SizedBox(height: 8),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  value: _maintenanceMode,
+                  onChanged: (value) =>
+                      setState(() => _maintenanceMode = value),
+                  title: const Text('Mode maintenance'),
+                ),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  value: _appEnabled,
+                  onChanged: (value) => setState(() => _appEnabled = value),
+                  title: const Text('Application active'),
                 ),
                 const SizedBox(height: 18),
                 SizedBox(
@@ -223,10 +270,12 @@ class _Field extends StatelessWidget {
   const _Field({
     required this.controller,
     required this.label,
+    this.integerOnly = false,
   });
 
   final TextEditingController controller;
   final String label;
+  final bool integerOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -236,7 +285,11 @@ class _Field extends StatelessWidget {
       validator: (value) {
         final text = (value ?? '').trim();
         if (text.isEmpty) return 'Champ obligatoire';
-        if (double.tryParse(text) == null) return 'Valeur numerique invalide';
+        if (integerOnly) {
+          if (int.tryParse(text) == null) return 'Valeur entiere invalide';
+        } else if (double.tryParse(text) == null) {
+          return 'Valeur numerique invalide';
+        }
         return null;
       },
       decoration: InputDecoration(

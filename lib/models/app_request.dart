@@ -263,7 +263,6 @@ class AppRequest {
       'id': id,
       'createdAt': Timestamp.fromDate(createdAt),
       'customerUid': customerUid,
-      'service': service.toString().split('.').last,
       'customerName': customerName,
       'customerPhone': customerPhone,
       'pickupLabel': pickupLabel,
@@ -277,7 +276,6 @@ class AppRequest {
       'payment': payment,
       'landmark': landmark,
       'issueDescription': issueDescription,
-      'urgency': urgency,
       'destination': destination,
       'destinationPosition': destinationPosition == null
           ? null

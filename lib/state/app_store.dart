@@ -19,6 +19,8 @@ import '../repositories/tracking_repository.dart';
 import '../core/services/provider_presence_service.dart';
 
 class AppStore extends ChangeNotifier {
+  static const ServiceType defaultRequestService = ServiceType.towing;
+
   AppStore({
     required this.requestRepository,
     required this.trackingRepository,
@@ -68,6 +70,7 @@ class AppStore extends ChangeNotifier {
   StreamSubscription<List<AppRequest>>? _requestsSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _providersSub;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _pricingSub;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _settingsSub;
   StreamSubscription<User?>? _authSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
       _adminNotificationsSub;
@@ -76,8 +79,11 @@ class AppStore extends ChangeNotifier {
 
   double pricingBasePrice = 1500;
   double pricingPerKm = 80;
-  double pricingUrgentFee = 500;
   double pricingCommissionPercent = 10;
+  double dispatchRadiusKm = 15;
+  int providerOfferTimeoutSec = 20;
+  bool maintenanceMode = false;
+  bool appEnabled = true;
 
   String? currentUserRoleName;
   String? _currentUserUid;
@@ -322,6 +328,7 @@ class AppStore extends ChangeNotifier {
       await _requestsSub?.cancel();
       await _providersSub?.cancel();
       await _pricingSub?.cancel();
+      await _settingsSub?.cancel();
       _requests = [];
       providers = [];
       _providersLoaded = false;
@@ -354,6 +361,7 @@ class AppStore extends ChangeNotifier {
       _startVisibleRequestsListener(user.uid, currentUserRoleName!);
       _startProvidersListener();
       _startPricingListener();
+      _startSettingsListener();
       _startAdminNotificationsListener();
       notifyListeners();
     });
@@ -504,9 +512,26 @@ class AppStore extends ChangeNotifier {
       if (data != null) {
         pricingBasePrice = ((data['basePrice'] ?? 1500) as num).toDouble();
         pricingPerKm = ((data['pricePerKm'] ?? 80) as num).toDouble();
-        pricingUrgentFee = ((data['urgentFee'] ?? 500) as num).toDouble();
         pricingCommissionPercent =
             ((data['commissionPercent'] ?? 10) as num).toDouble();
+        notifyListeners();
+      }
+    });
+  }
+
+  void _startSettingsListener() {
+    _settingsSub = firestore
+        .collection('app_settings')
+        .doc('main')
+        .snapshots()
+        .listen((doc) {
+      final data = doc.data();
+      if (data != null) {
+        dispatchRadiusKm = ((data['dispatchRadiusKm'] ?? 15) as num).toDouble();
+        providerOfferTimeoutSec =
+            ((data['providerOfferTimeoutSec'] ?? 20) as num).toInt();
+        maintenanceMode = data['maintenanceMode'] == true;
+        appEnabled = data['appEnabled'] != false;
         notifyListeners();
       }
     });
@@ -843,6 +868,9 @@ class AppStore extends ChangeNotifier {
       } else if (rejected.contains(p.id)) {
         excluded['rejected'] = excluded['rejected']! + 1;
         exclusionReason = 'rejected';
+      } else if (dispatchRadiusKm > 0 && distanceKm > dispatchRadiusKm) {
+        excluded['too far'] = excluded['too far']! + 1;
+        exclusionReason = 'too far';
       }
 
       if (kDebugMode) {
@@ -1207,7 +1235,8 @@ class AppStore extends ChangeNotifier {
       _currentOfferedProviderIds[requestId] = nextProviderId;
 
       final now = DateTime.now();
-      final offerExpiresAt = now.add(const Duration(seconds: 20));
+      final offerExpiresAt =
+          now.add(Duration(seconds: providerOfferTimeoutSec.clamp(5, 180)));
       final offerSuccess = await requestRepository.offerRequestToProvider(
         requestId: requestId,
         providerUid: nextProviderId,
@@ -1615,35 +1644,6 @@ class AppStore extends ChangeNotifier {
     return trackingRepository.watchTracking(requestId);
   }
 
-  Future<void> devSetProviderTrackingPosition(
-    String requestId,
-    LatLng providerPosition,
-  ) async {
-    final request = findRequest(requestId);
-    if (request == null) return;
-
-    await trackingRepository.setTracking(
-      TrackingSnapshot(
-        requestId: requestId,
-        customerPosition: request.customerPosition,
-        providerPosition: providerPosition,
-      ),
-    );
-
-    await requestRepository.updateRequest(
-      requestId,
-      request.copyWith(providerPosition: providerPosition),
-    );
-
-    final providerUid = request.providerUid;
-    if (providerUid != null && providerUid.trim().isNotEmpty) {
-      await updateProviderPosition(providerUid, providerPosition);
-    } else {
-      providerCurrentPosition = providerPosition;
-      notifyListeners();
-    }
-  }
-
   Future<void> requestCustomerLocation() async {
     customerLocationLoading = true;
     notifyListeners();
@@ -1801,7 +1801,6 @@ class AppStore extends ChangeNotifier {
     required ServiceType service,
     required double distanceKm,
     required bool hasDestination,
-    required String urgency,
   }) {
     final label = service.toString().toLowerCase();
 
@@ -1822,17 +1821,9 @@ class AppStore extends ChangeNotifier {
       perKm = pricingPerKm * 0.55;
     }
 
-    double urgencyFee = 0;
-    final lowerUrgency = urgency.toLowerCase();
-    if (lowerUrgency.contains('urgent')) {
-      urgencyFee = pricingUrgentFee;
-    } else if (lowerUrgency.contains('crit')) {
-      urgencyFee = pricingUrgentFee * 1.8;
-    }
-
     final tripPart =
         hasDestination ? distanceKm * perKm : distanceKm * (perKm * 0.4);
-    final total = base + tripPart + urgencyFee;
+    final total = base + tripPart;
     return double.parse(total.toStringAsFixed(0));
   }
 
@@ -1911,7 +1902,6 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<String> createRequest({
-    required ServiceType service,
     required LatLng customerPosition,
     required String pickupLabel,
     required String pickupSubtitle,
@@ -1920,7 +1910,6 @@ class AppStore extends ChangeNotifier {
     required String payment,
     required String landmark,
     required String issueDescription,
-    required String urgency,
     required String destination,
     required LatLng destinationPosition,
     required String photoHint,
@@ -1951,6 +1940,7 @@ class AppStore extends ChangeNotifier {
       from: customerPosition,
       to: destinationPosition,
     );
+    const service = defaultRequestService;
 
     final durationMinutes = estimateDurationMinutes(
       distanceKm: distanceKm,
@@ -1961,7 +1951,6 @@ class AppStore extends ChangeNotifier {
       service: service,
       distanceKm: distanceKm,
       hasDestination: cleanedDestination.isNotEmpty,
-      urgency: urgency,
     );
 
     final request = AppRequest(
@@ -1979,7 +1968,7 @@ class AppStore extends ChangeNotifier {
       payment: payment,
       landmark: landmark,
       issueDescription: issueDescription,
-      urgency: urgency,
+      urgency: '',
       destination: cleanedDestination,
       destinationPosition: destinationPosition,
       photoHint: photoHint,
@@ -2485,6 +2474,7 @@ class AppStore extends ChangeNotifier {
     _requestsSub?.cancel();
     _providersSub?.cancel();
     _pricingSub?.cancel();
+    _settingsSub?.cancel();
     _authSub?.cancel();
     _adminNotificationsSub?.cancel();
 

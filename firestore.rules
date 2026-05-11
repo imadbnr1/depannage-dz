@@ -229,6 +229,11 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /app_settings/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
     match /app_notifications/{docId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
@@ -236,6 +241,11 @@ service cloud.firestore {
 
     match /admin_activity_logs/{docId} {
       allow read, write: if isAdmin();
+    }
+
+    match /adminLogs/{docId} {
+      allow read, create: if isAdmin();
+      allow update, delete: if false;
     }
 
     match /admin_audit_logs/{docId} {
